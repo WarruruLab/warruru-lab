@@ -1,4 +1,4 @@
-# WarruruLab
+# 와르르랩(WarruruLab)
 ![Status](https://img.shields.io/badge/status-in%20development-yellow)
 ![Purpose](https://img.shields.io/badge/purpose-learning%20%26%20portfolio-blueviolet)
 
@@ -184,10 +184,10 @@ WarruruLab은  **개발자로서의 사고 과정을 보여주고, 실제로 사
   https://woo-dang-dang-tang-study.tistory.com/90  
   DevTalk과 ProblemWarruru를 통해 정리한 트러블슈팅 기록을 공개합니다.
 
-- 💬 **DevTalk Repository**  
+- 💬 **개발톡 Repository**  
   https://github.com/WarruruLab/DevTalk  
   AI 채팅 기반 문제 해결 기록 서비스입니다.
 
-- 🧩 **ProblemWarruru Repository**  
+- 🧩 **문제와르르 Repository**  
   https://github.com/WarruruLab/ProblemWarruru  
   DevTalk 로그를 분석해 트러블슈팅 블로그 초안을 생성하는 서비스입니다.
