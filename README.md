@@ -175,3 +175,19 @@ MCP는 AI 호출용이 아니라
 - 실제 운영을 고려한 구조와 판단
 
 WarruruLab은  **개발자로서의 사고 과정을 보여주고, 실제로 사용하며 개선하기 위해 만든 포트폴리오**입니다.
+
+---
+
+## 🔗 Links
+
+- 📝 **기술 블로그**  
+  https://woo-dang-dang-tang-study.tistory.com/90  
+  DevTalk과 ProblemWarruru를 통해 정리한 트러블슈팅 기록을 공개합니다.
+
+- 💬 **DevTalk Repository**  
+  https://github.com/WarruruLab/DevTalk  
+  AI 채팅 기반 문제 해결 기록 서비스입니다.
+
+- 🧩 **ProblemWarruru Repository**  
+  https://github.com/WarruruLab/ProblemWarruru  
+  DevTalk 로그를 분석해 트러블슈팅 블로그 초안을 생성하는 서비스입니다.
