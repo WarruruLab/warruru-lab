@@ -1,0 +1,116 @@
+"""설정. 우선순위는 환경변수 > config/daemon.json > 기본값이다."""
+
+from __future__ import annotations
+
+import json
+import os
+import platform
+import secrets
+import socket
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+from warruru_local import paths
+from warruru_local.clock import to_iso
+from warruru_local.ids import new_id
+
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8787
+
+
+@dataclass(frozen=True)
+class Settings:
+    home: Path
+    host: str
+    port: int
+    token: str
+    tool: str | None
+    http_timeout_seconds: float
+    autostart_daemon: bool
+    attach_window_minutes: int
+    idle_timeout_hours: int
+    sweep_interval_seconds: int
+    git_timeout_seconds: float
+    git_cache_ttl_seconds: float
+    git_dirty_file_cap: int
+    spool_quiet_seconds: int
+    log_level: str
+
+
+def _env_int(key: str, fallback: int) -> int:
+    raw = os.environ.get(key)
+    return int(raw) if raw else fallback
+
+
+def _env_float(key: str, fallback: float) -> float:
+    raw = os.environ.get(key)
+    return float(raw) if raw else fallback
+
+
+def _env_bool(key: str, fallback: bool) -> bool:
+    raw = os.environ.get(key)
+    if raw is None or raw == "":
+        return fallback
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def load_or_create_daemon_config(home: Path) -> tuple[str, int]:
+    """토큰과 포트를 읽고, 없으면 만들어 저장한다."""
+    target = paths.config_dir(home) / "daemon.json"
+    if target.exists():
+        saved = json.loads(target.read_text(encoding="utf-8"))
+        return saved["token"], int(saved.get("port", DEFAULT_PORT))
+
+    token = secrets.token_hex(24)
+    port = DEFAULT_PORT
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps({"token": token, "port": port}, indent=2), encoding="utf-8"
+    )
+    try:
+        os.chmod(target, 0o600)
+    except (NotImplementedError, PermissionError, OSError):
+        pass  # 권한 설정을 지원하지 않는 플랫폼에서는 넘어간다
+    return token, port
+
+
+def load_or_create_machine(home: Path) -> dict:
+    """머신 식별자를 읽고, 없으면 만들어 고정한다. 데몬만 부른다."""
+    target = paths.config_dir(home) / "machine.json"
+    if target.exists():
+        return json.loads(target.read_text(encoding="utf-8"))
+
+    record = {
+        "machine_id": new_id("mch"),
+        "hostname": socket.gethostname(),
+        "os": f"{platform.system()} {platform.release()}",
+        "created_at": to_iso(datetime.now(timezone.utc)),
+    }
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(record, indent=2), encoding="utf-8")
+    return record
+
+
+def load_settings(home: Path | None = None) -> Settings:
+    resolved = home if home is not None else paths.warruru_home()
+    paths.ensure_layout(resolved)
+    file_token, file_port = load_or_create_daemon_config(resolved)
+
+    return Settings(
+        home=resolved,
+        host=os.environ.get("WARRURU_DAEMON_HOST", DEFAULT_HOST),
+        port=_env_int("WARRURU_DAEMON_PORT", file_port),
+        token=os.environ.get("WARRURU_TOKEN") or file_token,
+        tool=os.environ.get("WARRURU_TOOL") or None,
+        http_timeout_seconds=_env_float("WARRURU_HTTP_TIMEOUT_SECONDS", 3.0),
+        autostart_daemon=_env_bool("WARRURU_AUTOSTART_DAEMON", True),
+        attach_window_minutes=_env_int("WARRURU_ATTACH_WINDOW_MINUTES", 90),
+        idle_timeout_hours=_env_int("WARRURU_IDLE_TIMEOUT_HOURS", 4),
+        sweep_interval_seconds=_env_int("WARRURU_SWEEP_INTERVAL_SECONDS", 300),
+        git_timeout_seconds=_env_float("WARRURU_GIT_TIMEOUT_SECONDS", 2.0),
+        git_cache_ttl_seconds=_env_float("WARRURU_GIT_CACHE_TTL_SECONDS", 5.0),
+        git_dirty_file_cap=_env_int("WARRURU_GIT_DIRTY_FILE_CAP", 500),
+        spool_quiet_seconds=_env_int("WARRURU_SPOOL_QUIET_SECONDS", 10),
+        log_level=os.environ.get("WARRURU_LOG_LEVEL", "INFO"),
+    )

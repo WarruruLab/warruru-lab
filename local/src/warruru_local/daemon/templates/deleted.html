@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ view.date }} 삭제 항목 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.date }} · 삭제 항목</h1>
+  <nav><a href="/d/{{ view.date }}">◀ 돌아가기</a></nav>
+</header>
+
+{% if not view.groups %}
+  <p class="empty">삭제한 기록이 없습니다.</p>
+{% endif %}
+
+{% for group in view.groups %}
+<section class="tool">
+  <h2>{{ group.tool }}</h2>
+  {% for work in group.works %}
+  <article class="work">
+    <div class="work-head">
+      <strong>{{ work.title }}</strong>
+      <span class="badge">{{ work.status }}</span>
+      <form class="inline" method="post" action="/web/works/{{ work.work_id }}/restore">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="date" value="{{ view.date }}">
+        <button type="submit">복구</button>
+      </form>
+    </div>
+    <div class="meta">
+      {{ work.started_local }}
+      · {% if work.repo_name %}{{ work.repo_name }} / {{ work.branch or "-" }}
+        {% else %}Git 정보 없음{% endif %}
+    </div>
+    <ul class="checkpoints">
+      {% for item in work.checkpoints %}
+      <li>
+        <div class="work-head">
+          <span class="meta">{{ item.occurred_local }}</span>
+          <span class="badge">{{ item.type }}</span>
+          <span>{{ item.title }}</span>
+          <form class="inline" method="post"
+                action="/web/checkpoints/{{ item.checkpoint_id }}/restore">
+            <input type="hidden" name="_token" value="{{ token }}">
+            <input type="hidden" name="date" value="{{ view.date }}">
+            <button type="submit">복구</button>
+          </form>
+        </div>
+        {% if item.body %}<pre class="body">{{ item.body }}</pre>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

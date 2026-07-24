@@ -1,0 +1,289 @@
+import sqlite3
+
+import pytest
+
+from warruru_local.store import db, migrations
+
+NOW = "2026-07-22T08:00:00.000Z"
+
+EXPECTED_TABLES = {
+    "schema_migrations",
+    "machine",
+    "client_instance",
+    "work_session",
+    "checkpoint",
+}
+
+# migrations.py의 _V1 DDL을 그대로 옮긴 계약. DDL이 바뀌면 여기도 같이 바뀌어야 한다.
+
+EXPECTED_INDEXES = {
+    "ix_work_started",
+    "ix_work_by_client",
+    "ix_work_by_repo",
+    "ix_work_active_sweep",
+    "ix_ckp_work",
+    "ix_ckp_occurred",
+}
+
+EXPECTED_COLUMNS = {
+    "schema_migrations": {"version", "applied_at"},
+    "machine": {"machine_id", "hostname", "os", "created_at"},
+    "client_instance": {
+        "client_instance_id",
+        "machine_id",
+        "tool",
+        "client_name",
+        "client_version",
+        "cwd",
+        "started_at",
+        "closed_at",
+        "created_at",
+    },
+    "work_session": {
+        "work_id",
+        "machine_id",
+        "client_instance_id",
+        "tool",
+        "title",
+        "title_origin",
+        "goal",
+        "status",
+        "origin",
+        "ended_reason",
+        "started_at",
+        "last_activity_at",
+        "ended_at",
+        "result",
+        "limitations",
+        "next_steps",
+        "start_repo_path",
+        "start_repo_name",
+        "start_branch",
+        "start_commit",
+        "last_repo_path",
+        "end_repo_path",
+        "end_branch",
+        "end_commit",
+        "deleted_at",
+        "created_at",
+        "updated_at",
+    },
+    "checkpoint": {
+        "checkpoint_id",
+        "work_id",
+        "machine_id",
+        "tool",
+        "type",
+        "title",
+        "body",
+        "body_truncated",
+        "occurred_at",
+        "recorded_at",
+        "source",
+        "repo_path",
+        "repo_name",
+        "branch",
+        "commit_sha",
+        "dirty",
+        "dirty_file_count",
+        "dirty_count_capped",
+        "files_json",
+        "error_excerpt",
+        "tags_json",
+        "deleted_at",
+        "created_at",
+    },
+}
+
+# 각 테이블의 PRIMARY KEY 컬럼. SQLite는 INTEGER PRIMARY KEY(rowid 별칭)에도
+# notnull=0을 보고하므로, PK는 pk 플래그로만 확인하고 notnull 여부는 별도로 본다.
+EXPECTED_PRIMARY_KEYS = {
+    "schema_migrations": "version",
+    "machine": "machine_id",
+    "client_instance": "client_instance_id",
+    "work_session": "work_id",
+    "checkpoint": "checkpoint_id",
+}
+
+# DDL에 명시적으로 NOT NULL이 붙은 컬럼만 여기 포함한다 (PK 컬럼은 제외).
+EXPECTED_NOT_NULL = {
+    "schema_migrations": {"applied_at"},
+    "machine": {"hostname", "os", "created_at"},
+    "client_instance": {"machine_id", "tool", "started_at", "created_at"},
+    "work_session": {
+        "machine_id",
+        "tool",
+        "status",
+        "origin",
+        "started_at",
+        "last_activity_at",
+        "created_at",
+        "updated_at",
+    },
+    "checkpoint": {
+        "work_id",
+        "machine_id",
+        "tool",
+        "type",
+        "title",
+        "body_truncated",
+        "occurred_at",
+        "recorded_at",
+        "source",
+        "dirty_count_capped",
+        "created_at",
+    },
+}
+
+# DEFAULT가 붙은 컬럼. PRAGMA table_info의 dflt_value는 문자열로 나온다.
+EXPECTED_DEFAULTS = {
+    ("checkpoint", "body_truncated"): "0",
+    ("checkpoint", "dirty_count_capped"): "0",
+}
+
+
+def _tables(conn):
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
+    return {row["name"] for row in rows}
+
+
+def _columns(conn, table):
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {row["name"]: row for row in rows}
+
+
+def _assert_column_contract(conn, table):
+    columns = _columns(conn, table)
+    assert set(columns) == EXPECTED_COLUMNS[table]
+
+    pk_name = EXPECTED_PRIMARY_KEYS[table]
+    assert columns[pk_name]["pk"] != 0
+
+    for name in EXPECTED_NOT_NULL[table]:
+        assert columns[name]["notnull"] == 1, f"{table}.{name}은 NOT NULL이어야 한다"
+
+    for (t, col), default in EXPECTED_DEFAULTS.items():
+        if t == table:
+            assert columns[col]["dflt_value"] == default, (
+                f"{table}.{col}의 기본값이 {default!r}이 아니다"
+            )
+
+
+def test_빈_DB_에_마이그레이션하면_현재_버전이_된다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    assert migrations.migrate(conn, NOW) == migrations.CURRENT_VERSION
+
+
+def test_필요한_테이블이_모두_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    assert EXPECTED_TABLES <= _tables(conn)
+
+
+def test_두_번_마이그레이션해도_안전하다(tmp_path):
+    path = tmp_path / "warruru.db"
+    conn = db.connect(path)
+    migrations.migrate(conn, NOW)
+    migrations.migrate(conn, NOW)
+    assert migrations.current_version(conn) == migrations.CURRENT_VERSION
+    assert EXPECTED_TABLES <= _tables(conn)
+
+
+def test_WAL_모드가_켜진다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+    assert mode.lower() == "wal"
+
+
+def test_외래키가_켜진다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+
+def test_행을_이름으로_읽을_수_있다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    row = conn.execute("SELECT version FROM schema_migrations").fetchone()
+    assert row["version"] == migrations.CURRENT_VERSION
+
+
+def test_체크포인트_인덱스가_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'index'"
+    ).fetchall()
+    names = {row["name"] for row in rows}
+    assert "ix_ckp_work" in names
+    assert "ix_work_by_client" in names
+
+
+def test_인덱스가_여섯_개_모두_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'index'"
+    ).fetchall()
+    names = {row["name"] for row in rows}
+    assert EXPECTED_INDEXES <= names
+
+
+def test_schema_migrations_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "schema_migrations")
+
+
+def test_machine_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "machine")
+
+
+def test_client_instance_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "client_instance")
+
+
+def test_work_session_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "work_session")
+
+
+def test_checkpoint_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "checkpoint")
+
+
+def test_존재하지_않는_work_id로_체크포인트를_넣으면_무결성_오류가_난다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    conn.execute(
+        "INSERT INTO machine (machine_id, hostname, os, created_at)"
+        " VALUES (?, ?, ?, ?)",
+        ("m1", "host", "windows", NOW),
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO checkpoint ("
+            " checkpoint_id, work_id, machine_id, tool, type, title,"
+            " occurred_at, recorded_at, source, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "ckp1",
+                "존재하지-않는-work-id",
+                "m1",
+                "claude-code",
+                "note",
+                "제목",
+                NOW,
+                NOW,
+                "test",
+                NOW,
+            ),
+        )

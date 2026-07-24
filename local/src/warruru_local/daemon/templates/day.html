@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ view.date }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.date }}</h1>
+  <nav>
+    <a href="/d/{{ view.prev_date }}">◀ 이전</a>
+    <a href="/d/{{ view.next_date }}">다음 ▶</a>
+    <a href="/d/{{ view.date }}?deleted=1">삭제 항목 보기</a>
+  </nav>
+</header>
+
+{% if not view.groups %}
+  <p class="empty">이 날짜에는 기록이 없습니다.</p>
+  {% if view.empty_hint %}
+    <p class="empty">가장 최근 기록은
+      <a href="/d/{{ view.empty_hint }}">{{ view.empty_hint }}</a>에 있습니다.</p>
+  {% endif %}
+{% endif %}
+
+{% for group in view.groups %}
+<section class="tool">
+  <h2>{{ group.tool }}</h2>
+  {% for work in group.works %}
+  <article class="work">
+    <div class="work-head">
+      <strong>{{ work.title }}</strong>
+      <span class="badge">{{ work.status }}</span>
+      {% if work.ended_reason %}<span class="badge">{{ work.ended_reason }}</span>{% endif %}
+      {% if work.origin == "INFERRED" %}<span class="badge">자동 연결</span>{% endif %}
+      <form class="inline" method="post" action="/web/works/{{ work.work_id }}/delete">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="date" value="{{ view.date }}">
+        <button type="submit">삭제</button>
+      </form>
+    </div>
+    <div class="meta">
+      {{ work.started_local }}{% if work.ended_local %} – {{ work.ended_local }}{% endif %}
+      ·
+      {% if work.repo_name %}{{ work.repo_name }} / {{ work.branch or "-" }}
+      {% else %}Git 정보 없음{% endif %}
+      {% if work.type_counts %}
+        · {% for name, count in work.type_counts.items() %}{{ name }} {{ count }} {% endfor %}
+      {% endif %}
+    </div>
+    {% if work.result %}<div class="meta">결과: {{ work.result }}</div>{% endif %}
+    {% if work.limitations %}<div class="meta">한계: {{ work.limitations }}</div>{% endif %}
+    {% if work.next_steps %}<div class="meta">다음: {{ work.next_steps }}</div>{% endif %}
+
+    <ul class="checkpoints">
+      {% for item in work.checkpoints %}
+      <li>
+        <div class="work-head">
+          <span class="meta">{{ item.occurred_local }}</span>
+          <span class="badge">{{ item.type }}</span>
+          <span>{{ item.title }}</span>
+          <form class="inline" method="post"
+                action="/web/checkpoints/{{ item.checkpoint_id }}/delete">
+            <input type="hidden" name="_token" value="{{ token }}">
+            <input type="hidden" name="date" value="{{ view.date }}">
+            <button type="submit">삭제</button>
+          </form>
+        </div>
+        {% if item.body %}<pre class="body">{{ item.body }}</pre>{% endif %}
+        {% if item.error_excerpt %}<pre class="body">{{ item.error_excerpt }}</pre>{% endif %}
+        <div class="meta">
+          {% if item.repo_name %}
+            {{ item.repo_name }} / {{ item.branch or "-" }}
+            {% if item.commit_short %} @ {{ item.commit_short }}{% endif %}
+            {% if item.dirty %} · 미커밋 변경 있음{% endif %}
+          {% else %}Git 정보 없음{% endif %}
+          {% if item.files %} · {{ item.files | join(", ") }}{% endif %}
+          {% if item.tags %} · {{ item.tags | join(" ") }}{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

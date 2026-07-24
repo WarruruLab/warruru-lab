@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Warruru Local{% endblock %}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         margin: 0; padding: 1.5rem; line-height: 1.6; }
+  header { display: flex; gap: 1rem; align-items: baseline;
+           flex-wrap: wrap; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  nav a { margin-right: .75rem; }
+  .tool { border: 1px solid currentColor; border-radius: 8px;
+          padding: 1rem; margin-bottom: 1.25rem; }
+  .tool > h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
+  .work { border-top: 1px solid currentColor; padding: .75rem 0; }
+  .work:first-of-type { border-top: none; }
+  .work-head { display: flex; gap: .5rem; align-items: baseline;
+               flex-wrap: wrap; }
+  .work-head strong { font-size: 1rem; }
+  .badge { font-size: .75rem; border: 1px solid currentColor;
+           border-radius: 4px; padding: 0 .35rem; }
+  .meta { font-size: .8rem; opacity: .75; }
+  ul.checkpoints { list-style: none; margin: .5rem 0 0; padding: 0; }
+  ul.checkpoints > li { padding: .4rem 0 .4rem .75rem;
+                        border-left: 2px solid currentColor; margin-bottom: .3rem; }
+  pre.body { white-space: pre-wrap; word-break: break-word;
+             margin: .3rem 0 0; font-size: .85rem; }
+  form.inline { display: inline; }
+  button { font: inherit; cursor: pointer; }
+  .empty { opacity: .8; }
+</style>
+</head>
+<body>
+{% block content %}{% endblock %}
+</body>
+</html>
