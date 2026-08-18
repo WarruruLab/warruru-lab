@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "여러 AI 에이전트의 개발 기록을 개인 머신에 남기는 로컬 우선 기록 계층"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp>=1.16.0",
+    # mcp 2.0.0 에서 mcp.server.fastmcp 경로가 사라진다(2026-08-18 확인).
+    # 상한 없이 두면 새 머신에서 테스트가 수집 단계에서 깨진다.
+    "mcp>=1.16.0,<2",
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "pydantic>=2.11.0",
