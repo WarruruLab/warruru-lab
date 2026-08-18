@@ -93,3 +93,19 @@ def test_쓸_수_있는_봉투는_전부_읽을_수_있어야_한다():
     """
     for kind in spool.KINDS:
         assert spool.envelope_version_for(kind) in spool.SUPPORTED_ENVELOPE_VERSIONS
+
+
+def test_읽을_수_없는_버전의_봉투는_아직_쓸_수_없어야_한다():
+    """버전만 올려 두고 종류를 먼저 열면 그 대화의 파일이 통째로 멈춘다.
+
+    `_has_unknown_version` 은 파일 단위로 판정하므로, 못 읽는 봉투 한 줄이
+    같은 파일의 start_work·record_checkpoint 까지 전부 붙잡아 둔다.
+    게다가 SingleInstanceLock 때문에 그 파일을 읽을 수 있는 새 데몬을
+    띄우지도 못한다. 그래서 '쓸 수 있다(KINDS)' 와 '읽을 수 있다' 를 묶어 둔다.
+    """
+    for kind, version in spool.ENVELOPE_VERSION_BY_KIND.items():
+        if version not in spool.SUPPORTED_ENVELOPE_VERSIONS:
+            assert kind not in spool.KINDS, (
+                f"{kind} 는 버전 {version} 로 쓰이는데 데몬이 읽지 못한다. "
+                "KINDS 에 넣으려면 SUPPORTED_ENVELOPE_VERSIONS 도 함께 올려라."
+            )

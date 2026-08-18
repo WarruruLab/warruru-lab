@@ -112,6 +112,7 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
     """
     applied = 0
     unknown_kind = 0
+    deferred = 0
     remaining: list[dict] = []
     dead: list[dict] = []
 
@@ -122,6 +123,7 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
         # 새 데몬이 뜨면 읽힌다. 그래서 시도 횟수도 세지 않는다.
         if envelope.get("envelope_version") not in spool.SUPPORTED_ENVELOPE_VERSIONS:
             remaining.append(envelope)
+            deferred += 1
             continue
 
         handler = _HANDLERS.get(envelope.get("kind"))
@@ -145,9 +147,20 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
     if dead:
         _to_dead_letter(ctx, path, dead, unknown_kind)
     if remaining:
-        _write(path, remaining)
+        # 남은 것이 전부 '아직 못 읽는 버전'이고 반영·격리한 것도 없으면
+        # 파일 내용이 한 글자도 달라지지 않았다. 그런데도 다시 쓰면,
+        # `_write` 가 잘라내고 다시 쓰는 방식이라 매 스윕(기본 300초)마다
+        # 같은 내용을 덮어쓰게 되고 그 사이 중단되면 줄이 깨진다.
+        # 깨진 줄은 `read_envelopes` 가 조용히 버린다 — 지키려던 봉투를 잃는다.
+        #
+        # 재시도 대기 봉투는 시도 횟수가 올라가므로 반드시 다시 써야 한다.
+        # 그것까지 건너뛰면 MAX_ATTEMPTS 에 영영 도달하지 못한다.
+        unchanged = not applied and not dead and deferred == len(remaining)
+        if not unchanged:
+            _write(path, remaining)
         ctx.logger.warning(
-            "봉투 %d건을 반영하지 못해 %s 에 남겨 둔다", len(remaining), path.name
+            "봉투 %d건이 %s 에 남았다 (재시도 대기 또는 읽을 수 없는 버전)",
+            len(remaining), path.name,
         )
         return applied
 

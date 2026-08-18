@@ -95,6 +95,19 @@ class DaemonClient:
             if response.status_code in _NO_SPOOL_STATUSES:
                 return Outcome(None, "DAEMON", _error_message(response))
 
+            if response.status_code == 404:
+                # 데몬은 살아 있는데 이 경로를 모른다 — 대개 구버전이 떠 있는 것이다.
+                # spool 에 남기지만, 영구적 404 면 끝없이 쌓이므로(OUTSTANDING K9)
+                # 무엇을 해야 하는지 메시지에 남긴다.
+                self._logger.warning("데몬이 %s 를 모른다. 구버전일 수 있다", path)
+                outcome = self._to_spool(kind, payload)
+                return Outcome(
+                    outcome.body,
+                    outcome.storage,
+                    "데몬이 이 경로를 모릅니다. 보관은 했으나 반영되려면"
+                    " 데몬을 최신 버전으로 다시 시작해야 합니다.",
+                )
+
             if response.status_code == 503 and attempt == 1:
                 continue
             break

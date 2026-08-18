@@ -113,7 +113,12 @@ class ToolService:
             # `find_active_by_client` 로 떨어져 **엉뚱한 작업이 마감된다**
             # (OUTSTANDING K1). 그 사이 새 작업을 시작했으면 그 작업이 남의
             # 결과 텍스트를 달고 닫히고, 원래 작업은 영영 열린 채로 남는다.
-            "work_id": work_id,
+            #
+            # 다만 이건 **호출자가 work_id 를 준 경우만** 막는다. 생략하면
+            # 여기도 None 이라 흡수 시점의 활성 작업이 마감된다 — K1 은 여전히 열려 있다.
+            # "auto" 는 경로용 센티널이라 본문에 넣지 않는다. 라우트는 그것을
+            # None 으로 정규화하는데 흡수 경로는 그러지 않아, 넣으면 없는 작업을 찾는다.
+            "work_id": None if work_id == "auto" else work_id,
             "result": result,
             "limitations": limitations,
             "next_steps": next_steps,

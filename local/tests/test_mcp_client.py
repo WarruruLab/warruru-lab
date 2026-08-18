@@ -189,3 +189,17 @@ def test_spool_제외_목록은_400_401_422_뿐이다():
 
     assert _NO_SPOOL_STATUSES == {400, 401, 422}
 
+
+
+def test_404_는_무엇을_해야_하는지_알려_준다(home):
+    """spool 은 성공으로 보고되므로(ok=True), 메시지가 유일한 신호다.
+
+    영구적 404 면 기록이 끝없이 쌓이는데 툴은 매번 성공을 말한다
+    (OUTSTANDING K9). 최소한 무엇이 잘못됐는지는 읽히게 한다.
+    """
+    transport = FakeTransport(httpx.Response(404))
+    outcome = _client(home, transport).send(
+        spool.KIND_LEARNING_RECORD, "/v1/records", {}
+    )
+    assert outcome.storage == "SPOOL"
+    assert "데몬" in outcome.message and "다시 시작" in outcome.message

@@ -320,7 +320,11 @@ def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, 
 
 
 def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
-    """지금은 경고만 남기고 absorbed/ 로 넘어가 조용히 사라진다."""
+    """재시도해도 결과가 달라질 수 없는 봉투다. 격리해서 흔적을 남긴다.
+
+    예전에는 경고만 남기고 `continue` 해서 remaining 에도 dead 에도 들어가지
+    않은 채 파일이 absorbed/ 로 옮겨졌다 — 조용히 사라졌다.
+    """
     paths.ensure_layout(home)
     spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
                  "2026-07-22T09:00:00.000Z", "evt_A")
