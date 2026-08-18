@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from warruru_local.clock import FixedClock
 from warruru_local.config import load_settings
 from warruru_local.daemon.app import create_app
+from warruru_local.store import migrations
 
 START = datetime(2026, 7, 22, 8, 0, 0, tzinfo=timezone.utc)
 
@@ -30,7 +31,7 @@ def test_health_는_토큰_없이도_열린다(home):
 
 def test_health_는_스키마_버전과_머신을_알린다(client):
     payload = client.get("/v1/health").json()
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == migrations.CURRENT_VERSION
     assert payload["machine_id"].startswith("mch_")
     assert payload["version"] == "0.1.0"
 
