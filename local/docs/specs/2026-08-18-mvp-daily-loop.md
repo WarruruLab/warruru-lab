@@ -224,7 +224,9 @@ CREATE INDEX IF NOT EXISTS ix_record_work
 
 CREATE TABLE IF NOT EXISTS draft (
     draft_id           TEXT PRIMARY KEY,
+    topic              TEXT NOT NULL,   -- 원문. front matter 가 이걸 그대로 쓴다
     topic_slug         TEXT NOT NULL,
+    kind_json          TEXT,            -- 재료가 된 기록들의 kind 집합
     title              TEXT NOT NULL,
     markdown           TEXT NOT NULL,
     markdown_truncated INTEGER NOT NULL DEFAULT 0,
@@ -268,6 +270,11 @@ status: DRAFT
 `topic` 은 원문이다(슬러그는 파일명에 이미 들어 있다). `kind` 는 재료가 된 기록들의
 kind 집합이고, `source_record_ids` 는 `draft.source_record_ids_json` 과,
 `status` 는 `draft.status` 와 같은 값이다.
+
+**네 필드 전부 `draft` 행에서 나온다.** `topic` 과 `kind_json` 컬럼이 있는 이유가 이것이다.
+없으면 front matter 를 다시 쓸 때마다 슬러그로 `learning_record` 를 되질의해야 하는데,
+그러면 **조립 당시의 재료가 아니라 지금 존재하는 기록**이 들어간다.
+초안은 특정 시점의 합성물이므로 그 시점을 스스로 들고 있어야 한다.
 파일만 열어도 무엇으로 조립됐는지 읽혀야 하기 때문에 넣는다 —
 마크다운이 정본이고 DB 는 그 정본을 찾아가는 색인이라는 §2.5 의 순서와 같은 이유다.
 `save_draft` 로 덮어쓸 때와 발행으로 `status` 가 바뀔 때 front matter 도 함께 다시 쓴다.

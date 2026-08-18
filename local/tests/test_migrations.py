@@ -12,9 +12,11 @@ EXPECTED_TABLES = {
     "client_instance",
     "work_session",
     "checkpoint",
+    "learning_record",
+    "draft",
 }
 
-# migrations.py의 _V1 DDL을 그대로 옮긴 계약. DDL이 바뀌면 여기도 같이 바뀌어야 한다.
+# migrations.py의 _V1·_V2 DDL을 그대로 옮긴 계약. DDL이 바뀌면 여기도 같이 바뀌어야 한다.
 
 EXPECTED_INDEXES = {
     "ix_work_started",
@@ -23,6 +25,10 @@ EXPECTED_INDEXES = {
     "ix_work_active_sweep",
     "ix_ckp_work",
     "ix_ckp_occurred",
+    "ix_record_occurred",
+    "ix_record_slug",
+    "ix_record_work",
+    "ix_draft_slug",
 }
 
 EXPECTED_COLUMNS = {
@@ -93,6 +99,52 @@ EXPECTED_COLUMNS = {
         "deleted_at",
         "created_at",
     },
+    "learning_record": {
+        "record_id",
+        "work_id",
+        "machine_id",
+        "tool",
+        "kind",
+        "topic",
+        "topic_slug",
+        "title",
+        "body",
+        "body_truncated",
+        "rationale",
+        "outcome",
+        "limitation",
+        "interview",
+        "project",
+        "occurred_at",
+        "recorded_at",
+        "source",
+        "repo_path",
+        "repo_name",
+        "branch",
+        "commit_sha",
+        "dirty",
+        "dirty_file_count",
+        "dirty_count_capped",
+        "deleted_at",
+        "created_at",
+    },
+    "draft": {
+        "draft_id",
+        "topic",
+        "topic_slug",
+        "kind_json",
+        "title",
+        "markdown",
+        "markdown_truncated",
+        "source_record_ids_json",
+        "file_path",
+        "status",
+        "published_url",
+        "published_at",
+        "deleted_at",
+        "created_at",
+        "updated_at",
+    },
 }
 
 # 각 테이블의 PRIMARY KEY 컬럼. SQLite는 INTEGER PRIMARY KEY(rowid 별칭)에도
@@ -103,6 +155,8 @@ EXPECTED_PRIMARY_KEYS = {
     "client_instance": "client_instance_id",
     "work_session": "work_id",
     "checkpoint": "checkpoint_id",
+    "learning_record": "record_id",
+    "draft": "draft_id",
 }
 
 # DDL에 명시적으로 NOT NULL이 붙은 컬럼만 여기 포함한다 (PK 컬럼은 제외).
@@ -133,12 +187,41 @@ EXPECTED_NOT_NULL = {
         "dirty_count_capped",
         "created_at",
     },
+    "learning_record": {
+        "work_id",
+        "machine_id",
+        "tool",
+        "kind",
+        "topic",
+        "topic_slug",
+        "title",
+        "body",
+        "body_truncated",
+        "occurred_at",
+        "recorded_at",
+        "source",
+        "dirty_count_capped",
+        "created_at",
+    },
+    "draft": {
+        "topic",
+        "topic_slug",
+        "title",
+        "markdown",
+        "markdown_truncated",
+        "status",
+        "created_at",
+        "updated_at",
+    },
 }
 
 # DEFAULT가 붙은 컬럼. PRAGMA table_info의 dflt_value는 문자열로 나온다.
 EXPECTED_DEFAULTS = {
     ("checkpoint", "body_truncated"): "0",
     ("checkpoint", "dirty_count_capped"): "0",
+    ("learning_record", "body_truncated"): "0",
+    ("learning_record", "dirty_count_capped"): "0",
+    ("draft", "markdown_truncated"): "0",
 }
 
 
@@ -203,9 +286,10 @@ def test_외래키가_켜진다(tmp_path):
 
 
 def test_행을_이름으로_읽을_수_있다(tmp_path):
+    """row_factory 계약을 본다. 버전이 늘면 행도 늘므로 최댓값을 읽는다."""
     conn = db.connect(tmp_path / "warruru.db")
     migrations.migrate(conn, NOW)
-    row = conn.execute("SELECT version FROM schema_migrations").fetchone()
+    row = conn.execute("SELECT MAX(version) AS version FROM schema_migrations").fetchone()
     assert row["version"] == migrations.CURRENT_VERSION
 
 
@@ -220,7 +304,7 @@ def test_체크포인트_인덱스가_생긴다(tmp_path):
     assert "ix_work_by_client" in names
 
 
-def test_인덱스가_여섯_개_모두_생긴다(tmp_path):
+def test_인덱스가_모두_생긴다(tmp_path):
     conn = db.connect(tmp_path / "warruru.db")
     migrations.migrate(conn, NOW)
     rows = conn.execute(
@@ -287,3 +371,126 @@ def test_존재하지_않는_work_id로_체크포인트를_넣으면_무결성_�
                 NOW,
             ),
         )
+
+
+# ── 마이그레이션 v2 ────────────────────────────────────────────────
+
+V1_ROWS = {
+    "machine": ("mch_기존", "host", "macOS", NOW),
+    "work": ("wrk_기존", "mch_기존", "codex", "ACTIVE", "EXPLICIT", NOW, NOW, NOW, NOW),
+    "ckp": ("ckp_기존", "wrk_기존", "mch_기존", "codex", "NOTE", "예전 제목",
+            NOW, NOW, "MCP", NOW),
+}
+
+
+def _seed_v1(conn):
+    """v1 스크립트만 적용한 DB 에 행 셋을 심는다."""
+    conn.executescript(migrations._V1)
+    conn.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?)", (NOW,)
+    )
+    conn.execute(
+        "INSERT INTO machine (machine_id, hostname, os, created_at)"
+        " VALUES (?, ?, ?, ?)",
+        V1_ROWS["machine"],
+    )
+    conn.execute(
+        "INSERT INTO work_session (work_id, machine_id, tool, status, origin,"
+        " started_at, last_activity_at, created_at, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        V1_ROWS["work"],
+    )
+    conn.execute(
+        "INSERT INTO checkpoint (checkpoint_id, work_id, machine_id, tool, type,"
+        " title, occurred_at, recorded_at, source, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        V1_ROWS["ckp"],
+    )
+    conn.commit()
+
+
+def test_v2_테이블이_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    assert {"learning_record", "draft"} <= _tables(conn)
+
+
+def test_현재_버전은_2_다():
+    assert migrations.CURRENT_VERSION == 2
+
+
+def test_v1_데이터가_v2_로_올라가도_보존된다(tmp_path):
+    """이미 쓰고 있는 DB 를 올리는 것이므로, 기존 행이 한 줄도 상하면 안 된다."""
+    path = tmp_path / "warruru.db"
+    conn = db.connect(path)
+    _seed_v1(conn)
+    assert migrations.current_version(conn) == 1
+
+    assert migrations.migrate(conn, NOW) == 2
+
+    assert conn.execute(
+        "SELECT title FROM checkpoint WHERE checkpoint_id = ?", ("ckp_기존",)
+    ).fetchone()["title"] == "예전 제목"
+    assert conn.execute(
+        "SELECT status FROM work_session WHERE work_id = ?", ("wrk_기존",)
+    ).fetchone()["status"] == "ACTIVE"
+    assert conn.execute(
+        "SELECT hostname FROM machine WHERE machine_id = ?", ("mch_기존",)
+    ).fetchone()["hostname"] == "host"
+
+
+def test_v1_에서_올라온_DB_에도_새_테이블이_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    _seed_v1(conn)
+    migrations.migrate(conn, NOW)
+    assert {"learning_record", "draft"} <= _tables(conn)
+
+
+def test_기록_인덱스가_생긴다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'index'"
+    ).fetchall()
+    names = {row["name"] for row in rows}
+    assert {"ix_record_occurred", "ix_record_slug",
+            "ix_record_work", "ix_draft_slug"} <= names
+
+
+def test_learning_record_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "learning_record")
+
+
+def test_draft_컬럼_계약을_지킨다(tmp_path):
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    _assert_column_contract(conn, "draft")
+
+
+def test_존재하지_않는_work_id로_기록을_넣으면_무결성_오류가_난다(tmp_path):
+    """체크포인트와 같은 규칙이다. 기록은 반드시 어떤 작업에 붙어 있어야 한다."""
+    conn = db.connect(tmp_path / "warruru.db")
+    _seed_v1(conn)
+    migrations.migrate(conn, NOW)
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO learning_record ("
+            " record_id, work_id, machine_id, tool, kind, topic, topic_slug,"
+            " title, body, occurred_at, recorded_at, source, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("rec_A", "존재하지-않는-work-id", "mch_기존", "codex", "CONCEPT",
+             "커넥션 풀", "connection-pool", "제목", "본문",
+             NOW, NOW, "MCP", NOW),
+        )
+
+
+def test_measurement_와_tech_option_은_만들지_않는다(tmp_path):
+    """정규화가 값을 하는 건 비교·집계 화면이 있을 때다. MVP 에 그런 화면이 없다.
+
+    읽는 코드가 없는 테이블을 먼저 만드는 비용이, 나중에 v3 를 더하는 비용보다 크다.
+    """
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    assert not ({"measurement", "tech_option"} & _tables(conn))

@@ -30,6 +30,7 @@ class AppContext:
     clock: Clock
     machine_id: str
     started_at: str
+    schema_version: int
     logger: logging.Logger
 
 
@@ -39,7 +40,15 @@ def _build_context(settings: config.Settings, clock: Clock) -> AppContext:
 
     conn = db.connect(paths.db_path(settings.home))
     now = to_iso(clock.now())
-    migrations.migrate(conn, now)
+    # 실제로 어디까지 올라갔는지 받아 둔다. `migrate` 는 이미 최신이면 아무 일도
+    # 하지 않으므로, 구버전 바이너리가 더 높은 버전의 DB 를 열면 조용히 넘어간다.
+    # 그 상태를 health 가 상수로 보고하면 아무도 눈치채지 못한다.
+    schema_version = migrations.migrate(conn, now)
+    if schema_version != migrations.CURRENT_VERSION:
+        logger.warning(
+            "DB 스키마 버전이 %d 인데 이 데몬은 %d 를 기대한다",
+            schema_version, migrations.CURRENT_VERSION,
+        )
 
     repo = Repository(conn)
     machine = config.load_or_create_machine(settings.home)
@@ -63,6 +72,7 @@ def _build_context(settings: config.Settings, clock: Clock) -> AppContext:
         clock=clock,
         machine_id=machine["machine_id"],
         started_at=now,
+        schema_version=schema_version,
         logger=logger,
     )
 
@@ -162,7 +172,9 @@ def create_app(
         return {
             "status": "ok",
             "version": __version__,
-            "schema_version": migrations.CURRENT_VERSION,
+            # 상수가 아니라 이 DB 가 실제로 올라간 버전이다.
+            # 상수를 돌려주면 마이그레이션이 돌았는지 확인할 방법이 사라진다.
+            "schema_version": ctx.schema_version,
             "machine_id": ctx.machine_id,
             "started_at": ctx.started_at,
         }

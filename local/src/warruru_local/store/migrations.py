@@ -1,10 +1,19 @@
-"""스키마 버전과 DDL. 데몬이 기동 시 순차 적용한다. 되돌리기는 없다."""
+"""스키마 버전과 DDL. 데몬이 기동 시 순차 적용한다. 되돌리기는 없다.
+
+v2 는 학습 기록 두 테이블을 더한다. `topic` 원문과 `topic_slug` 를 함께 두는 이유는,
+원문은 사람이 적은 말이라 화면에 그대로 보여야 하고 집계는 표기 변형에 흔들리면
+안 되기 때문이다. 집계·필터·글 생성은 예외 없이 slug 기준이다.
+
+`measurement` / `tech_option` 정규화 테이블은 만들지 않는다. 정규화가 값을 하는 건
+비교·집계 화면이 있을 때인데 MVP 에 그런 화면이 없다. 측정값과 기술 후보는
+`body`·`outcome` 안의 텍스트로 받는다. 필요해지면 v3 스크립트 하나를 더하면 된다.
+"""
 
 from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 1
+CURRENT_VERSION = 2
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -113,7 +122,74 @@ CREATE INDEX IF NOT EXISTS ix_ckp_occurred
     ON checkpoint (occurred_at DESC);
 """
 
-_SCRIPTS = {1: _V1}
+_V2 = """
+CREATE TABLE IF NOT EXISTS learning_record (
+    record_id          TEXT PRIMARY KEY,
+    work_id            TEXT NOT NULL REFERENCES work_session(work_id),
+    machine_id         TEXT NOT NULL REFERENCES machine(machine_id),
+    tool               TEXT NOT NULL,
+
+    kind               TEXT NOT NULL,
+    topic              TEXT NOT NULL,
+    topic_slug         TEXT NOT NULL,
+    title              TEXT NOT NULL,
+    body               TEXT NOT NULL,
+    body_truncated     INTEGER NOT NULL DEFAULT 0,
+
+    rationale          TEXT,
+    outcome            TEXT,
+    limitation         TEXT,
+    interview          TEXT,
+
+    project            TEXT,
+    occurred_at        TEXT NOT NULL,
+    recorded_at        TEXT NOT NULL,
+    source             TEXT NOT NULL,
+
+    repo_path          TEXT,
+    repo_name          TEXT,
+    branch             TEXT,
+    commit_sha         TEXT,
+    dirty              INTEGER,
+    dirty_file_count   INTEGER,
+    dirty_count_capped INTEGER NOT NULL DEFAULT 0,
+
+    deleted_at         TEXT,
+    created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_record_occurred
+    ON learning_record (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS ix_record_slug
+    ON learning_record (topic_slug, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS ix_record_work
+    ON learning_record (work_id, occurred_at);
+
+CREATE TABLE IF NOT EXISTS draft (
+    draft_id           TEXT PRIMARY KEY,
+    topic              TEXT NOT NULL,
+    topic_slug         TEXT NOT NULL,
+    kind_json          TEXT,
+    title              TEXT NOT NULL,
+    markdown           TEXT NOT NULL,
+    markdown_truncated INTEGER NOT NULL DEFAULT 0,
+    source_record_ids_json TEXT,
+
+    file_path          TEXT,
+    status             TEXT NOT NULL,
+    published_url      TEXT,
+    published_at       TEXT,
+
+    deleted_at         TEXT,
+    created_at         TEXT NOT NULL,
+    updated_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_draft_slug
+    ON draft (topic_slug, updated_at DESC);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2}
 
 
 def current_version(conn: sqlite3.Connection) -> int:
