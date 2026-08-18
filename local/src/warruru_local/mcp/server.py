@@ -108,6 +108,12 @@ class ToolService:
         next_steps: str | None = None,
     ) -> dict:
         payload = {
+            # work_id 는 경로에도 들어가지만 봉투는 본문만 담는다(IF-6).
+            # 여기 넣지 않으면 오프라인 마감이 흡수될 때 대상 작업을 잃고
+            # `find_active_by_client` 로 떨어져 **엉뚱한 작업이 마감된다**
+            # (OUTSTANDING K1). 그 사이 새 작업을 시작했으면 그 작업이 남의
+            # 결과 텍스트를 달고 닫히고, 원래 작업은 영영 열린 채로 남는다.
+            "work_id": work_id,
             "result": result,
             "limitations": limitations,
             "next_steps": next_steps,

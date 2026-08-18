@@ -67,7 +67,7 @@ def _has_unknown_version(path: Path) -> bool:
     읽는다. 읽은 내용을 처리에 쓰지 않으므로 경합의 원인이 되지 않는다.
     """
     return any(
-        item.get("envelope_version") != spool.ENVELOPE_VERSION
+        item.get("envelope_version") not in spool.SUPPORTED_ENVELOPE_VERSIONS
         for item in spool.read_envelopes(path)
     )
 
@@ -111,13 +111,27 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
     파일을 그대로 보관해 버려서, 한 번 실패한 기록이 영영 사라졌다.
     """
     applied = 0
+    unknown_kind = 0
     remaining: list[dict] = []
     dead: list[dict] = []
 
     for envelope in sorted(envelopes, key=lambda item: item.get("enqueued_at", "")):
+        # 붙잡기 전 검사(`_has_unknown_version`)와 이름 바꾸기 사이의 창으로
+        # 어댑터가 덧붙인 줄이 들어올 수 있다. 그 줄이 모르는 버전이면
+        # 격리하지 않고 남긴다 — 고칠 수 없는 봉투가 아니라 **아직 못 읽는 봉투**이고,
+        # 새 데몬이 뜨면 읽힌다. 그래서 시도 횟수도 세지 않는다.
+        if envelope.get("envelope_version") not in spool.SUPPORTED_ENVELOPE_VERSIONS:
+            remaining.append(envelope)
+            continue
+
         handler = _HANDLERS.get(envelope.get("kind"))
         if handler is None:
+            # 예전에는 여기서 `continue` 했다. 그러면 이 봉투가 remaining 에도
+            # dead 에도 들어가지 않은 채 파일이 absorbed/ 로 옮겨져 조용히 사라졌다.
+            # 재시도해도 결과가 달라질 수 없는 봉투이므로 바로 격리한다.
             ctx.logger.warning("모르는 봉투 종류: %s", envelope.get("kind"))
+            dead.append(envelope)
+            unknown_kind += 1
             continue
         try:
             handler(ctx, envelope.get("payload") or {})
@@ -129,7 +143,7 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
             (dead if attempts >= MAX_ATTEMPTS else remaining).append(envelope)
 
     if dead:
-        _to_dead_letter(ctx, path, dead)
+        _to_dead_letter(ctx, path, dead, unknown_kind)
     if remaining:
         _write(path, remaining)
         ctx.logger.warning(
@@ -166,17 +180,27 @@ def _archive(ctx, path: Path) -> None:
     path.replace(target)
 
 
-def _to_dead_letter(ctx, path: Path, envelopes: list[dict]) -> None:
-    """몇 번을 시도해도 반영되지 않는 봉투. 지우지 않고 옆으로 치운다."""
+def _to_dead_letter(
+    ctx, path: Path, envelopes: list[dict], unknown_kind: int = 0
+) -> None:
+    """반영할 수 없는 봉투. 지우지 않고 옆으로 치운다.
+
+    두 갈래가 여기로 온다 — `MAX_ATTEMPTS` 를 넘긴 것과 핸들러가 없는 종류다.
+    뒤쪽은 시도조차 한 적이 없으므로 로그가 "5번 시도했다" 고 말하면 안 된다.
+    K2 를 조사하러 온 사람이 이 로그를 먼저 읽는다.
+    """
     stem = _origin_stem(path)
     target = paths.dead_letter_dir(ctx.settings.home) / f"{stem}.{_stamp(ctx)}.jsonl"
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("a", encoding="utf-8") as handle:
         for envelope in envelopes:
             handle.write(json.dumps(envelope, ensure_ascii=False) + "\n")
+    retried = len(envelopes) - unknown_kind
+    reasons = []
+    if retried:
+        reasons.append(f"{MAX_ATTEMPTS}번 시도해도 반영되지 않은 것 {retried}건")
+    if unknown_kind:
+        reasons.append(f"핸들러가 없는 종류 {unknown_kind}건")
     ctx.logger.error(
-        "%d번 시도해도 반영되지 않은 봉투 %d건을 %s 로 옮겼다",
-        MAX_ATTEMPTS,
-        len(envelopes),
-        target,
+        "봉투 %d건을 %s 로 옮겼다 — %s", len(envelopes), target, " · ".join(reasons)
     )

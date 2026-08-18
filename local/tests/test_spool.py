@@ -51,3 +51,45 @@ def test_한글_본문이_깨지지_않는다(home):
     spool.append(home, CLIENT, "record_checkpoint", {"body": "한글 본문"}, NOW, "evt_A")
     envelope = spool.read_envelopes(spool.spool_path(home, CLIENT))[0]
     assert envelope["payload"]["body"] == "한글 본문"
+
+
+def test_학습기록_봉투는_버전_2_로_쓰인다(home):
+    """구버전 데몬이 이 파일을 통째로 건너뛰게 만드는 장치다.
+
+    구버전 데몬은 `learning_record` 핸들러가 없어서 봉투를 조용히 버린다.
+    버전을 올려 두면 `_has_unknown_version` 이 먼저 걸러 파일을 손대지 않는다.
+    """
+    paths.ensure_layout(home)
+    spool.append(home, CLIENT, "learning_record", {"a": 1}, NOW, "evt_A")
+    envelope = spool.read_envelopes(spool.spool_path(home, CLIENT))[0]
+    assert envelope["envelope_version"] == 2
+
+
+def test_기존_봉투는_버전_1_그대로다(home):
+    paths.ensure_layout(home)
+    for kind in ("start_work", "record_checkpoint", "finish_work", "client_closed"):
+        spool.append(home, CLIENT, kind, {}, NOW, f"evt_{kind}")
+    versions = {
+        item["envelope_version"]
+        for item in spool.read_envelopes(spool.spool_path(home, CLIENT))
+    }
+    assert versions == {1}
+
+
+def test_아직은_버전_1_만_읽는다():
+    """버전을 올리는 것과 핸들러를 더하는 것은 같은 커밋이어야 한다.
+
+    먼저 올리면 데몬이 파일을 붙잡고도 핸들러가 없어 dead-letter 로 격리한다 —
+    대기시키려던 봉투를 오히려 버린다. `2` 는 핸들러와 함께 올린다.
+    """
+    assert spool.SUPPORTED_ENVELOPE_VERSIONS == {1}
+
+
+def test_쓸_수_있는_봉투는_전부_읽을_수_있어야_한다():
+    """어댑터가 쓰는 버전과 데몬이 읽는 버전이 갈라지면 그 파일은 영원히 밀린다.
+
+    실패 경로와 달리 상한이 없다 — MAX_ATTEMPTS 가 적용되지 않고 파일만 커진다.
+    KINDS 에 종류를 더하는 순간 이 테스트가 버전 집합도 같이 보라고 알려 준다.
+    """
+    for kind in spool.KINDS:
+        assert spool.envelope_version_for(kind) in spool.SUPPORTED_ENVELOPE_VERSIONS

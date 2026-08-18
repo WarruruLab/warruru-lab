@@ -17,7 +17,10 @@ from warruru_local.ids import new_id
 
 SPAWN_WAIT_SECONDS = 3.0
 SPAWN_POLL_SECONDS = 0.1
-_NO_SPOOL_STATUSES = {400, 401, 404, 422}
+# 다시 보내도 같은 답이 오는 상태만 넣는다. 404 는 여기 들어 있었지만 뺐다 —
+# 구버전 데몬이 새 라우트를 모를 때 나는 값이고, 그건 요청 내용 문제가 아니다.
+# 이 상수는 send() 만 참조한다. query() 는 보지 않는다(조회는 잃을 기록이 없다).
+_NO_SPOOL_STATUSES = {400, 401, 422}
 
 
 @dataclass(frozen=True)

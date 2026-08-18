@@ -102,6 +102,19 @@ def test_식별자를_주면_그_경로로_마감한다():
     assert client.sent[0][1] == "/v1/works/wrk_A/finish"
 
 
+def test_마감_봉투_본문에도_work_id_가_들어간다():
+    """경로에만 두면 오프라인 마감이 흡수될 때 대상 작업을 잃는다.
+
+    봉투는 본문만 담으므로(IF-6) 흡수 시 `payload.get("work_id")` 가 None 이 되고
+    `find_active_by_client` 로 떨어진다. 그 사이 새 작업을 시작했다면
+    **그 작업이 남의 결과 텍스트를 달고 마감되고** 원래 작업은 열린 채 남는다
+    (OUTSTANDING K1). 404 를 spool 로 돌리면서 이 경로의 트래픽이 늘었다.
+    """
+    service, client = _service()
+    service.finish_work(work_id="wrk_A", result="끝")
+    assert client.sent[0][2]["work_id"] == "wrk_A"
+
+
 def test_마감할_작업이_없어도_ok_다():
     service, _ = _service(
         Outcome(
