@@ -1,243 +1,154 @@
 # 🦀 WarruruLab
 
-**Local-First AI Learning Agent**
+개발 중 AI 에이전트가 남긴 기록을 모아, 하루를 한 편의 글로 정리하는 개인용 로컬 도구.
 
-개인 학습을 위한 통합 AI 에이전트 시스템. 모든 학습 대화, 지식 구조화, 블로그 작성, 개발 기록을 로컬에서 실행하며, 완전한 프라이버시와 비용 절감을 제공합니다.
+**지금 이 저장소의 상태 (2026-08-18)**
 
-## 🎯 핵심 전략
+이 프로젝트는 "코드보다 명세를 먼저"라는 원칙으로 시작했고, 그 방식은 절반만 통했다.
+`local/` 하나는 명세대로 끝까지 구현돼 실제로 돌아간다 — 소스 2,918줄, 테스트 파일 24개가
+마지막 실행에서 전원 통과했다. 반면 `packages/{agent,web-ui,local-record}` 와
+`services/{ollama,qdrant,sync,tistory-mcp}` 는 명세 28편만 쌓이고 **코드가 0줄**이다.
+그 명세들은 서로 포트가 충돌하거나(8787), 없는 인프라를 전제하거나(MySQL·Qdrant),
+이미 죽은 API 를 기술한다(티스토리 OAuth). 남겨두면 다음 세션의 에이전트가 그걸 읽고
+틀린 전제를 세우므로 `.archive/specs-2026-08/` 로 내렸다(2026-08-18).
+`.archive/` 는 `.gitignore` 대상이라 **이 저장소에는 올라오지 않는다** — 작업 머신에만 남는다.
+지운 것이 아니므로 되살릴 때는 git 히스토리에서 꺼내면 된다
+(예: `git show 429ce87:services/tistory-mcp/docs/interface.md`).
 
-- **Local-First**: 모든 처리를 로컬에서 (비용 96% 절감)
-- **All-In-One Agent**: 통합 에이전트로 단순화
-- **Cross-Platform**: Windows ↔ Mac 작업물 자동 동기화
-- **Privacy**: 개인 학습 기록은 로컬 전용
-- **무료 GPU**: 로컬 GPU로 무제한 LLM 사용
+즉 **지금 실제로 존재하는 것은 기록 계층 하나뿐**이다. 아래 문서에서 그 밖의 것을
+"곧 나온다"고 말하지 않는다.
 
-## 📊 시스템 아키텍처
+---
 
-```
-💻 Local Environment
-├─ WarruruLab Agent (통합 에이전트)
-│   ├─ 💬 Chat Module (학습 대화 + RAG)
-│   ├─ 🧠 Structure Module (지식 구조화)
-│   ├─ 📝 Draft Module (블로그 초안)
-│   └─ 📊 Record Module (개발 기록)
-├─ 🤖 Ollama (Local LLM)
-├─ 🔍 RAG Engine (Qdrant)
-└─ 🎨 Unified Web UI (localhost:8787)
+## ⚠️ 이 저장소는 public 이다
 
-☁️ Server Environment (선택)
-├─ 🌐 Portfolio Site (GitHub Pages)
-├─ 💾 Backup Service (자동 백업)
-├─ 📈 Analytics Dashboard (학습 통계)
-├─ 🔗 Share API (선택적 공유)
-└─ 📱 Tistory MCP (블로그 발행)
-```
+origin 은 공개 GitHub 저장소다. 그래서 두 가지를 규칙으로 못 박았다.
 
-## 🗂 모노레포 구조
+- 자동 생성된 초안은 **이 저장소에 들어오지 않는다.** 착지점은 저장소 바깥의
+  `~/.warruru/drafts/YYYY/MM/` 이고, 저장소 안 경로가 인자로 들어오면 쓰기 어댑터가
+  예외를 던진다. `.gitignore` 한 줄은 `git add -f` 한 번에 뚫리므로 방어로 치지 않는다.
+- `blog/` 는 **사람이 읽고 "공개해도 된다"고 결정한 글만** 들어가는 자리다.
+  미완성 사고 과정이 담긴 초안은 여기 오지 않는다.
 
-```
+---
+
+## 🚀 실행
+
+Python 3.11+ 가 필요하다(이 머신의 시스템 python 은 3.9.6 이라 그대로는 안 된다).
+저장소 루트에서 `pip install -e local/` 로 설치하면 `warruru-mcp` 와 `warruru-daemon`
+두 진입점이 생긴다. `warruru-daemon` 을 띄운 뒤 브라우저에서 <http://127.0.0.1:8787>
+을 열면 오늘 날짜 화면으로 이동한다. 에이전트의 MCP 설정에 `warruru-mcp` 를 등록해 두면
+데몬이 꺼져 있을 때 어댑터가 알아서 띄우므로, 평소에는 데몬을 직접 실행할 일이 없다.
+설정 방법과 개발 절차는 [`local/README.md`](./local/README.md) 에 있다.
+
+---
+
+## 🎯 목적
+
+### ① 내가 매일 쓰는 도구를 최단 경로로
+
+만들어놓고 안 쓰는 사이드 프로젝트를 반복하지 않으려고, 처음부터 **1인 사용자(본인)** 만
+대상으로 잡았다.
+
+- 다중 사용자·인증/권한·확장성 설계는 범위 밖이다. 필요해지면 그때 추가한다.
+- 완성 후 배포가 아니라, 동작하는 것부터 바로 실사용에 넣는다.
+- 실제로 써보고 불편한 지점이 다음 작업의 입력이 된다. `local/` 이 이 방식으로 먼저 끝났다.
+
+### ② 취업 준비의 재료를 남기는 것
+
+2027년 3월 공채가 목표다. 면접에서 필요한 것은 기술 이름 나열이 아니라
+**"문제 → 선택 → 구현 → 측정 → 결과 → 한계"** 로 말하는 능력이고, 그건 그때 지어낼 수 없다.
+그래서 개발 중에 에이전트가 남긴 기록을 그 6단 구조로 조립하는 것이 이 도구의 최종 출력이다.
+아직 TODO 로 비어 있는 자리가 곧 "면접에서 대답 못 할 부분" 목록이 된다.
+
+### ③ AI 에이전트 개발 방식의 검증
+
+별도 실험을 돌리지 않는다. 이 프로젝트를 끝까지 에이전트로 개발하는 것 자체가 검증이다.
+다만 **아직 수치를 남기지 않았다.** 시간·토큰·재작업 비율을 표로 채우는 것은
+기록이 실제로 쌓인 뒤의 일이고, 지금 채워 넣으면 그건 측정이 아니라 창작이다.
+
+---
+
+## 🧭 개발 방식과 거기서 배운 것
+
+명세를 먼저 확정해 에이전트의 컨텍스트를 고정하는 방식 자체는 유지한다.
+모호한 요구를 주면 그럴듯하지만 틀린 코드가 나오고 수정 비용이 직접 짜는 것보다 크다는 것은
+`local/` 구현에서 확인했다. 문제는 그다음이었다.
+
+**실패에서 얻은 규칙**
+
+- **읽는 코드가 없는 명세는 부채다** → 명세 7묶음이 코드 0줄로 남았다.
+  이제 명세는 그걸 소비할 구현 태스크와 같은 주에만 쓴다.
+- **같은 주제의 계획이 두 문서로 갈라지면 둘 다 죽는다** → 유지되는 계획 문서는
+  [`local/docs/plans/2026-08-17-학습기록-구현계획.md`](./local/docs/plans/) 하나뿐이고,
+  새로 만들지 않고 개정한다.
+- **체크박스는 커밋과 1:1 이어야 한다** → 대응하는 커밋이 없는 태스크는 존재하지 않는 것으로 본다.
+- **"완료했습니다"를 믿지 않는다** → 완료 조건은 산문이 아니라 통과하는 테스트 이름으로 적는다.
+- **큰 태스크는 실패율이 높다** → 파일 1~2개 범위로 쪼개고, 세션을 태스크 단위로 끊는다.
+
+에이전트 컨텍스트는 `AGENTS.md` 한 곳에서만 관리하고 `CLAUDE.md` 는 `@AGENTS.md` 를
+import 하는 포인터로 둔다. 도구가 달라도(Claude Code / Codex) 같은 것을 읽게 하기 위해서다.
+
+---
+
+## 🗂 구조
+
+```text
 warruru-lab/
-├── packages/
-│   ├── agent/          # 통합 에이전트 (FastAPI)
-│   │   ├── chat/       # Chat Module
-│   │   ├── structure/  # Structure Module
-│   │   ├── draft/      # Draft Module
-│   │   └── record/     # Record Module
-│   ├── web-ui/         # 통합 웹 UI (React + Vite)
-│   ├── local-record/   # 개발 기록 시스템 (MCP)
-│   └── shared/         # 공통 라이브러리
-├── services/
-│   ├── ollama/         # LLM 서버 (Docker)
-│   ├── qdrant/         # Vector DB (Docker)
-│   └── sync/           # Windows ↔ Mac 동기화 서비스
-├── docs/               # 문서
-│   ├── architecture/   # 아키텍처 설계
-│   ├── api/            # API 스펙
-│   └── guides/         # 사용 가이드
-├── blog/               # 최종 블로그 글 (Markdown)
-│   ├── cs/             # CS 기초
-│   ├── frameworks/     # 프레임워크
-│   ├── warruru-lab/    # 프로젝트 개발기
-│   └── lessons/        # 학습 교훈
-├── .archive/           # 기존 분산 서비스 (참고용)
-│   ├── devtalk/
-│   ├── devlog/
-│   └── AI/
-├── docker-compose.yml  # 전체 스택 실행
-├── .gitignore
-└── README.md
+├── local/      실제로 도는 코드 전부 (MCP 어댑터 + 데몬 + 화면)
+├── docs/       전역 문서
+├── blog/       공개하기로 결정한 글만
+└── .archive/   git 추적 대상 아님 (과거 자료 + 폐기한 명세 specs-2026-08/)
 ```
 
-## 🚀 빠른 시작
+`packages/` 와 `services/` 는 2026-08-18 에 사라졌다. 코드가 0줄이고 명세 28편뿐이었으며,
+그 명세들이 매 세션 에이전트에게 틀린 전제를 심고 있었다. 되살릴 일이 생기면 git 히스토리를 본다.
 
-### 1. 로컬 환경 설정
+---
 
-```bash
-# 저장소 클론
-git clone https://github.com/WarruruLab/warruru-lab.git
-cd warruru-lab
+## 📊 지금 만들고 있는 것
 
-# Docker Compose로 전체 스택 실행
-docker compose up -d
+`local/` 축을 한 뼘 늘려, 기록이 글이 되는 한 바퀴를 돌린다.
 
-# 웹 UI 접속
-open http://localhost:8787
-```
+- 학습 기록 저장 (`record_learning` MCP 툴 + `learning_record` 테이블)
+- 주제별 화면과 달력 화면
+- 기록 묶음을 6단 마크다운으로 조립하는 결정적 조립기 (LLM 호출 0)
+- 저장소 바깥으로 초안 파일을 쓰는 발행 어댑터
 
-### 2. 크로스 플랫폼 동기화 (Windows ↔ Mac)
+새 프로세스·새 포트·새 저장소·새 런타임 의존성은 0이다. 데몬 하나, 포트 하나(8787),
+DB 하나(`~/.warruru/warruru.db`) 안에서 끝낸다.
+상세는 [`local/docs/plans/`](./local/docs/plans/) 의 구현 계획 문서에 있다.
 
-```bash
-# Sync Service 실행 (자동 백업 & 동기화)
-cd services/sync
-python sync_daemon.py --platform windows  # Windows
-python sync_daemon.py --platform mac      # Mac
+**빼기로 한 것과 이유**
 
-# 같은 날 같은 작업물 자동 병합
-# - 타임스탬프 기반 중복 제거
-# - 내용 유사도 기반 머지
-```
+- 티스토리 자동 발행 — 공식 Open API 는 2024년 2월 종료됐고, 2026-08-18 직접 확인 기준
+  앱 등록·OAuth·글쓰기 엔드포인트가 전부 404 다. 없는 것에 일정을 묶을 수 없다.
+  대신 붙여넣기용 HTML 을 화면에 띄우고 마지막 10초만 사람이 한다.
+  자동화는 티스토리 MCP 를 직접 만들어 붙이기로 했고, 그건 이번 MVP 다음이다.
+- 데몬 안의 LLM 호출 — 서비스 기동·모델·프롬프트·타임아웃이 전부 새로 필요하고 1주 이상이다.
+  글은 이미 사용자 앞에 떠 있는 에이전트가 쓴다.
+- RAG / Qdrant / 임베딩 — 기록이 수십 건인 단계에서 검색 인프라는 없는 문제의 해법이다.
+- 크로스 플랫폼 동기화 — MVP 이후로 미뤘다.
 
-## 💡 주요 기능
-
-### 💬 학습 대화 (Chat Module)
-
-```bash
-# 웹 UI에서 질문
-# → RAG 검색 (과거 학습 기록)
-# → Ollama LLM 응답
-# → 자동 구조화 (Structure Module)
-```
-
-### 🧠 지식 구조화 (Structure Module)
-
-```bash
-# 대화 → Knowledge Block 자동 생성
-# - Block Type: concept, comparison, example, summary
-# - Metadata: topic, tags, status
-# - RAG 인덱싱 자동 실행
-```
-
-### 📝 블로그 초안 (Draft Module)
-
-```bash
-# Topic 선택 → Block 조회 → RAG Context
-# → 고품질 LLM (gpt-oss-20b)
-# → 블로그 초안 생성 (Markdown)
-```
-
-### 📊 개발 기록 (Record Module)
-
-```bash
-# AI Agent (Codex/Claude Code) 작업 기록
-# - MCP 프로토콜 (stdio)
-# - 날짜별 조회
-# - Git context 저장
-```
-
-### 📱 Tistory 발행 (계획)
-
-```bash
-# 블로그 초안 검토 완료 후
-# → Tistory MCP로 자동 발행
-# → 카테고리, 태그 자동 설정
-# → 공개 범위 제어
-```
-
-## 🛠 기술 스택
-
-### Backend
-- **FastAPI** (Python) - 통합 에이전트 API
-- **Spring Boot** (Java) - 레거시 서비스 (마이그레이션 예정)
-
-### Frontend
-- **React** + **Vite** - 통합 웹 UI
-- **WebSocket** - 실시간 LLM 스트리밍
-
-### AI & LLM
-- **Ollama** - Local LLM 서버
-  - qwen2.5:3b (빠른 응답)
-  - gpt-oss-20b (고품질 글 생성)
-  - nomic-embed-text (Embedding)
-
-### Database & Storage
-- **SQLite** - 로컬 개발 기록
-- **MySQL** - 학습 대화, Knowledge Block
-- **Qdrant** - Vector Database (RAG)
-
-### DevOps
-- **Docker** + **Docker Compose**
-- **GitHub Actions** (CI/CD)
-
-## 💰 비용 절감 효과
-
-| 항목 | 기존 (분산 서버) | 신규 (로컬) | 절감 |
-|------|----------------|------------|------|
-| **월 운영비** | 13만원 | 5천원 | **-96%** |
-| **GPU 서버** | 월 10만원 | 전기세 | **-100%** |
-| **응답 속도** | 500ms | 50ms | **10배** |
-| **관리 복잡도** | 5개 서비스 | 1개 통합 | **-80%** |
-
-## 🔒 프라이버시
-
-- ✅ 모든 학습 대화는 로컬 저장
-- ✅ LLM 추론은 개인 GPU 사용
-- ✅ 외부 API 호출 없음
-- ✅ 선택적으로만 서버 백업
-
-## 🌐 크로스 플랫폼 동기화
-
-### Windows ↔ Mac 작업 흐름
-
-1. **Windows에서 작업**
-   ```bash
-   # 학습 대화 → Knowledge Block 생성
-   # Sync Service가 자동 백업 (암호화)
-   ```
-
-2. **Mac에서 작업 재개**
-   ```bash
-   # Sync Service가 자동 동기화
-   # 같은 날 작업물 자동 병합
-   # 중복 제거 & 타임스탬프 정렬
-   ```
-
-3. **자동 병합 규칙**
-   - 같은 날 (KST 기준)
-   - 같은 sessionId 또는 topic
-   - 내용 유사도 > 90% → 중복 제거
-   - 타임스탬프 순 정렬
-
-## 📱 Tistory MCP 통합 (계획)
-
-```python
-# Tistory MCP 사용 예시
-from warruru.integrations import TistoryMCP
-
-# 블로그 초안 → Tistory 발행
-tistory = TistoryMCP(access_token="...")
-tistory.publish_draft(
-    draft_id="draft-123",
-    category="기술",
-    tags=["Spring Boot", "JPA"],
-    visibility="public"
-)
-```
+---
 
 ## 📖 문서
 
-- [아키텍처 설계](./docs/architecture/)
-- [API 스펙](./docs/api/)
-- [로컬 개발 가이드](./docs/guides/local-development.md)
-- [크로스 플랫폼 동기화](./docs/guides/cross-platform-sync.md)
+| 문서 | 위치 |
+|------|------|
+| AI 에이전트 가이드 | [`AGENTS.md`](./AGENTS.md) |
+| 기록 시스템 사용법 | [`local/README.md`](./local/README.md) |
+| 구현 계획 | [`local/docs/plans/`](./local/docs/plans/) |
+| 미해결 결함 | [`local/docs/OUTSTANDING.md`](./local/docs/OUTSTANDING.md) |
+| 이번 MVP 명세 | [`local/docs/specs/`](./local/docs/specs/) |
+| 평가 기준 | [`local/docs/acceptance.md`](./local/docs/acceptance.md) |
+| 발행 경로 결정 | [`local/docs/adr/`](./local/docs/adr/) |
+| 31주 학습 가이드 | [`docs/guides/`](./docs/guides/) |
 
-## 🤝 기여
-
-개인 학습 프로젝트이지만 피드백과 제안은 환영합니다!
+---
 
 ## 📄 라이선스
 
 MIT License
-
----
 
 **Built with 🦀 by Warruru**

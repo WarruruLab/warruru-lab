@@ -1,315 +1,211 @@
-# AGENTS.md - WarruruLab AI Agent Guide
+# AGENTS.md — WarruruLab 에이전트 가이드
 
-## 프로젝트 개요
+이 파일은 매 세션 에이전트 컨텍스트에 자동으로 들어간다.
+여기 적힌 것이 틀리면 매번 틀린 전제로 작업이 시작된다.
+그래서 **실재하는 것만** 적고, 짧게 유지한다.
 
-**WarruruLab**은 Local-First AI 학습 에이전트 시스템입니다.
-
-### 핵심 철학
-
-- **문서 우선 (Documentation-First)**: 코드보다 명세서를 먼저 작성
-- **모듈화 (Modular)**: 각 서비스는 독립적으로 동작
-- **로컬 우선 (Local-First)**: 모든 처리를 로컬에서 실행
-- **크로스 플랫폼 (Cross-Platform)**: Windows ↔ Mac 작업 동기화
+`CLAUDE.md` 는 이 파일을 `@import` 하는 포인터다. 그쪽은 고치지 않는다.
 
 ---
 
-## 📁 프로젝트 구조
+## 1. 지금 이 저장소에 있는 것
+
+**실제로 도는 코드는 `local/` 하나다.** 소스 2,918줄(`.py` 기준, 템플릿 포함 3,093),
+테스트 파일 24개(`conftest.py` 별도)가 마지막 실행에서 전원 통과했다.
+단, 이 머신에서 아직 한 번도 돌려본 적이 없다 — Task 0 에서 실측한다.
+
+- MCP stdio 어댑터 `warruru-mcp` — 툴 4개
+  (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`)
+- 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
+- SQLite `~/.warruru/warruru.db` — 테이블 4개
+  (`machine` / `client_instance` / `work_session` / `checkpoint`)
+- 화면 `/d/{date}` 하나. JavaScript 없음.
+  조회는 토큰 불필요, 상태 변경 폼만 토큰
+
+### 코드 0줄이었던 명세 7묶음은 폐기한다
+
+`packages/{agent,web-ui,local-record}` 와
+`services/{ollama,qdrant,sync,tistory-mcp}` 는 AGENTS.md + docs 3종,
+합쳐 28편의 명세만 있고 코드가 0줄이다. 그 명세들은 데몬과 같은
+8787 포트를 요구하거나(web-ui), 없는 인프라를 전제하거나(agent 의
+MySQL·Qdrant), 이미 죽은 API 를 기술한다(tistory-mcp 의 OAuth).
+남겨두면 다음 세션의 에이전트가 그것을 읽고 틀린 전제를 세우므로
+`.archive/specs-2026-08/` 로 내렸다(2026-08-18). `.archive/` 는 git 추적 대상이
+아니라 작업 머신에만 남는다. 되살릴 일이 생기면 git 히스토리에서 꺼낸다.
+**이 두 디렉터리를 확장하거나 근거로 삼지 않는다.**
+
+---
+
+## 2. 원칙
+
+- **로컬 우선** — 모든 처리는 이 머신에서 끝난다. 사용자는 1명이다.
+- **명세는 소비할 구현과 같은 주에만 쓴다** — 읽는 코드가 없는
+  명세는 부채다. 위 7묶음이 그 증거다.
+- **완료 조건은 산문이 아니라 통과하는 테스트 이름으로 적는다.**
+  대응하는 커밋이 없는 체크박스는 존재하지 않는 것으로 본다.
+
+크로스 플랫폼 동기화(Windows ↔ Mac)와 서버 운영은 **MVP 이후**다.
+사용자가 그렇게 정했다. 핵심 원칙에서 내렸으니 설계 근거로 쓰지 않는다.
+
+---
+
+## 3. 하나만 둔다
+
+MVP 전체가 `local/src/warruru_local/` 안에서 산다.
+
+- 데몬 1 · DB 1 · 포트 1(8787) · MCP 서버 1
+
+**새 프로세스·새 포트·새 저장소·새 런타임 의존성을 만들지 않는다.**
+필요해 보이면 그건 기존 것 안에 함수로 들어갈 자리를 못 찾은 것이다.
+파일 하나 쓰려고 프로세스를 만들면, 중간에 멈췄을 때 골격만 남고
+결과물은 없다.
+
+## 4. 깨면 안 되는 경계
+
+넷 다 이유가 있고, 어긴 자리가 조용히 썩는 종류다.
+
+- **데몬이 SQLite 의 유일한 writer다.** 다른 어디서도 커서를 열지 않는다.
+- **`mcp/` 는 `daemon/` 을 임포트하지 않는다.** 지금까지 한 번도 없다.
+  어댑터는 판단도 요약도 하지 않고 봉투를 만들어 보낼 뿐이다.
+- **`publish/` 는 `sqlite3` 와 `warruru_local.store.*` 를 임포트하지 않는다.**
+  관례로 두지 않고 소스를 AST 로 훑는 테스트 1개로 강제할 것이다 —
+  `local/tests/test_publish_boundary.py`, 계획 문서 Task 8 에서 들어온다.
+- **날짜 경계는 `clock.local_day_bounds` 만 쓴다.** 날짜 문자열에
+  `T00:00:00.000Z` 를 직접 잇지 않는다. 그렇게 하면 KST 오전 9시
+  이전 기록이 통째로 앞 구간으로 샌다.
+
+---
+
+## 5. 에이전트 기록 규칙
+
+이 절이 이 프로젝트의 산출물이 생기느냐 마느냐를 결정한다.
+코드가 아니라 이 문단이 결정한다. MCP 가 대화를 감시해 '중요한 것'을
+자동으로 잡아내는 장치는 만들지 않기로 했고, 그 자리를 이 규칙이 대신한다.
+
+### 언제 부르는가
+
+아래 넷 중 하나가 일어나면 `record_learning` 을 부른다.
+
+- **수치가 달라졌을 때** — `kind='EXPERIMENT'`.
+  전후 값을 둘 다 적는다. "빨라졌다"가 아니라 "p95 320ms→90ms".
+- **고장났다 고쳤을 때** — `kind='TROUBLESHOOTING'`.
+  증상 · 진짜 원인 · 고친 방법 셋이 한 벌이다.
+- **여러 후보 중 하나를 골랐을 때** — `kind='TECH_CHOICE'`.
+  고른 것보다 **버린 것과 버린 이유**가 면접에서 쓰인다.
+- **CS 개념을 이해했을 때** — `kind='CONCEPT'`.
+  "무엇인지"가 아니라 "그래서 지금 이 코드의 무엇이 설명되는지".
+
+### 어떻게 부르는가
+
+- **사용자가 시키지 않아도 그 자리에서 남긴다.** "기록할까요?"라고
+  물어보고 남기는 것이 아니다. 물어보면 흐름이 끊기고, 끊기면 안 남는다.
+- 필수는 `kind` · `topic` · `title` · `body` 넷뿐이다.
+  `rationale` · `outcome` · `limitation` · `interview` 는 비어도 거절당하지 않는다.
+- **재료가 없으면 지어내지 마라.** 특히 `limitation` 과 `rationale` 은
+  사용자 머릿속에만 있는 경우가 대부분이다. 비운 채로 저장한 다음,
+  **그 자리에서 사용자에게 되물어라** — "풀 크기를 30 이상으로 못 올린
+  이유가 무엇이었나요?" 답을 받으면 같은 툴을 다시 불러 채운다.
+  그럴듯한 문장으로 빈칸을 메우면 면접에서 대답 못 할 자리가
+  채워진 것처럼 보이게 되고, 그게 이 도구의 유일한 실패 방식이다.
+- 응답에 `missing_fields` · `example_call` · `similar_slugs` 가 실려 온다.
+  거절 대신 오는 것이니 읽고 실제로 보강 호출을 해라.
+- `topic` 은 원문 그대로 적는다. 정규화는 시스템이 한다.
+  권장 슬러그는 `docs/guides/backend-infra-roadmap-31w.md` 에 있다.
+
+### 몇 건이 정상인가
+
+코드를 만진 날 **0건이면 이 규칙이 작동하지 않는 것**이다. 기준선은
+`local/docs/acceptance.md` §4 와 같은 **1주 5건** — 실측이 아닌 임의값이니 한 주 재본 뒤 고친다.
+
+기록이 없으면 주제 화면도 초안도 전부 빈 화면이고,
+나머지 설계의 장점은 전부 무의미해진다.
+
+### 데몬이 꺼져 있어도 부른다
 
 ```
-warruru-lab/
-├── packages/                # 핵심 패키지
-│   ├── agent/              # 통합 에이전트
-│   ├── web-ui/             # 웹 UI
-│   └── local-record/       # 개발 기록 시스템
-├── services/               # 보조 서비스
-│   ├── ollama/            # LLM 서버
-│   ├── qdrant/            # Vector DB
-│   ├── sync/              # 크로스 플랫폼 동기화
-│   └── tistory-mcp/       # Tistory 연동
-├── docs/                   # 전역 문서
-│   ├── architecture/      # 아키텍처 설계
-│   ├── api/              # API 스펙
-│   └── guides/           # 사용 가이드
-├── blog/                   # 최종 블로그 글
-└── .archive/              # 기존 코드 (참고용)
+record_learning → 어댑터 → 데몬(8787) → SQLite
+                     │              ↑
+                     └ 못 닿음 → spool → 다음 기동 때 흡수
 ```
 
----
+기록 실패로 개발이 멈추는 일은 없다. 툴은 예외를 밖으로 던지지 않는다.
 
-## 📦 Packages (핵심 패키지)
-
-### 1. packages/agent/
-
-**통합 AI 에이전트 - 학습의 중심**
-
-4개 모듈로 구성된 통합 에이전트:
-- 💬 Chat Module: 학습 대화 + RAG 검색
-- 🧠 Structure Module: 지식 구조화
-- 📝 Draft Module: 블로그 초안 생성
-- 📊 Record Module: 개발 기록 관리
-
-**문서:**
-- [`packages/agent/AGENTS.md`](./packages/agent/AGENTS.md) - 서비스 개요
-- [`packages/agent/docs/requirements.md`](./packages/agent/docs/requirements.md) - 요구사항 명세서
-- [`packages/agent/docs/features.md`](./packages/agent/docs/features.md) - 기능 명세서
-- [`packages/agent/docs/interface.md`](./packages/agent/docs/interface.md) - 인터페이스 명세서
-- [`packages/agent/docs/AGENTS.md`](./packages/agent/docs/AGENTS.md) - 문서 가이드
+`record_learning` · `get_topic_records` · `save_draft` 세 툴은
+마이그레이션 v2 와 함께 들어온다. 툴 목록에 아직 없으면 도착하지 않은 것이니,
+없는 툴을 부른 척하지 말고 그 사실을 사용자에게 말한다.
 
 ---
 
-### 2. packages/web-ui/
+## 6. 계획 문서는 하나뿐이다
 
-**통합 웹 UI - 사용자 인터페이스**
+유지되는 계획 문서는 이것 하나다. **새 계획 문서를 만들지 않는다.**
 
-모든 기능에 접근할 수 있는 단일 웹 UI:
-- 학습 대화 화면
-- 지식 블록 조회
-- 블로그 초안 편집
-- 개발 기록 타임라인
+- `local/docs/plans/2026-08-17-학습기록-구현계획.md`
 
-**문서:**
-- [`packages/web-ui/AGENTS.md`](./packages/web-ui/AGENTS.md) - 서비스 개요
-- [`packages/web-ui/docs/requirements.md`](./packages/web-ui/docs/requirements.md) - 요구사항 명세서
-- [`packages/web-ui/docs/features.md`](./packages/web-ui/docs/features.md) - 기능 명세서
-- [`packages/web-ui/docs/interface.md`](./packages/web-ui/docs/interface.md) - 인터페이스 명세서
-- [`packages/web-ui/docs/AGENTS.md`](./packages/web-ui/docs/AGENTS.md) - 문서 가이드
+같은 주제의 계획이 두 문서로 갈라지는 순간이 지난 실패
+('명세만 쌓이고 코드 0줄')의 시작점과 정확히 같은 모양이었다.
+축소됨 표시를 달고 새 문서를 쓰는 것도 안 된다 — 다음 세션의
+에이전트가 어느 쪽을 믿을지 모르게 된다. 기존 문서를 개정한다.
 
 ---
 
-### 3. packages/local-record/
+## 7. 실재하는 문서
 
-**개발 기록 시스템 - MCP 기반**
+여기 없는 문서는 없는 것이다. 링크를 지어내지 않는다.
 
-AI Agent (Codex/Claude Code)의 작업 기록:
-- MCP 프로토콜 (stdio 통신)
-- SQLite 로컬 저장
-- 날짜별 조회
-- 오프라인 spool 메커니즘
+**루트**
 
-**문서:**
-- [`packages/local-record/AGENTS.md`](./packages/local-record/AGENTS.md) - 서비스 개요
-- [`packages/local-record/docs/requirements.md`](./packages/local-record/docs/requirements.md) - 요구사항 명세서
-- [`packages/local-record/docs/features.md`](./packages/local-record/docs/features.md) - 기능 명세서
-- [`packages/local-record/docs/interface.md`](./packages/local-record/docs/interface.md) - 인터페이스 명세서
-- [`packages/local-record/docs/AGENTS.md`](./packages/local-record/docs/AGENTS.md) - 문서 가이드
+- `README.md` — 프로젝트 소개와 현재 상태
+- `docs/guides/backend-infra-roadmap-31w.md` — 31주 학습 로드맵,
+  주차별 권장 `topic_slug` 의 원본
+- `docs/superpowers/specs/2026-08-12-learning-record-design.md` —
+  이전 설계. 지금 명세가 흡수했다(참고용)
+- `docs/architecture/` — 시스템 맵 HTML 2개뿐. 마크다운 설계 문서는 없다
 
----
+**local/**
 
-## 🛠 Services (보조 서비스)
+- `local/README.md` — Task 0(환경 구축)과 MCP 설정
+- `local/docs/specs/2026-08-18-mvp-daily-loop.md` — 이번 MVP 명세(확정)
+- `local/docs/acceptance.md` — 평가 기준. 리뷰 루프의 종료 조건
+- `local/docs/plans/2026-08-17-학습기록-구현계획.md` — 유일한 계획 문서
+- `local/docs/plans/2026-07-22-warruru-local-1단계-구현계획.md` — 완료된 1단계
+- `local/docs/OUTSTANDING.md` — 미해결 결함
+- `local/docs/adr/2026-08-18-publish-target.md` — 발행 경로 결정
 
-### 1. services/ollama/
-
-**Local LLM 서버**
-
-로컬 GPU 기반 LLM 추론:
-- qwen2.5:3b (빠른 응답)
-- gpt-oss-20b (고품질 글 생성)
-- nomic-embed-text (Embedding)
-
-**문서:**
-- [`services/ollama/AGENTS.md`](./services/ollama/AGENTS.md) - 서비스 개요
-- [`services/ollama/docs/requirements.md`](./services/ollama/docs/requirements.md) - 요구사항 명세서
-- [`services/ollama/docs/features.md`](./services/ollama/docs/features.md) - 기능 명세서
-- [`services/ollama/docs/interface.md`](./services/ollama/docs/interface.md) - 인터페이스 명세서
-- [`services/ollama/docs/AGENTS.md`](./services/ollama/docs/AGENTS.md) - 문서 가이드
+`docs/architecture/*.md` · `docs/api/*` 12편은 **만들지 않는다.**
+약속만 있고 실물이 없었다. 시스템이 데몬 하나면 아키텍처 문서 4개가
+필요 없으므로, 문서를 만드는 대신 약속을 지웠다.
 
 ---
 
-### 2. services/qdrant/
+## 8. 지금 하는 일
 
-**Vector Database - RAG 검색**
+`local/` 축을 한 뼘 늘려, 개발 중 남긴 기록이
+"문제 → 선택 → 구현 → 측정 → 결과 → 한계" 6단 마크다운 한 편이 되어
+저장소 **바깥**에 앉는 것까지 한 바퀴를 돌린다.
 
-지식 베이스 검색:
-- Embedding 저장
-- 유사도 검색
-- Metadata 필터링
+- 마이그레이션 v2 — `learning_record` · `draft` 두 테이블만
+- MCP 툴 3개 추가(총 7개)
+- 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` 추가, 달력 `/c/{YYYY-MM}` 은 2주차
+- 결정적 6단 조립기 — **LLM 호출 0**
+- `PublishTarget` 인터페이스 + 어댑터 2개
 
-**문서:**
-- [`services/qdrant/AGENTS.md`](./services/qdrant/AGENTS.md) - 서비스 개요
-- [`services/qdrant/docs/requirements.md`](./services/qdrant/docs/requirements.md) - 요구사항 명세서
-- [`services/qdrant/docs/features.md`](./services/qdrant/docs/features.md) - 기능 명세서
-- [`services/qdrant/docs/interface.md`](./services/qdrant/docs/interface.md) - 인터페이스 명세서
-- [`services/qdrant/docs/AGENTS.md`](./services/qdrant/docs/AGENTS.md) - 문서 가이드
+착지점은 `~/.warruru/drafts/YYYY/MM/` 이고, 저장소 안 경로가 인자로
+들어오면 쓰기 어댑터가 **예외를 던진다.** origin 이 public 저장소이므로
+이건 취향이 아니라 사고 방지 장치다. `.gitignore` 한 줄은 `git add -f`
+한 번에 뚫리니 방어로 치지 않는다. `blog/` 는 사람이 읽고
+"공개해도 된다"고 결정한 글만 들어가는 자리로 역할을 축소했다.
 
----
+**새 코드보다 Task 0 가 먼저다.** 이 머신에서 데몬이 한 번도 돈 적이 없다
+(시스템 python 3.9.6, `pyproject.toml` 은 >=3.11 요구, venv·pytest·
+`~/.warruru` 없음). 기존 테스트 전원 통과와 데몬 기동이 초록이 되기 전에는
+새 코드를 0줄 쓴다. 절차는 `local/README.md` 에 있다.
 
-### 3. services/sync/
-
-**크로스 플랫폼 동기화 - Windows ↔ Mac**
-
-여러 기기 간 작업물 동기화:
-- 암호화 백업
-- 자동 병합
-- 충돌 해결
-
-**문서:**
-- [`services/sync/AGENTS.md`](./services/sync/AGENTS.md) - 서비스 개요
-- [`services/sync/docs/requirements.md`](./services/sync/docs/requirements.md) - 요구사항 명세서
-- [`services/sync/docs/features.md`](./services/sync/docs/features.md) - 기능 명세서
-- [`services/sync/docs/interface.md`](./services/sync/docs/interface.md) - 인터페이스 명세서
-- [`services/sync/docs/AGENTS.md`](./services/sync/docs/AGENTS.md) - 문서 가이드
+**이번에 하지 않는 것** — 티스토리 자동 발행(공식 API 는 2024년 2월 종료,
+2026-08-18 확인 기준 관련 경로 전부 404) · 데몬 안의 LLM 호출 ·
+RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_option`
+정규화 테이블 · 기록 거절 규칙. 각각의 이유는 이번 MVP 명세에 있다.
 
 ---
 
-### 4. services/tistory-mcp/
-
-**Tistory 블로그 연동 - MCP**
-
-Tistory API를 통한 자동 발행:
-- OAuth 인증
-- 초안 → 발행
-- 카테고리/태그 설정
-
-**문서:**
-- [`services/tistory-mcp/AGENTS.md`](./services/tistory-mcp/AGENTS.md) - 서비스 개요
-- [`services/tistory-mcp/docs/requirements.md`](./services/tistory-mcp/docs/requirements.md) - 요구사항 명세서
-- [`services/tistory-mcp/docs/features.md`](./services/tistory-mcp/docs/features.md) - 기능 명세서
-- [`services/tistory-mcp/docs/interface.md`](./services/tistory-mcp/docs/interface.md) - 인터페이스 명세서
-- [`services/tistory-mcp/docs/AGENTS.md`](./services/tistory-mcp/docs/AGENTS.md) - 문서 가이드
-
----
-
-## 📚 전역 문서 (docs/)
-
-### Architecture (아키텍처)
-
-시스템 전체 설계 문서:
-- [`docs/architecture/system-overview.md`](./docs/architecture/system-overview.md) - 전체 시스템 개요
-- [`docs/architecture/local-first-strategy.md`](./docs/architecture/local-first-strategy.md) - Local-First 전략
-- [`docs/architecture/cross-platform-sync.md`](./docs/architecture/cross-platform-sync.md) - 크로스 플랫폼 동기화
-- [`docs/architecture/data-flow.md`](./docs/architecture/data-flow.md) - 데이터 흐름
-
-### API (API 스펙)
-
-서비스 간 통신 인터페이스:
-- [`docs/api/agent-api.md`](./docs/api/agent-api.md) - 통합 에이전트 API
-- [`docs/api/rag-api.md`](./docs/api/rag-api.md) - RAG 검색 API
-- [`docs/api/sync-api.md`](./docs/api/sync-api.md) - 동기화 API
-- [`docs/api/tistory-mcp-api.md`](./docs/api/tistory-mcp-api.md) - Tistory MCP API
-
-### Guides (사용 가이드)
-
-개발 및 운영 가이드:
-- [`docs/guides/getting-started.md`](./docs/guides/getting-started.md) - 시작하기
-- [`docs/guides/local-development.md`](./docs/guides/local-development.md) - 로컬 개발
-- [`docs/guides/deployment.md`](./docs/guides/deployment.md) - 배포 가이드
-- [`docs/guides/troubleshooting.md`](./docs/guides/troubleshooting.md) - 문제 해결
-
----
-
-## 🤖 AI Agent 작업 가이드
-
-### 문서 우선 원칙
-
-**코드를 작성하기 전에 반드시 다음 순서로 문서를 작성합니다:**
-
-1. **요구사항 명세서 (requirements.md)**
-   - 왜 이 서비스가 필요한가?
-   - 누가 사용하는가?
-   - 핵심 목표는 무엇인가?
-
-2. **기능 명세서 (features.md)**
-   - 무엇을 할 수 있는가?
-   - 각 기능의 입력/출력은?
-   - 우선순위는?
-
-3. **인터페이스 명세서 (interface.md)**
-   - API 엔드포인트
-   - 데이터 스키마
-   - 통신 프로토콜
-
-4. **아키텍처 설계**
-   - 내부 구조
-   - 모듈 구성
-   - 의존성
-
-5. **구현 (코드 작성)**
-   - 명세서에 따라 구현
-   - 테스트 작성
-   - 문서 업데이트
-
-### 새 서비스 추가 시
-
-```bash
-# 1. 디렉토리 생성
-mkdir -p packages/new-service/docs
-
-# 2. AGENTS.md 작성 (서비스 개요)
-# 3. docs/requirements.md 작성
-# 4. docs/features.md 작성
-# 5. docs/interface.md 작성
-# 6. docs/AGENTS.md 작성 (문서 가이드)
-# 7. 이 파일(루트 AGENTS.md)에 추가
-```
-
-### 문서 작성 규칙
-
-- **Markdown 형식** 사용
-- **명확한 제목** 계층 구조
-- **예시 포함** (코드, API 호출 등)
-- **다이어그램** 활용 (Mermaid, ASCII art)
-- **업데이트 날짜** 명시
-
----
-
-## 🔄 작업 흐름
-
-### 학습 대화 → 블로그 발행
-
-```
-1. 사용자 질문 입력 (Web UI)
-   ↓
-2. Chat Module (RAG 검색 + LLM 응답)
-   ↓
-3. Structure Module (자동 지식 구조화)
-   ↓
-4. RAG 인덱싱 (Qdrant)
-   ↓
-5. Draft Module (블로그 초안 생성)
-   ↓
-6. 사용자 검토 & 수정
-   ↓
-7. Tistory MCP (자동 발행)
-   ↓
-8. blog/ 디렉토리 저장 (Git)
-```
-
-### 크로스 플랫폼 작업
-
-```
-Windows에서 작업
-   ↓
-Sync Service (자동 백업)
-   ↓
-서버 (S3/중앙 저장소)
-   ↓
-Sync Service (Mac)
-   ↓
-Mac에서 작업 재개
-   ↓
-자동 병합 & 충돌 해결
-```
-
----
-
-## 📖 추가 자료
-
-- [README.md](./README.md) - 프로젝트 소개
-- [warruru-architecture-v2.html](./warruru-architecture-v2.html) - 아키텍처 시각화
-- [.archive/](./archive/) - 기존 코드 (참고용)
-
----
-
-## 🎯 다음 단계
-
-1. 각 서비스의 **요구사항 명세서** 작성
-2. 각 서비스의 **기능 명세서** 작성
-3. 각 서비스의 **인터페이스 명세서** 작성
-4. **아키텍처 상세 설계** 작성
-5. **API 스펙** 확정
-6. **구현 시작** (명세서 기반)
-
----
-
-**Last Updated:** 2026-07-24
-**Author:** Warruru with Claude Code
+**Last Updated:** 2026-08-18

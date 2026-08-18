@@ -1,33 +1,32 @@
 # Warruru Local
 
-여러 AI 에이전트가 MCP 로 남긴 개발 기록을 개인 머신에 유실 없이 저장하고, 날짜별로 되돌아보게 한다.
+여러 AI 에이전트가 MCP 로 남긴 개발 기록을 개인 머신에 유실 없이 저장하고,
+날짜별로 되돌아보게 한다. WarruruLab 에서 실제로 도는 코드는 이것 하나다.
 
-WarruruLab 의 네 번째 축이며, 유일하게 서버가 아닌 사용자의 머신에서 돈다.
-명세서는 통합 docs 의 `docs/local/specs/` 에 있다.
+이번 MVP 의 명세 정본은 `docs/specs/2026-08-18-mvp-daily-loop.md` 다.
+평가 기준은 `docs/acceptance.md`, 발행 경로 결정은 `docs/adr/2026-08-18-publish-target.md` 에 있다.
+그 밖에 `docs/plans/` 의 구현 계획과 `docs/OUTSTANDING.md` 의 미해결 결함 목록을 함께 본다.
 
-## 구성
+## Task 0 — 환경 구축 (약 30분, 새 코드보다 먼저)
 
-```text
-Codex / Claude Code / Antigravity
-        │  stdio (에이전트마다 1 프로세스)
-        ▼
-   warruru-mcp  ──HTTP──▶  warruru-daemon  ──▶  ~/.warruru/warruru.db
-                                  │
-   브라우저  ─────────────────────┘  (날짜별 화면)
-```
-
-데몬이 SQLite 의 유일한 writer 다. 데몬에 닿지 못하면 어댑터가 기록을
-`~/.warruru/spool/` 에 남기고, 데몬이 나중에 흡수한다. **성공 응답을 받은
-기록은 어떤 경우에도 사라지지 않는다.**
-
-## 설치
+이 머신에서 데몬이 한 번도 돈 적이 없다. 시스템 python 은 **3.9.6** 인데
+`pyproject.toml` 은 **>=3.11** 을 요구하고, venv 도 pytest 도 `~/.warruru` 도 없다.
+이 상태에서 코드를 쓰면 "통과 중이던 248개 테스트"라는 유일한 안전망이
+검증되지 않은 전설이 된다. 그래서 아래 다섯이 초록이 되기 전에는 새 코드를 0줄 쓴다.
 
 ```bash
-cd local
-python -m pip install -e .
+python3.11 --version          # 1. 3.11+ 를 확보한다
+cd local && python3.11 -m venv .venv && source .venv/bin/activate   # 2. venv
+pip install -e '.[dev]'       # 3. 개발 의존성까지 설치
+python -m pytest -q           # 4. 기존 테스트 24파일 전원 통과 확인
+warruru-daemon                # 5. 데몬 기동
 ```
 
-에이전트의 MCP 설정에 다음 한 줄을 넣는다. 데몬은 필요할 때 어댑터가 알아서 띄운다.
+마지막으로 브라우저에서 <http://127.0.0.1:8787> 을 연다.
+루트는 오늘 날짜 화면(`/d/{오늘}`)으로 302 리다이렉트된다. 이 화면이 뜨면 Task 0 완료다.
+
+평소에는 데몬을 직접 띄울 필요가 없다. 에이전트의 MCP 설정에 아래를 넣으면
+어댑터가 데몬이 꺼져 있을 때 알아서 기동한다.
 
 ```json
 {
@@ -43,11 +42,62 @@ python -m pip install -e .
 `WARRURU_TOOL` 은 화면에서 기록을 도구별로 나눌 때 쓰는 이름이다.
 에이전트마다 다르게 준다: `codex`, `claude-code`, `antigravity`.
 
-화면은 <http://127.0.0.1:8787/> 에서 연다.
+## 구성
+
+```text
+Codex / Claude Code / Antigravity
+        │  stdio (에이전트마다 1 프로세스)
+        ▼
+   warruru-mcp  ──HTTP──▶  warruru-daemon
+                                  │
+                                  ▼
+                        ~/.warruru/warruru.db
+                                  ▲
+   브라우저  ─────────────────────┘
+```
+
+데몬이 SQLite 의 유일한 writer 다. 데몬에 닿지 못하면 어댑터가 기록을
+`~/.warruru/spool/` 에 남기고, 데몬이 나중에 흡수한다. **성공 응답을 받은
+기록은 어떤 경우에도 사라지지 않는다.**
+
+`mcp/` 는 `daemon/` 을 한 번도 임포트하지 않는다. 이 경계는 깨면 안 된다.
+
+## MCP 툴
+
+구현되어 동작하는 것 4개:
+
+- `start_work` — 작업 세션을 연다
+- `record_checkpoint` — 작업 도중의 판단·오류·결정을 한 건 남긴다
+- `finish_work` — 작업 세션을 닫는다
+- `get_today_context` — 오늘의 세션과 체크포인트를 돌려준다
+
+**계획됨 (아직 구현되지 않았다)** 3개:
+
+- `record_learning` — 학습 기록 한 건. 필수는 `kind` · `topic` · `title` · `body` 넷이고
+  `rationale` · `outcome` · `limitation` · `interview` 는 비어도 거절하지 않는다
+- `get_topic_records` — 한 주제(`topic_slug`)의 기록 묶음을 돌려준다. 초안을 다듬을 때 쓴다
+- `save_draft` — 다듬은 마크다운으로 같은 draft 행을 덮어쓴다
+
+## 화면
+
+동작하는 것:
+
+- `/` — 오늘 날짜 화면으로 리다이렉트
+- `/d/{date}` — 그날의 작업과 체크포인트
+- `/d/{date}?deleted=1` — 삭제한 기록
+
+**계획됨 (아직 없다)**: 주제 목록 `/t` 와 주제 상세 `/t/{slug}`,
+초안 `/drafts/{id}`, 달력 `/c/{YYYY-MM}`.
+
+현재 구현된 화면에는 JavaScript 가 없다. 전부 Jinja2 서버 렌더링이다.
+JS 예외는 계획된 초안 화면의 복사 버튼 하나뿐이고(인라인 8줄), 그 스크립트가
+죽어도 textarea 전체 선택으로 대체된다.
+조회는 토큰이 필요 없고, 상태를 바꾸는 폼만 토큰을 요구한다.
 
 ## 에이전트 기록 규칙
 
-각 에이전트의 `AGENTS.md` 또는 규칙 파일에 넣는다.
+각 에이전트의 `AGENTS.md` 또는 규칙 파일에 넣는다. 기록을 남길지 말지는 100% 에이전트
+재량이므로, 이 문단이 사실상 "중요한 것을 알아채는 장치"의 전부다.
 
 ```md
 작업을 시작할 때 start_work 를 호출한다.
@@ -67,8 +117,28 @@ python -m pip install -e .
 단순 오타 수정, 포맷팅, 파일 탐색, 반복 테스트, 임시 디버깅 코드는 기록하지 않는다.
 ```
 
-`start_work` 를 빼먹어도 기록은 남는다. 자동으로 세션이 만들어지고
-`INFERRED` 로 표시된다.
+`start_work` 를 빼먹어도 기록은 남는다. 자동으로 세션이 만들어지고 `INFERRED` 로 표시된다.
+
+### record_learning 을 부르는 순간 (툴 구현 후 적용)
+
+체크포인트가 "작업이 어떻게 흘러갔는가"라면, 학습 기록은 "나중에 글로 설명할 수 있는가"다.
+아래 넷 중 하나에 해당하면 그 자리에서 부른다. 나중에 몰아서 쓰지 않는다 — 그때는 이미
+숫자와 이유를 잊는다.
+
+- `EXPERIMENT` — 무언가를 바꿔보고 **측정값이 달라졌을 때**.
+  바꾼 값과 전후 수치를 `title` 에 그대로 적는다(예: 풀 크기 10→30, p95 320ms→90ms).
+- `TROUBLESHOOTING` — 원인을 몰랐다가 **알아냈을 때**. 증상이 아니라 원인을 적는다.
+- `TECH_CHOICE` — 후보 둘 이상을 놓고 **하나를 골랐을 때**. 버린 쪽과 버린 이유를 함께 적는다.
+- `CONCEPT` — 그때까지 잘못 알고 있던 것을 **바로잡았을 때**.
+
+지킬 것:
+
+- **지어내지 않는다.** `rationale` · `outcome` · `limitation` 이 비면 비운 채로 저장한다.
+  빈 필드는 화면에 '재료 부족' 배지로 뜨고, 툴 응답이 그 필드를 채워 다시 부르는 예시를 돌려준다.
+  모르는 것은 사용자에게 되묻는다.
+- **`topic` 은 여러 기록에 걸쳐 같은 말을 쓴다.** 집계와 글 한 편의 단위가 topic 이다.
+  응답에 오는 유사 슬러그 힌트('connection-pool 과 유사합니다')를 보면 그쪽을 따른다.
+- **기록 실패로 작업을 멈추지 않는다.** 데몬이 꺼져 있어도 봉투는 spool 에 떨어진다.
 
 ## 저장 위치
 
@@ -77,11 +147,16 @@ python -m pip install -e .
 ├── warruru.db          기록
 ├── config/             machine.json, daemon.json(토큰)
 ├── spool/              데몬에 못 넘긴 기록. absorbed/ 로 옮겨진다
-├── logs/                daemon.log, mcp.log
-└── run/                 daemon.lock
+├── drafts/             생성된 초안 마크다운 (계획됨, 저장소 바깥)
+├── logs/               daemon.log, mcp.log
+└── run/                daemon.lock
 ```
 
-`WARRURU_HOME` 으로 위치를 바꿀 수 있다. 설정 목록은 명세서 IF-7 에 있다.
+`WARRURU_HOME` 으로 위치를 통째로 바꿀 수 있다. 그 밖의 환경변수 목록은 확인 필요.
+
+초안이 저장소가 아니라 여기 앉는 이유는 취향이 아니다. warruru-lab 저장소는 public 이고,
+미완성 사고 과정이 `git add -A` 한 번에 인터넷에 올라가는 것을 막아야 한다.
+저장소 안 경로가 인자로 들어오면 쓰기 어댑터가 예외를 던진다.
 
 ## 개발
 
@@ -90,14 +165,16 @@ python -m pytest -q          # 전체
 python -m pytest tests/test_session_attach.py -v
 ```
 
-시각과 식별자 생성은 주입할 수 있다. 귀속 규칙과 자동 마감을 검증할 때
-실제 대기를 쓰지 않는다.
+시각과 식별자 생성은 주입할 수 있다. 귀속 규칙과 자동 마감을 검증할 때 실제 대기를 쓰지 않는다.
+날짜 경계는 반드시 `clock.local_day_bounds` 만 쓴다.
 
-## 두 머신 점검 (AC-10, 수동)
+**모든 커밋의 머지 조건은 기존 테스트 24파일 전원 통과다.**
+
+## 두 머신 점검 (수동)
 
 자동화할 수 없어 손으로 확인한다. Windows 와 macOS 각각에서:
 
-- [ ] `python -m pip install -e .` 가 끝난다
+- [ ] `pip install -e '.[dev]'` 가 끝난다
 - [ ] 에이전트에서 `start_work` → `record_checkpoint` → `finish_work` 가 동작한다
 - [ ] <http://127.0.0.1:8787/> 에 그 기록이 보인다
 - [ ] `~/.warruru/config/machine.json` 의 `machine_id` 가 두 머신에서 서로 다르다
@@ -106,5 +183,6 @@ python -m pytest tests/test_session_attach.py -v
 
 ## 하지 않는 일
 
-Git Diff·Patch·핵심 Symbol 추출, 오류/테스트 로그 수집, 서버 전송,
-LLM 요약, 블로그 초안 생성은 전부 후속 단계다. 이 축은 기록만 한다.
+Git Diff·Patch·핵심 Symbol 추출, 오류/테스트 로그 수집, 서버 전송, 데몬 안의 LLM 호출은
+하지 않는다. 초안은 LLM 없이 결정적으로 조립하고, 문장을 다듬는 것은 사용자 앞에 이미
+떠 있는 에이전트의 몫이다.
