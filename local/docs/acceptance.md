@@ -126,6 +126,22 @@ grep -n "_NO_SPOOL_STATUSES" src/warruru_local/mcp/client.py
 - 쓰기 봉투가 404 를 받았을 때 spool 에 남는 테스트가 있는가
 - 흡수 단계에서 **모르는 kind 봉투가 dead-letter 로 가는가**
   (경고만 남기고 `absorbed/` 로 넘기면 미달)
+- **`learning_record` 봉투가 `envelope_version: 2` 로 쓰이는가**
+- **데몬이 `{1, 2}` 를 모두 읽는가** (`_has_unknown_version` 이 집합 판정인가)
+
+```bash
+grep -n "SUPPORTED_ENVELOPE_VERSIONS" src/warruru_local/spool.py
+python -c "import json;print(json.loads(open([*__import__('glob').glob(
+  __import__('os').path.expanduser('~/.warruru/spool/*.jsonl'))][0]
+  ).readline())['envelope_version'])"
+```
+
+**뒤 두 항목이 없으면 이 기준은 통과해도 유실은 계속된다.**
+404 를 spool 로 돌리는 수정은 *새* 데몬 안에 있는데, K2 가 문제되는 상황은
+정의상 *구버전* 데몬이 떠 있는 상황이다. 그 데몬의 스윕이 spool 파일을 집어
+`_HANDLERS` 에 없는 kind 를 경고만 남기고 `absorbed/` 로 넘긴다 — 한 겹 뒤에서
+똑같이 사라진다. 봉투 버전을 올려야 구버전 데몬이 그 파일을 통째로 건너뛴다
+(명세 §4.5.1). 상수 하나만 보고 통과를 주면 안 되는 이유가 이것이다.
 
 이 수정이 **새 기록 코드보다 먼저** 들어갔는지도 본다. 순서가 뒤집혔다면
 기능은 통과해도 이 항목은 '아니오' 다.
@@ -376,7 +392,10 @@ def test_400_이면_spool_하지_않는다(home):
 git -C "$REPO" ls-files packages services | wc -l
 ```
 
-이번 MVP 의 문서 순증은 **신규 4 − 폐기 49 로 음수**여야 한다.
+이번 MVP 의 문서 순증은 **신규 6 − 폐기 49 로 음수**여야 한다.
+**신규 6 의 내역** — `CLAUDE.md`(포인터) · 학습 가이드 · MVP 명세 ·
+평가 기준 · ADR · 구현 계획. 시스템 맵 HTML 2개는 폐기한 아키텍처를 그린 것이라
+`.archive/architecture-2026-07/` 로 내렸으므로 신규에 넣지 않는다.
 코드 0줄인 명세가 남아 있으면 다음 세션의 에이전트가 그것을 읽고
 틀린 전제를 세운다(8787 포트 충돌, MySQL/Qdrant 전제, 죽은 OAuth 스펙).
 

@@ -11,8 +11,8 @@
 ## 1. 지금 이 저장소에 있는 것
 
 **실제로 도는 코드는 `local/` 하나다.** 소스 2,918줄(`.py` 기준, 템플릿 포함 3,093),
-테스트 파일 24개(`conftest.py` 별도)가 마지막 실행에서 전원 통과했다.
-단, 이 머신에서 아직 한 번도 돌려본 적이 없다 — Task 0 에서 실측한다.
+테스트 파일 24개(`conftest.py` 별도), 테스트 248개가 이 머신에서 전원 통과한다
+(2026-08-18 실측, Python 3.12.14). `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
 
 - MCP stdio 어댑터 `warruru-mcp` — 툴 4개
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`)
@@ -159,8 +159,9 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 - `docs/guides/backend-infra-roadmap-31w.md` — 31주 학습 로드맵,
   주차별 권장 `topic_slug` 의 원본
 - `docs/superpowers/specs/2026-08-12-learning-record-design.md` —
-  이전 설계. 지금 명세가 흡수했다(참고용)
-- `docs/architecture/` — 시스템 맵 HTML 2개뿐. 마크다운 설계 문서는 없다
+  **대체됨.** 지금 명세가 흡수했고 일부 결정은 뒤집혔다. 파일 첫머리 경고를 읽어라
+- `docs/architecture/` — **없다.** 시스템 맵 HTML 2개는 폐기한 아키텍처를
+  그린 것이라 `.archive/architecture-2026-07/` 로 내렸다(2026-08-18)
 
 **local/**
 
@@ -196,10 +197,10 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 한 번에 뚫리니 방어로 치지 않는다. `blog/` 는 사람이 읽고
 "공개해도 된다"고 결정한 글만 들어가는 자리로 역할을 축소했다.
 
-**새 코드보다 Task 0 가 먼저다.** 이 머신에서 데몬이 한 번도 돈 적이 없다
-(시스템 python 3.9.6, `pyproject.toml` 은 >=3.11 요구, venv·pytest·
-`~/.warruru` 없음). 기존 테스트 전원 통과와 데몬 기동이 초록이 되기 전에는
-새 코드를 0줄 쓴다. 절차는 `local/README.md` 에 있다.
+**Task 0(환경)은 2026-08-18 에 끝났다.** 248 passed, 데몬 기동 확인.
+다시 할 필요 없다 — `local/.venv/` 를 켜고 바로 작업한다.
+그 과정에서 `mcp` 2.0.0 이 `mcp.server.fastmcp` 경로를 없앤 것을 발견해
+`pyproject.toml` 을 `mcp>=1.16.0,<2` 로 고정했다. 이 상한을 풀지 마라.
 
 **이번에 하지 않는 것** — 티스토리 자동 발행(공식 API 는 2024년 2월 종료,
 2026-08-18 확인 기준 관련 경로 전부 404) · 데몬 안의 LLM 호출 ·

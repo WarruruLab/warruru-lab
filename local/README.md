@@ -7,20 +7,38 @@
 평가 기준은 `docs/acceptance.md`, 발행 경로 결정은 `docs/adr/2026-08-18-publish-target.md` 에 있다.
 그 밖에 `docs/plans/` 의 구현 계획과 `docs/OUTSTANDING.md` 의 미해결 결함 목록을 함께 본다.
 
-## Task 0 — 환경 구축 (약 30분, 새 코드보다 먼저)
+## 환경 — Task 0 은 끝났다 (2026-08-18)
 
-이 머신에서 데몬이 한 번도 돈 적이 없다. 시스템 python 은 **3.9.6** 인데
-`pyproject.toml` 은 **>=3.11** 을 요구하고, venv 도 pytest 도 `~/.warruru` 도 없다.
-이 상태에서 코드를 쓰면 "통과 중이던 248개 테스트"라는 유일한 안전망이
-검증되지 않은 전설이 된다. 그래서 아래 다섯이 초록이 되기 전에는 새 코드를 0줄 쓴다.
+이 머신에는 `local/.venv/`(Python 3.12.14)와 `~/.warruru/` 가 이미 있고,
+**248개 테스트가 전원 통과한다.** 매번 다시 만들 필요 없다.
 
 ```bash
-python3.11 --version          # 1. 3.11+ 를 확보한다
-cd local && python3.11 -m venv .venv && source .venv/bin/activate   # 2. venv
-pip install -e '.[dev]'       # 3. 개발 의존성까지 설치
-python -m pytest -q           # 4. 기존 테스트 24파일 전원 통과 확인
-warruru-daemon                # 5. 데몬 기동
+cd local && source .venv/bin/activate
+python -m pytest -q           # 248 passed 여야 한다
+warruru-daemon                # 필요할 때만. 어댑터가 알아서 띄운다
 ```
+
+### 새 머신에서 처음 세팅할 때
+
+시스템 python 은 macOS 기본 **3.9.6** 이라 그대로는 안 된다.
+`pyproject.toml` 이 **>=3.11** 을 요구한다.
+
+```bash
+brew install python@3.12                      # 1. 3.12 를 쓴다 (아래 주의)
+cd local
+/opt/homebrew/bin/python3.12 -m venv .venv    # 2. venv
+source .venv/bin/activate
+pip install -e '.[dev]'                       # 3. 개발 의존성까지
+python -m pytest -q                           # 4. 248 passed 확인
+```
+
+**3.13 이 아니라 3.12 인 이유** — 의존성이 여섯 개라 그중 하나라도
+3.13 휠이 없으면 소스 빌드로 넘어간다. Docker 는 쓰지 않는다.
+데몬이 `~/.warruru` 에 쓰고, 어댑터가 데몬을 자동 기동하고,
+브라우저가 `127.0.0.1` 로 붙기 때문에 컨테이너 경계를 세 번 넘어야 한다.
+
+**`mcp` 는 1.x 로 고정돼 있다.** 2.0.0 에서 `mcp.server.fastmcp` 경로가
+사라져 테스트가 수집 단계부터 깨진다(2026-08-18 확인). 상한을 풀지 마라.
 
 마지막으로 브라우저에서 <http://127.0.0.1:8787> 을 연다.
 루트는 오늘 날짜 화면(`/d/{오늘}`)으로 302 리다이렉트된다. 이 화면이 뜨면 Task 0 완료다.
@@ -152,7 +170,20 @@ JS 예외는 계획된 초안 화면의 복사 버튼 하나뿐이고(인라인 
 └── run/                daemon.lock
 ```
 
-`WARRURU_HOME` 으로 위치를 통째로 바꿀 수 있다. 그 밖의 환경변수 목록은 확인 필요.
+`WARRURU_HOME` 으로 위치를 통째로 바꿀 수 있다. 전체 목록은
+`src/warruru_local/config.py` 의 `load_settings()` 가 정본이고, 지금은 15개다.
+
+```text
+WARRURU_HOME  TOKEN  TOOL  DAEMON_HOST  DAEMON_PORT  LOG_LEVEL
+WARRURU_ATTACH_WINDOW_MINUTES   IDLE_TIMEOUT_HOURS
+WARRURU_SWEEP_INTERVAL_SECONDS  SPOOL_QUIET_SECONDS
+WARRURU_HTTP_TIMEOUT_SECONDS    AUTOSTART_DAEMON
+WARRURU_GIT_TIMEOUT_SECONDS     GIT_CACHE_TTL_SECONDS
+WARRURU_GIT_DIRTY_FILE_CAP
+```
+
+(앞 여섯은 `WARRURU_` 접두사를 공유한다. 우선순위는
+환경변수 > `config/daemon.json` > 기본값.)
 
 초안이 저장소가 아니라 여기 앉는 이유는 취향이 아니다. warruru-lab 저장소는 public 이고,
 미완성 사고 과정이 `git add -A` 한 번에 인터넷에 올라가는 것을 막아야 한다.
@@ -170,9 +201,11 @@ python -m pytest tests/test_session_attach.py -v
 
 **모든 커밋의 머지 조건은 기존 테스트 24파일 전원 통과다.**
 
-## 두 머신 점검 (수동)
+## 두 머신 점검 (수동) — **MVP 이후로 미룸**
 
-자동화할 수 없어 손으로 확인한다. Windows 와 macOS 각각에서:
+크로스 플랫폼은 `AGENTS.md` §2 에서 'MVP 이후' 로 내려갔다.
+지금 Windows 머신이 범위에 없으므로 이 절은 **실행하지 않는다.**
+서버·동기화 축을 되살릴 때 다시 꺼낸다. 그때 확인할 것:
 
 - [ ] `pip install -e '.[dev]'` 가 끝난다
 - [ ] 에이전트에서 `start_work` → `record_checkpoint` → `finish_work` 가 동작한다
