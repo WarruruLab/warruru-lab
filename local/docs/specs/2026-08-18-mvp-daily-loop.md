@@ -39,7 +39,7 @@
 날짜별 나열은 이미 있지만, 글 한 편의 단위는 날짜가 아니라 주제다.
 
 > **판정 사건:** 하루치 기록 3건을 남긴 뒤 `/t` 를 새로고침하면
-> `커넥션 풀 3건 · 실험2 트러블슈팅1 · 마지막 16:40` 한 줄이 뜬다.
+> `connection pool 3건 · 실험2 트러블슈팅1 · 마지막 16:40` 한 줄이 뜬다.
 
 ### (c) 주제를 골라 사고과정·결정·해결과정을 블로그 글로
 
@@ -107,7 +107,7 @@ DB 가 비면 (b)(c)(d) 가 전부 빈 화면이고 나머지 설계의 장점�
   그 옆에 **'이 주제로 글을 쓰기에 부족한 필드'** 목록.
 - **우선순위:** 1주차.
 
-'미분류' 구획은 오타 교정 장치다. `connection pool` / `Connection Pool` 같은 변형이
+'미분류' 구획은 오타 교정 장치다. `connection pool` / `Connection_Pool` 같은 변형이
 슬러그 정규화를 통과해도 남는 소수는 여기서 눈에 띈다. **병합 UI 는 만들지 않는다** —
 남는 소수는 SQL 한 줄이 화면보다 싸다.
 
@@ -248,8 +248,14 @@ CREATE INDEX IF NOT EXISTS ix_draft_slug
 
 **`topic` 과 `topic_slug` 를 함께 저장하는 이유.**
 원문은 사람이 적은 말이라 화면에 그대로 보여야 하고, 집계는 변형에 흔들리면 안 된다.
-`connection pool` · `Connection Pool` · `커넥션 풀` 이 각각 별개 주제가 되면
+`connection pool` · `Connection Pool` · ` Connection_Pool ` 이 각각 별개 주제가 되면
 같은 이야기를 두 번 쓰게 된다. 그래서 **집계 · 필터 · 글 생성은 예외 없이 slug 기준**이다.
+
+**한글은 한글 슬러그가 된다** (2026-08-18 확정). `커넥션 풀` → `커넥션-풀` 이다.
+한글을 버리면 모든 한글 주제가 빈 슬러그 하나로 뭉쳐 집계가 무너진다.
+따라서 **`커넥션 풀` 과 `connection pool` 은 다른 주제다.** 한쪽으로 정해 쓰면 된다.
+권장 슬러그(`docs/guides/...` 부록 A)는 전부 영문이므로, 그 목록을 따르면
+힌트가 첫 호출부터 맞는다 — 한글 주제는 그 목록과 절대 일치하지 않는다.
 
 **`draft` 에 git 스냅샷 컬럼군을 두지 않는 이유.**
 초안은 특정 커밋의 산물이 아니라 여러 기록의 합성물이고, 각 기록이 이미 스냅샷을 들고 있다.
@@ -260,7 +266,7 @@ YAML front matter 를 둔다. 필드는 넷이다 — `topic` · `kind` · `sour
 
 ```yaml
 ---
-topic: 커넥션 풀
+topic: connection pool
 kind: [EXPERIMENT, TROUBLESHOOTING]
 source_record_ids: [rec_01H..., rec_01H...]
 status: DRAFT
@@ -338,11 +344,11 @@ def record_learning(
     "work_id": "wrk_01H...",
     "work_origin": "IMPLICIT",
     "attached_by": "CLIENT",
-    "topic": "커넥션 풀",
+    "topic": "connection pool",
     "topic_slug": "connection-pool",
     "missing_fields": ["outcome", "limitation"],
     "example_call": (
-        "record_learning(kind='EXPERIMENT', topic='커넥션 풀', "
+        "record_learning(kind='EXPERIMENT', topic='connection pool', "
         "title='풀 크기 10→30, p95 320ms→90ms', body='...', "
         "outcome='...', limitation='...')"
     ),
@@ -412,7 +418,7 @@ def get_topic_records(topic_slug: str, since: str | None = None) -> dict:
     "storage": "DAEMON",          # 데몬이 꺼져 있으면 "NONE" (기존 query 관례)
     "message": "...",
     "topic_slug": "connection-pool",
-    "topic": "커넥션 풀",           # 가장 최근 기록의 원문
+    "topic": "connection pool",           # 가장 최근 기록의 원문
     "records": [
         {"record_id": "rec_...", "kind": "EXPERIMENT",
          "title": "...", "body": "...", "rationale": "...",

@@ -130,7 +130,9 @@ def test_로드맵_문서의_슬러그가_전부_들어_있다():
     section = text[text.index("## 부록 A."):text.index("## 부록 B.")]
     in_doc = {s for s in re.findall(r"`([a-z0-9][a-z0-9-]*)`", section)
               if not s.endswith(".py") and "/" not in s}
-    assert in_doc <= set(topics.RECOMMENDED_SLUGS)
+    assert in_doc, "부록 A 에서 슬러그를 하나도 찾지 못했다 — 문서 구조가 바뀌었나"
+    # 양방향이다. 한쪽만 보면 '문서에 없는 슬러그를 지어내지 않는다' 를 못 지킨다.
+    assert in_doc == set(topics.RECOMMENDED_SLUGS)
 
 
 # ── 경계 ───────────────────────────────────────────────────────────
@@ -141,12 +143,57 @@ def test_topics_는_다른_모듈을_임포트하지_않는다():
     from pathlib import Path
 
     source = Path(topics.__file__).read_text(encoding="utf-8")
-    imported = set()
+    offenders = set()
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
+            offenders.update(
+                alias.name for alias in node.names
+                if alias.name.startswith("warruru_local")
+            )
         elif isinstance(node, ast.ImportFrom):
-            imported.add(node.module or "")
+            # 상대 임포트(`from . import spool`)는 module 에 패키지 이름이
+            # 안 담긴다. level 을 안 보면 경계가 뚫려도 이 테스트가 통과한다.
+            if node.level > 0:
+                offenders.add("." * node.level + (node.module or ""))
+            elif (node.module or "").startswith("warruru_local"):
+                offenders.add(node.module)
 
-    warruru = {name for name in imported if name.startswith("warruru_local")}
-    assert warruru == set(), f"이 모듈은 아무것도 임포트하면 안 된다: {warruru}"
+    assert offenders == set(), f"이 모듈은 패키지 안의 무엇도 임포트하면 안 된다: {offenders}"
+
+
+def test_예시_재호출은_문법이_맞는_파이썬이다():
+    """이 문자열의 유일한 용도가 복사해서 다시 부르는 것이다.
+
+    본문은 6단 마크다운이라 줄바꿈이 들어 있다. 따옴표만 바꿔치기하면
+    닫히지 않은 문자열이 나가고, 그걸 받은 에이전트는 보강을 포기한다.
+    """
+    import ast
+
+    values = dict(FULL, body="## 문제\n풀이 말랐다.\n\n## 선택\n\"인용\" 과 역슬래시 \\")
+    example = topics.example_call(values, ["outcome"])
+    ast.parse(example)
+
+
+def test_긴_값은_자리표시자로_줄인다():
+    values = dict(FULL, body="가" * (topics.ECHO_MAX + 1))
+    example = topics.example_call(values, ["outcome"])
+    assert 'body="..."' in example
+    assert "가" * 20 not in example
+
+
+def test_짧은_값은_그대로_실어_복사만으로_끝나게_한다():
+    example = topics.example_call(FULL, ["outcome"])
+    assert '"커넥션 풀"' in example
+
+
+def test_이미_채운_선택_필드도_예시에_남는다():
+    """빼면 그 예시를 복사한 순간 사용자가 이미 준 근거가 사라진다."""
+    values = dict(FULL, outcome=None, limitation=None)
+    example = topics.example_call(values, topics.missing_fields(values))
+    assert "rationale=" in example
+    assert '"근거"' in example
+
+
+def test_숫자_0_은_결손이_아니다():
+    """`not value` 로 판정하면 0 과 False 가 결손으로 보고된다."""
+    assert topics.missing_fields(dict(FULL, outcome=0)) == []

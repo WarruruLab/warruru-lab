@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 
@@ -41,6 +42,13 @@ def slugify(topic: str) -> str:
 
     멱등이다 — 결과를 다시 넣어도 같은 값이 나온다. 권장 슬러그 상수가
     이 성질에 기대고 있어서 테스트로 잠가 두었다.
+
+    **알고 받는 한계.** 기호는 구분자가 아니라 그냥 지운다.
+    그래서 `JPA N+1` 은 `jpa-n1` 이 되고 권장 슬러그 `jpa-n-plus-one` 과
+    영영 만나지 않는다. `C++` 과 `C#` 은 둘 다 `c` 로 뭉친다.
+    기호를 살리는 규칙(`+` → `-plus`)은 어느 기호까지 살릴지 끝이 없어서 넣지 않았다.
+    대신 응답의 `similar_slugs` 힌트가 권장 슬러그를 먼저 보여 주는 것으로 막는다 —
+    사람이 아니라 에이전트가 주제를 적으므로, 힌트를 읽고 맞추는 쪽이 싸다.
     """
     text = unicodedata.normalize("NFKC", topic or "").strip().lower()
     text = _SEPARATORS.sub("-", text)
@@ -58,33 +66,63 @@ def missing_fields(values: dict) -> list[str]:
     return [name for name in OPTIONAL_FIELDS if _is_blank(values.get(name))]
 
 
+# 예시에 원래 값을 그대로 실을지, 자리표시자로 줄일지 가르는 길이.
+# 본문은 6단 마크다운이라 길다. 통째로 실으면 응답이 기록 하나만큼 부풀고,
+# 에이전트가 매 호출마다 그 비용을 낸다.
+ECHO_MAX = 80
+
+
 def example_call(values: dict, missing: list[str]) -> str:
     """결손 필드를 채워 같은 툴을 다시 부르는 예시.
 
-    복사해서 바로 실행할 수 있어야 한다. 다시 타이핑하게 만들면 안 채운다.
-    그래서 필수 필드는 원래 값을 그대로 되돌려 준다.
+    **반드시 문법이 맞는 파이썬이어야 한다.** 이 문자열의 유일한 용도가
+    복사해서 다시 부르는 것이기 때문이다. 줄바꿈이 든 본문을 그대로 따옴표
+    안에 넣으면 깨진 코드가 나가고, 그걸 받은 에이전트는 보강을 포기한다.
+    그래서 값은 `json.dumps` 로 감싼다 — 그 결과는 파이썬 문자열 리터럴로도 유효하다.
+
+    긴 값(`ECHO_MAX` 초과)은 `"..."` 로 줄인다. 자리표시자인 것이 한눈에 보여야
+    에이전트가 원래 값을 다시 넣는다. 짧은 값은 그대로 실어 복사만으로 끝나게 한다.
+
+    이미 채워진 선택 필드도 함께 실어 준다. 빼면 그 예시를 복사한 순간
+    사용자가 이미 준 근거가 사라진다.
     """
     if not missing:
         return ""
 
     parts = [f"{name}={_literal(values.get(name))}" for name in REQUIRED_FIELDS]
+    parts += [
+        f"{name}={_literal(values.get(name))}"
+        for name in OPTIONAL_FIELDS
+        if name not in missing and not _is_blank(values.get(name))
+    ]
     parts += [f'{name}="..."' for name in missing]
     return "record_learning(" + ", ".join(parts) + ")"
 
 
 def _is_blank(value) -> bool:
+    """`None` 과 공백뿐인 문자열만 비어 있는 것으로 본다.
+
+    `not value` 로 판정하면 나중에 숫자나 불리언 필드가 생겼을 때
+    `0` 과 `False` 가 결손으로 보고되어, 이미 준 값을 다시 달라고 하게 된다.
+    """
     if value is None:
         return True
     if isinstance(value, str):
         return value.strip() == ""
-    return not value
+    return False
 
 
 def _literal(value) -> str:
+    """파이썬 문자열 리터럴. `json.dumps` 의 결과는 파이썬에서도 유효하다.
+
+    직접 따옴표만 바꿔치기하면 역슬래시와 줄바꿈에서 깨진다.
+    """
     if value is None:
         return "None"
-    text = str(value).replace('"', '\\"')
-    return f'"{text}"'
+    text = str(value)
+    if len(text) > ECHO_MAX:
+        return '"..."'
+    return json.dumps(text, ensure_ascii=False)
 
 
 # 원본은 `docs/guides/backend-infra-roadmap-31w.md` 부록 A 다. **문서가 곧 데이터다.**
