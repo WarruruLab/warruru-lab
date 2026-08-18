@@ -167,7 +167,9 @@ CREATE INDEX IF NOT EXISTS ix_record_work
 
 CREATE TABLE IF NOT EXISTS draft (
     draft_id           TEXT PRIMARY KEY,
+    topic              TEXT NOT NULL,
     topic_slug         TEXT NOT NULL,
+    kind_json          TEXT,
     title              TEXT NOT NULL,
     markdown           TEXT NOT NULL,
     markdown_truncated INTEGER NOT NULL DEFAULT 0,

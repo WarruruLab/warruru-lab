@@ -16,7 +16,7 @@ EXPECTED_TABLES = {
     "draft",
 }
 
-# migrations.py의 _V1 DDL을 그대로 옮긴 계약. DDL이 바뀌면 여기도 같이 바뀌어야 한다.
+# migrations.py의 _V1·_V2 DDL을 그대로 옮긴 계약. DDL이 바뀌면 여기도 같이 바뀌어야 한다.
 
 EXPECTED_INDEXES = {
     "ix_work_started",
@@ -130,7 +130,9 @@ EXPECTED_COLUMNS = {
     },
     "draft": {
         "draft_id",
+        "topic",
         "topic_slug",
+        "kind_json",
         "title",
         "markdown",
         "markdown_truncated",
@@ -202,6 +204,7 @@ EXPECTED_NOT_NULL = {
         "created_at",
     },
     "draft": {
+        "topic",
         "topic_slug",
         "title",
         "markdown",
@@ -301,7 +304,7 @@ def test_체크포인트_인덱스가_생긴다(tmp_path):
     assert "ix_work_by_client" in names
 
 
-def test_인덱스가_여섯_개_모두_생긴다(tmp_path):
+def test_인덱스가_모두_생긴다(tmp_path):
     conn = db.connect(tmp_path / "warruru.db")
     migrations.migrate(conn, NOW)
     rows = conn.execute(
