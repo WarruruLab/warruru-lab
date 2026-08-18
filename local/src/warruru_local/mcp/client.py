@@ -17,7 +17,10 @@ from warruru_local.ids import new_id
 
 SPAWN_WAIT_SECONDS = 3.0
 SPAWN_POLL_SECONDS = 0.1
-_NO_SPOOL_STATUSES = {400, 401, 404, 422}
+# 다시 보내도 같은 답이 오는 상태만 넣는다. 404 는 여기 들어 있었지만 뺐다 —
+# 구버전 데몬이 새 라우트를 모를 때 나는 값이고, 그건 요청 내용 문제가 아니다.
+# 이 상수는 send() 만 참조한다. query() 는 보지 않는다(조회는 잃을 기록이 없다).
+_NO_SPOOL_STATUSES = {400, 401, 422}
 
 
 @dataclass(frozen=True)
@@ -91,6 +94,19 @@ class DaemonClient:
 
             if response.status_code in _NO_SPOOL_STATUSES:
                 return Outcome(None, "DAEMON", _error_message(response))
+
+            if response.status_code == 404:
+                # 데몬은 살아 있는데 이 경로를 모른다 — 대개 구버전이 떠 있는 것이다.
+                # spool 에 남기지만, 영구적 404 면 끝없이 쌓이므로(OUTSTANDING K9)
+                # 무엇을 해야 하는지 메시지에 남긴다.
+                self._logger.warning("데몬이 %s 를 모른다. 구버전일 수 있다", path)
+                outcome = self._to_spool(kind, payload)
+                return Outcome(
+                    outcome.body,
+                    outcome.storage,
+                    "데몬이 이 경로를 모릅니다. 보관은 했으나 반영되려면"
+                    " 데몬을 최신 버전으로 다시 시작해야 합니다.",
+                )
 
             if response.status_code == 503 and attempt == 1:
                 continue

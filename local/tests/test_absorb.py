@@ -283,3 +283,76 @@ def test_모르는_봉투_버전은_남겨_둔다(client, home):
     _age(home)
     absorb.absorb_all(client.app.state.ctx)
     assert target.exists()
+
+
+def test_아직_읽지_못하는_버전은_파일째_남긴다(client, home):
+    """핸들러가 들어오기 전까지 버전 2 는 '못 읽는' 버전이다. 버리지 않고 기다린다."""
+    paths.ensure_layout(home)
+    target = spool.spool_path(home, CLIENT)
+    target.write_text(
+        '{"envelope_version": 2, "event_id": "evt_A", "kind": "record_checkpoint",'
+        ' "enqueued_at": "2026-07-22T09:00:00.000Z", "payload": {}}\n',
+        encoding="utf-8",
+    )
+    _age(home)
+    assert absorb.absorb_all(client.app.state.ctx) == 0
+    assert target.exists()
+    assert list(paths.dead_letter_dir(home).glob("*.jsonl")) == []
+
+
+def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, home):
+    """한 줄만 모르는 버전이어도 파일 전체를 남긴다. 유실보다 대기가 낫다."""
+    paths.ensure_layout(home)
+    target = spool.spool_path(home, CLIENT)
+    spool.append(
+        home, CLIENT, "record_checkpoint",
+        {"checkpoint_id": CKP, "type": "NOTE", "title": "제목", **COMMON},
+        "2026-07-22T09:00:00.000Z", "evt_A",
+    )
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(
+            '{"envelope_version": 99, "event_id": "evt_B", "kind": "start_work",'
+            ' "enqueued_at": "2026-07-22T09:00:00.000Z", "payload": {}}\n'
+        )
+    _age(home)
+    assert absorb.absorb_all(client.app.state.ctx) == 0
+    assert target.exists()
+
+
+def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
+    """재시도해도 결과가 달라질 수 없는 봉투다. 격리해서 흔적을 남긴다.
+
+    예전에는 경고만 남기고 `continue` 해서 remaining 에도 dead 에도 들어가지
+    않은 채 파일이 absorbed/ 로 옮겨졌다 — 조용히 사라졌다.
+    """
+    paths.ensure_layout(home)
+    spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
+                 "2026-07-22T09:00:00.000Z", "evt_A")
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+
+    dead = list(paths.dead_letter_dir(home).glob("*.jsonl"))
+    assert len(dead) == 1
+    assert "그런_봉투는_없다" in dead[0].read_text(encoding="utf-8")
+
+
+def test_모르는_kind_가_있어도_아는_봉투는_반영된다(client, home):
+    paths.ensure_layout(home)
+    spool.append(
+        home, CLIENT, "record_checkpoint",
+        {"checkpoint_id": CKP, "type": "NOTE", "title": "제목", **COMMON},
+        "2026-07-22T09:00:00.000Z", "evt_A",
+    )
+    spool.append(home, CLIENT, "그런_봉투는_없다", {},
+                 "2026-07-22T09:00:01.000Z", "evt_B")
+    _age(home)
+    assert absorb.absorb_all(client.app.state.ctx) == 1
+    assert client.app.state.ctx.repo.get_checkpoint(CKP) is not None
+
+
+def test_KINDS_와_HANDLERS_가_어긋나지_않는다():
+    """spool.py 는 absorb 를 임포트하지 않으므로 여기서만 두 상수를 맞춰 본다.
+
+    봉투 종류를 늘릴 때 한쪽만 고치면 그 봉투는 갈 곳이 없다.
+    """
+    assert spool.KINDS == set(absorb._HANDLERS)
