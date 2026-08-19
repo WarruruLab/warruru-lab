@@ -58,12 +58,20 @@ def slugify(topic: str) -> str:
 
 
 def missing_fields(values: dict) -> list[str]:
-    """비어 있는 선택 필드 이름. 순서는 `OPTIONAL_FIELDS` 정의 순서다.
+    """비어 있는 필드 이름. 필수 넷을 먼저, 그다음 선택 넷을 정의 순서대로.
 
     거절하지 않고 이 목록을 응답에 실어 보낸다. 기록 여부가 100% 에이전트
     재량인 구조에서 거절은 '기록 안 하기'를 가장 안전한 선택으로 만든다.
+
+    **필수 필드가 공백뿐이어도 여기 들어간다** (2026-08-18 확정).
+    거절하면 위와 같은 이유로 기록이 줄고, 조용히 빈 채로 저장하면
+    목록 화면에서 보이지 않으면서 성공한 것처럼 보인다. 둘 다 나쁘다.
+    저장은 하되 결손으로 보고해서 에이전트가 곧바로 채우게 한다.
     """
-    return [name for name in OPTIONAL_FIELDS if _is_blank(values.get(name))]
+    return [
+        name for name in REQUIRED_FIELDS + OPTIONAL_FIELDS
+        if _is_blank(values.get(name))
+    ]
 
 
 # 예시에 원래 값을 그대로 실을지, 자리표시자로 줄일지 가르는 길이.
@@ -89,13 +97,13 @@ def example_call(values: dict, missing: list[str]) -> str:
     if not missing:
         return ""
 
-    parts = [f"{name}={_literal(values.get(name))}" for name in REQUIRED_FIELDS]
-    parts += [
-        f"{name}={_literal(values.get(name))}"
-        for name in OPTIONAL_FIELDS
-        if name not in missing and not _is_blank(values.get(name))
-    ]
-    parts += [f'{name}="..."' for name in missing]
+    blank = set(missing)
+    parts = []
+    for name in REQUIRED_FIELDS + OPTIONAL_FIELDS:
+        if name in blank:
+            parts.append(f'{name}="..."')
+        elif not _is_blank(values.get(name)):
+            parts.append(f"{name}={_literal(values.get(name))}")
     return "record_learning(" + ", ".join(parts) + ")"
 
 

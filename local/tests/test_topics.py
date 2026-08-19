@@ -85,9 +85,26 @@ def test_공백뿐인_선택_필드는_결손으로_본다():
     assert "outcome" in topics.missing_fields(dict(FULL, outcome="   "))
 
 
-def test_결손_목록은_필드_정의_순서를_따른다():
+def test_결손_목록은_필수_먼저_선택_나중_순서다():
     values = {k: None for k in FULL}
-    assert topics.missing_fields(values) == list(topics.OPTIONAL_FIELDS)
+    assert topics.missing_fields(values) == list(
+        topics.REQUIRED_FIELDS + topics.OPTIONAL_FIELDS
+    )
+
+
+def test_공백뿐인_필수_필드도_결손으로_본다():
+    """거절하지도, 조용히 담지도 않는다 (2026-08-18 확정).
+
+    거절하면 '기록 안 하기'가 가장 안전한 선택이 되고,
+    조용히 빈 채로 담으면 목록에서 안 보이면서 성공한 것처럼 보인다.
+    """
+    assert topics.missing_fields(dict(FULL, title="   ")) == ["title"]
+
+
+def test_공백뿐인_필수_필드는_예시에서_자리표시자가_된다():
+    values = dict(FULL, title="   ")
+    example = topics.example_call(values, topics.missing_fields(values))
+    assert 'title="..."' in example
 
 
 def test_예시_재호출에_결손_필드가_들어_있다():

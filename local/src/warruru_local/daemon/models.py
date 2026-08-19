@@ -46,6 +46,28 @@ class CheckpointRequest(CommonFields):
     repo_path: str | None = None
 
 
+class RecordRequest(CommonFields):
+    """학습 기록. **필수 필드를 여기서 강제하지 않는다.**
+
+    pydantic 이 거절하면 그 기록은 사라지고, 거절은 '기록 안 하기'를 가장
+    안전한 선택으로 만든다(명세 §4.1). 비어 있는 값은 응답의 `missing_fields`
+    로 알린다. 그래서 `kind`·`topic`·`title`·`body` 도 기본값을 갖는다.
+    """
+
+    record_id: str
+    work_id: str | None = None
+    kind: str = ""
+    topic: str = ""
+    title: str = ""
+    body: str = ""
+    rationale: str | None = None
+    outcome: str | None = None
+    limitation: str | None = None
+    interview: str | None = None
+    occurred_at: str | None = None
+    repo_path: str | None = None
+
+
 class FinishWorkRequest(CommonFields):
     result: str | None = None
     limitations: str | None = None
