@@ -1,0 +1,223 @@
+"""학습 기록의 저장과 조회.
+
+기존 `repository.py` 는 이미 483줄에 메서드 28개다. 여기에 더 넣는 대신
+옆 파일로 둔다 — `ctx.sessions` 가 이미 그렇게 분리돼 있어 구조와 어긋나지 않는다.
+`insert` 멱등 · 구간 조회 · soft delete 패턴은 그 파일에서 그대로 가져왔다.
+
+**이 클래스는 설정을 모른다.** 주차나 날짜를 스스로 계산하지 않고 ISO 구간만 받는다.
+날짜 경계를 만드는 일은 `clock.local_day_bounds` 하나에만 있어야 하기 때문이다.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+
+from warruru_local import topics
+
+# 한 번에 돌려주는 최대 건수. 이보다 크게 요청해도 여기서 잘린다.
+LIMIT_MAX = 100
+LIMIT_DEFAULT = 20
+
+# 유사 슬러그로 볼 최소 겹침. 너무 짧으면 아무 슬러그나 걸린다.
+_SIMILAR_MIN = 3
+
+
+class RecordRepository:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    # ── 쓰기 ───────────────────────────────────────────────────────
+
+    def insert_record(
+        self,
+        *,
+        record_id: str,
+        work_id: str,
+        machine_id: str,
+        tool: str,
+        kind: str,
+        topic: str,
+        topic_slug: str,
+        title: str,
+        body: str,
+        body_truncated: bool,
+        rationale: str | None,
+        outcome: str | None,
+        limitation: str | None,
+        interview: str | None,
+        project: str | None,
+        occurred_at: str,
+        recorded_at: str,
+        source: str,
+        repo_path: str | None,
+        repo_name: str | None,
+        branch: str | None,
+        commit_sha: str | None,
+        dirty: bool | None,
+        dirty_file_count: int | None,
+        dirty_count_capped: bool,
+    ) -> tuple[dict, bool]:
+        """멱등이다. spool 을 두 번 흡수해도 중복이 생기지 않는다.
+
+        돌려주는 두 번째 값이 True 면 이미 있던 기록이다.
+        """
+        existing = self.get_record(record_id)
+        if existing is not None:
+            return existing, True
+
+        self._conn.execute(
+            "INSERT INTO learning_record ("
+            " record_id, work_id, machine_id, tool,"
+            " kind, topic, topic_slug, title, body, body_truncated,"
+            " rationale, outcome, limitation, interview,"
+            " project, occurred_at, recorded_at, source,"
+            " repo_path, repo_name, branch, commit_sha,"
+            " dirty, dirty_file_count, dirty_count_capped, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+            " ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                record_id, work_id, machine_id, tool,
+                kind, topic, topic_slug, title, body,
+                1 if body_truncated else 0,
+                rationale, outcome, limitation, interview,
+                project, occurred_at, recorded_at, source,
+                repo_path, repo_name, branch, commit_sha,
+                None if dirty is None else (1 if dirty else 0),
+                dirty_file_count,
+                1 if dirty_count_capped else 0,
+                recorded_at,
+            ),
+        )
+        return self.get_record(record_id), False
+
+    def soft_delete(self, record_id: str, now_iso: str) -> None:
+        self._conn.execute(
+            "UPDATE learning_record SET deleted_at = ? WHERE record_id = ?",
+            (now_iso, record_id),
+        )
+
+    def restore(self, record_id: str) -> None:
+        self._conn.execute(
+            "UPDATE learning_record SET deleted_at = NULL WHERE record_id = ?",
+            (record_id,),
+        )
+
+    # ── 읽기 ───────────────────────────────────────────────────────
+
+    def get_record(self, record_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM learning_record WHERE record_id = ?", (record_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def list_records(
+        self,
+        *,
+        topic_slug: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = LIMIT_DEFAULT,
+        include_deleted: bool = False,
+    ) -> list[dict]:
+        """최신순. `until` 은 **배타적**이다 — `local_day_bounds` 의 끝이 다음날 자정이다."""
+        where = []
+        params: list = []
+        if not include_deleted:
+            where.append("deleted_at IS NULL")
+        if topic_slug:
+            where.append("topic_slug = ?")
+            params.append(topic_slug)
+        if since:
+            where.append("occurred_at >= ?")
+            params.append(since)
+        if until:
+            where.append("occurred_at < ?")
+            params.append(until)
+
+        clause = (" WHERE " + " AND ".join(where)) if where else ""
+        params.append(max(1, min(limit, LIMIT_MAX)))
+        rows = self._conn.execute(
+            f"SELECT * FROM learning_record{clause}"
+            " ORDER BY occurred_at DESC, record_id DESC LIMIT ?",
+            params,
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def slug_summary(
+        self, *, since: str | None = None, until: str | None = None
+    ) -> list[dict]:
+        """슬러그별 건수 · kind 별 건수 · 마지막 기록 시각 · 원문 topic.
+
+        화면은 슬러그가 아니라 사람이 적은 말을 보여주므로 `topic` 원문도 함께 준다.
+        같은 슬러그에 원문이 여럿이면 가장 최근 것을 쓴다.
+        """
+        where = ["deleted_at IS NULL"]
+        params: list = []
+        if since:
+            where.append("occurred_at >= ?")
+            params.append(since)
+        if until:
+            where.append("occurred_at < ?")
+            params.append(until)
+        clause = " WHERE " + " AND ".join(where)
+
+        rows = self._conn.execute(
+            "SELECT topic_slug, topic, kind, occurred_at"
+            f" FROM learning_record{clause}"
+            " ORDER BY occurred_at DESC",
+            params,
+        ).fetchall()
+
+        summary: dict[str, dict] = {}
+        for row in rows:
+            slug = row["topic_slug"]
+            entry = summary.get(slug)
+            if entry is None:
+                # 최신순으로 훑으므로 처음 만나는 것이 가장 최근이다.
+                entry = summary[slug] = {
+                    "topic_slug": slug,
+                    "topic": row["topic"],
+                    "count": 0,
+                    "kinds": {},
+                    "last_occurred_at": row["occurred_at"],
+                }
+            entry["count"] += 1
+            entry["kinds"][row["kind"]] = entry["kinds"].get(row["kind"], 0) + 1
+
+        return sorted(
+            summary.values(),
+            key=lambda item: (-item["count"], item["topic_slug"]),
+        )
+
+    def similar_slugs(self, slug: str, limit: int = 5) -> list[str]:
+        """비슷한 슬러그. **두 갈래를 본다.**
+
+        (1) DB 에 이미 있는 `topic_slug`, (2) `topics.RECOMMENDED_SLUGS`.
+
+        권장 상수까지 보는 이유는 첫날 때문이다. DB 만 보면 기록이 0건인 동안
+        힌트가 항상 비는데, 힌트가 가장 필요한 순간이 바로 그때다.
+        로드맵 문서의 슬러그를 함께 보면 첫 기록부터 한 갈래로 모인다.
+        """
+        target = (slug or "").strip()
+        if len(target) < _SIMILAR_MIN:
+            return []
+
+        known = {
+            row["topic_slug"]
+            for row in self._conn.execute(
+                "SELECT DISTINCT topic_slug FROM learning_record"
+                " WHERE deleted_at IS NULL"
+            ).fetchall()
+        }
+        candidates = known | set(topics.RECOMMENDED_SLUGS)
+
+        # 이미 맞는 슬러그를 쓴 사람에게 그 슬러그를 알려줄 이유가 없다.
+        candidates.discard(target)
+
+        hits = [
+            candidate for candidate in candidates
+            if target in candidate or candidate in target
+        ]
+        # DB 에 있는 것을 먼저 — 이 사람이 실제로 쓰던 말이다.
+        hits.sort(key=lambda candidate: (candidate not in known, candidate))
+        return hits[:limit]

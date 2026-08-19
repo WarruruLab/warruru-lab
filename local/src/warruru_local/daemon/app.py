@@ -17,6 +17,7 @@ from warruru_local.daemon import auth
 from warruru_local.gitinfo import GitCollector
 from warruru_local.session import SessionService
 from warruru_local.store import db, migrations
+from warruru_local.store.records import RecordRepository
 from warruru_local.store.repository import Repository
 
 
@@ -25,6 +26,7 @@ class AppContext:
     settings: config.Settings
     conn: object
     repo: Repository
+    records: RecordRepository
     sessions: SessionService
     git: GitCollector
     clock: Clock
@@ -51,6 +53,7 @@ def _build_context(settings: config.Settings, clock: Clock) -> AppContext:
         )
 
     repo = Repository(conn)
+    records = RecordRepository(conn)
     machine = config.load_or_create_machine(settings.home)
     repo.ensure_machine(
         machine["machine_id"], machine["hostname"], machine["os"], machine["created_at"]
@@ -67,6 +70,7 @@ def _build_context(settings: config.Settings, clock: Clock) -> AppContext:
         settings=settings,
         conn=conn,
         repo=repo,
+        records=records,
         sessions=sessions,
         git=git,
         clock=clock,

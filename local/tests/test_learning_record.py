@@ -1,0 +1,167 @@
+"""`learning.record` — 기록 한 건이 세션에 붙고 git 을 달고 저장된다.
+
+`recording.record_checkpoint()` 와 같은 순서로 흐른다. 온라인 경로와 spool 흡수가
+같은 함수를 부르므로, **검증은 이 함수 안에 두지 않는다.**
+"""
+
+from datetime import datetime, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from warruru_local import limits, topics
+from warruru_local.clock import FixedClock
+from warruru_local.config import load_settings
+from warruru_local.daemon import learning
+from warruru_local.daemon.app import create_app
+
+START = datetime(2026, 8, 18, 9, 0, 0, tzinfo=timezone.utc)
+CLIENT = "cli_01K0X4KZ7Y6M2B9DQPXAJ3HTF4"
+COMMON = {"client_instance_id": CLIENT, "tool": "codex", "cwd": None}
+
+
+@pytest.fixture
+def ctx(home):
+    settings = load_settings(home)
+    app = create_app(settings, clock=FixedClock(START), start_background=False)
+    with TestClient(app) as made:
+        yield made.app.state.ctx
+
+
+def _payload(**extra):
+    values = {
+        "record_id": "rec_A",
+        "kind": "EXPERIMENT",
+        "topic": "connection pool",
+        "title": "풀 크기 10→30",
+        "body": "p95 320ms→90ms",
+        **COMMON,
+    }
+    values.update(extra)
+    return values
+
+
+def test_work_id_없이_와도_세션이_자동으로_붙는다(ctx):
+    """호출자는 세션 id 를 몰라도 된다. 체크포인트와 같은 규칙이다."""
+    result = learning.record(ctx, _payload())
+    assert result["work_id"].startswith("wrk_")
+    assert result["attached_by"]
+
+
+def test_기록이_저장되고_원문_topic_이_남는다(ctx):
+    learning.record(ctx, _payload(topic="  Connection Pool  "))
+    row = ctx.records.get_record("rec_A")
+    assert row["topic"] == "Connection Pool"     # strip 은 한다
+    assert row["topic_slug"] == "connection-pool"
+
+
+def test_git_스냅샷이_채워진다(ctx, tmp_path):
+    result = learning.record(ctx, _payload(repo_path=str(tmp_path)))
+    assert "git" in result
+
+
+def test_project_는_repo_name_으로_고정된다(ctx, monkeypatch):
+    """저장소 이름이 나중에 바뀌어도 과거 기록의 소속은 흔들리지 않는다."""
+    class _Snap:
+        repo_path = "/tmp/산책온"
+        repo_name = "산책온"
+        branch = "main"
+        commit_sha = "abc1234"
+        dirty = False
+        dirty_file_count = 0
+        dirty_count_capped = False
+
+        def as_dict(self):
+            return {"repo_name": self.repo_name}
+
+    monkeypatch.setattr(ctx.git, "collect", lambda path: _Snap())
+    learning.record(ctx, _payload())
+    assert ctx.records.get_record("rec_A")["project"] == "산책온"
+
+
+def test_저장소_밖이면_project_는_None_이다(ctx):
+    learning.record(ctx, _payload())
+    assert ctx.records.get_record("rec_A")["project"] is None
+
+
+def test_body_가_상한을_넘으면_자르고_표시한다(ctx):
+    learning.record(ctx, _payload(body="가" * (limits.BODY_MAX + 10)))
+    row = ctx.records.get_record("rec_A")
+    assert len(row["body"]) == limits.BODY_MAX
+    assert row["body_truncated"] == 1
+
+
+def test_topic_slug_는_topic_을_자른_뒤에_만든다(ctx):
+    """순서를 바꾸면 같은 원문이 상한 근처에서 두 슬러그로 갈린다."""
+    long_topic = "가" * (limits.TITLE_MAX + 50)
+    learning.record(ctx, _payload(topic=long_topic))
+    row = ctx.records.get_record("rec_A")
+    assert row["topic_slug"] == topics.slugify(row["topic"])
+
+
+def test_occurred_at_이_이상하면_현재_시각으로_대체한다(ctx):
+    """잘못된 시각 하나가 날짜 화면을 영구히 500 으로 만드는 결함이 있었다(I2)."""
+    learning.record(ctx, _payload(occurred_at="어제쯤"))
+    assert ctx.records.get_record("rec_A")["occurred_at"] == "2026-08-18T09:00:00.000Z"
+
+
+def test_occurred_at_을_주면_그대로_쓴다(ctx):
+    learning.record(ctx, _payload(occurred_at="2026-08-17T01:02:03.000Z"))
+    assert ctx.records.get_record("rec_A")["occurred_at"] == "2026-08-17T01:02:03.000Z"
+
+
+def test_touch_work_가_불린다(ctx, monkeypatch):
+    called = []
+    monkeypatch.setattr(ctx.repo, "touch_work",
+                        lambda *args, **kwargs: called.append(args))
+    learning.record(ctx, _payload())
+    assert called
+
+
+def test_같은_기록을_두_번_보내도_한_건이다(ctx):
+    learning.record(ctx, _payload())
+    result = learning.record(ctx, _payload(title="나중"))
+    assert result["duplicate"] is True
+    assert len(ctx.records.list_records()) == 1
+
+
+def test_중복이면_touch_work_를_다시_부르지_않는다(ctx, monkeypatch):
+    learning.record(ctx, _payload())
+    called = []
+    monkeypatch.setattr(ctx.repo, "touch_work",
+                        lambda *args, **kwargs: called.append(args))
+    learning.record(ctx, _payload())
+    assert called == []
+
+
+def test_learning_record_는_필수_필드를_검증하지_않는다(ctx):
+    """검증은 입구(MCP·API)에만 있다. 흡수 경로가 이 함수를 부르기 때문이다.
+
+    안쪽에 두면 이미 입구를 통과해 spool 에 들어간 기록이 흡수 때 다시 걸린다.
+    """
+    result = learning.record(ctx, _payload(title="   ", body="   "))
+    assert ctx.records.get_record("rec_A") is not None
+    assert result["record_id"] == "rec_A"
+
+
+def test_결손_필드와_예시가_응답에_실린다(ctx):
+    result = learning.record(ctx, _payload())
+    assert "outcome" in result["missing_fields"]
+    assert "record_learning(" in result["example_call"]
+
+
+def test_유사_슬러그가_응답에_실린다(ctx):
+    result = learning.record(ctx, _payload(topic="jpa n plus"))
+    assert "jpa-n-plus-one" in result["similar_slugs"]
+
+
+def test_흡수_경로는_source_가_SPOOL_이다(ctx):
+    learning.record(ctx, _payload(), source="SPOOL")
+    assert ctx.records.get_record("rec_A")["source"] == "SPOOL"
+
+
+def test_예시는_저장된_값을_되돌려_준다(ctx):
+    """원본을 되돌려 주면 방금 정리한 것을 다시 되돌리는 호출이 나간다."""
+    result = learning.record(ctx, _payload(topic="  Connection Pool  "))
+    assert '"Connection Pool"' in result["example_call"]
+    assert '"  Connection Pool  "' not in result["example_call"]
