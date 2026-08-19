@@ -111,3 +111,21 @@ def test_limit_을_넘겨도_상한에서_잘린다(client):
     for i in range(3):
         client.post("/v1/records", json=_body(record_id=f"rec_{i}"))
     assert len(client.get("/v1/records", params={"limit": 2}).json()["records"]) == 2
+
+
+def test_사람이_읽는_주제로_걸러도_동작한다(client):
+    """쓰기는 원문을 슬러그로 바꾸는데 읽기만 정확한 슬러그를 요구하면,
+    빈 목록이 돌아오고 왜 비었는지 알 방법이 없다.
+    """
+    client.post("/v1/records", json=_body())
+    found = client.get("/v1/records", params={"topic_slug": "Connection Pool"}).json()
+    assert [r["record_id"] for r in found["records"]] == ["rec_A"]
+
+
+def test_같은_기록을_다시_보내면_빈칸이_채워진다(client):
+    """힌트가 '다시 불러 채우라' 고 말하는 그 경로다."""
+    client.post("/v1/records", json=_body())
+    payload = client.post("/v1/records", json=_body(outcome="p95 가 90ms")).json()
+    assert payload["duplicate"] is True
+    assert payload["filled_fields"] == ["outcome"]
+    assert "outcome" not in payload["missing_fields"]

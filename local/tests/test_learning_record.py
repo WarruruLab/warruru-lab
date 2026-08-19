@@ -165,3 +165,43 @@ def test_예시는_저장된_값을_되돌려_준다(ctx):
     result = learning.record(ctx, _payload(topic="  Connection Pool  "))
     assert '"Connection Pool"' in result["example_call"]
     assert '"  Connection Pool  "' not in result["example_call"]
+
+
+def test_같은_기록을_다시_보내면_빈칸만_채운다(ctx):
+    learning.record(ctx, _payload())
+    result = learning.record(ctx, _payload(outcome="p95 가 90ms 로"))
+    assert result["duplicate"] is True
+    assert result["filled_fields"] == ["outcome"]
+    assert ctx.records.get_record("rec_A")["outcome"] == "p95 가 90ms 로"
+
+
+def test_보강해도_이미_있는_값은_그대로다(ctx):
+    learning.record(ctx, _payload(outcome="처음"))
+    learning.record(ctx, _payload(outcome="나중", title="바뀐 제목"))
+    row = ctx.records.get_record("rec_A")
+    assert row["outcome"] == "처음"
+    assert row["title"] == "풀 크기 10→30"
+
+
+def test_보강하면_결손_목록이_줄어든다(ctx):
+    first = learning.record(ctx, _payload())
+    second = learning.record(ctx, _payload(outcome="결과", limitation="한계"))
+    assert set(first["missing_fields"]) - set(second["missing_fields"]) == {
+        "outcome", "limitation"
+    }
+
+
+def test_kind_는_대문자로_저장된다(ctx):
+    """slug_summary 가 kind 로 집계한다. 갈리면 화면의 건수가 쪼개진다."""
+    learning.record(ctx, _payload(kind="Experiment"))
+    assert ctx.records.get_record("rec_A")["kind"] == "EXPERIMENT"
+
+
+def test_소수점_자릿수가_달라도_사전순이_시간순과_같다(ctx):
+    """`%f` 는 1~6자리를 다 받는다. 그대로 저장하면 정렬이 뒤집힌다."""
+    learning.record(ctx, _payload(record_id="rec_A",
+                                  occurred_at="2026-08-18T09:00:00.1Z"))
+    learning.record(ctx, _payload(record_id="rec_B",
+                                  occurred_at="2026-08-18T09:00:00.150Z"))
+    ids = [r["record_id"] for r in ctx.records.list_records()]
+    assert ids == ["rec_B", "rec_A"]

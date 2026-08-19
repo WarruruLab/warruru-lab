@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
+from warruru_local import topics
 from warruru_local.clock import local_day_bounds
 from warruru_local.daemon import context, learning, recording
 from warruru_local.daemon.auth import require_token
@@ -47,11 +48,15 @@ async def list_records(
     경계는 예외 없이 `local_day_bounds` 로 만든다. 문자열을 직접 잇지 않는다.
     """
     ctx = request.app.state.ctx
+    # 사람이 읽는 주제를 그대로 넘겨도 동작하게 한다. 쓰기 경로가 이미
+    # 원문을 슬러그로 바꾸는데 읽기만 정확한 슬러그를 요구하면,
+    # 빈 목록이 돌아오고 왜 비었는지 알 방법이 없다.
+    slug = topics.slugify(topic_slug) if topic_slug else None
     start = local_day_bounds(_validate_date(since))[0] if since else None
     end = local_day_bounds(_validate_date(until))[1] if until else None
     return {
         "records": ctx.records.list_records(
-            topic_slug=topic_slug, since=start, until=end, limit=limit
+            topic_slug=slug, since=start, until=end, limit=limit
         )
     }
 

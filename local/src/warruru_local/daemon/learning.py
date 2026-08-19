@@ -26,10 +26,12 @@ def _normalized_time(raw, fallback: str) -> str:
     if not raw:
         return fallback
     try:
-        parse_iso(raw)
+        # 통과만 시키지 않고 **다시 써서** 돌려준다. `%f` 는 1~6자리를 다 받으므로
+        # `.1Z` 와 `.150Z` 가 그대로 저장되면 사전순 정렬이 시간순과 어긋난다.
+        # 목록과 집계가 그 정렬에 기대고 있다.
+        return to_iso(parse_iso(raw))
     except (ValueError, TypeError):
         return fallback
-    return raw
 
 
 def record(ctx, payload: dict, source: str = "MCP") -> dict:
@@ -64,7 +66,9 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         work_id=work["work_id"],
         machine_id=ctx.machine_id,
         tool=payload.get("tool") or "unknown",
-        kind=(payload.get("kind") or "").strip(),
+        # 대문자로 맞춘다. slug_summary 가 kind 로 집계하므로
+        # "Experiment" 와 "EXPERIMENT" 가 갈리면 화면의 건수가 쪼개진다.
+        kind=(payload.get("kind") or "").strip().upper(),
         topic=topic,
         topic_slug=topic_slug,
         title=(title or "").strip(),
@@ -89,7 +93,24 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         dirty_count_capped=snapshot.dirty_count_capped,
     )
 
-    if not duplicate:
+    filled: list[str] = []
+    if duplicate:
+        # 같은 record_id 로 다시 온 것은 보강 호출이다. 빈칸만 채운다.
+        # 이 경로가 없으면 `missing_fields` 힌트를 따라도 채울 방법이 없어
+        # 힌트 장치 전체가 무의미해진다.
+        updated, filled = ctx.records.fill_record(
+            row["record_id"],
+            {
+                "kind": (payload.get("kind") or "").strip().upper(),
+                "title": title, "body": body,
+                "rationale": rationale, "outcome": outcome,
+                "limitation": limitation, "interview": interview,
+            },
+        )
+        if updated is not None:
+            row = updated
+
+    if not duplicate or filled:
         ctx.repo.touch_work(work["work_id"], now, snapshot.repo_path)
 
     # 거절하지 않는 대신 무엇이 비었는지와 어떻게 채우는지를 돌려준다.
@@ -114,9 +135,12 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         "project": row["project"],
         "missing_fields": missing,
         "example_call": topics.example_call(stored, missing),
-        "similar_slugs": ctx.records.similar_slugs(topic_slug),
+        # 저장된 슬러그를 기준으로 한다. 중복 경로에서 새 payload 의
+        # 슬러그를 쓰면, 보고한 것과 다른 주제의 힌트가 나간다.
+        "similar_slugs": ctx.records.similar_slugs(row["topic_slug"]),
         "git": snapshot.as_dict(),
         "duplicate": duplicate,
+        "filled_fields": filled,
     }
 
 

@@ -90,6 +90,49 @@ class RecordRepository:
         )
         return self.get_record(record_id), False
 
+    # 나중에 채울 수 있는 필드. `record_id` 같은 식별자와 시각은 손대지 않는다.
+    FILLABLE = (
+        "kind", "title", "body",
+        "rationale", "outcome", "limitation", "interview",
+    )
+
+    def fill_record(self, record_id: str, values: dict) -> tuple[dict | None, list[str]]:
+        """비어 있던 필드만 채운다. **이미 있는 값은 덮어쓰지 않는다.**
+
+        힌트(`missing_fields` · `example_call`)가 "같은 툴을 다시 불러 채우라" 고
+        말하는데 채울 경로가 없으면 그 장치 전체가 무의미하다. 이 메서드가 그 경로다.
+
+        덮어쓰지 않는 이유는 둘이다 — spool 을 두 번 흡수해도 안전해야 하고,
+        보강 호출이 앞서 적은 내용을 실수로 지우면 안 된다.
+        `topic` 은 여기 없다. 바꾸면 슬러그가 갈라져 그 기록이 다른 주제로 이사한다.
+        """
+        existing = self.get_record(record_id)
+        if existing is None:
+            return None, []
+
+        filled = []
+        for name in self.FILLABLE:
+            incoming = values.get(name)
+            if isinstance(incoming, str):
+                incoming = incoming.strip()
+            if not incoming:
+                continue
+            current = existing.get(name)
+            if current is not None and str(current).strip():
+                continue
+            filled.append(name)
+
+        if not filled:
+            return existing, []
+
+        assignments = ", ".join(f"{name} = ?" for name in filled)
+        params = [str(values[name]).strip() for name in filled]
+        params.append(record_id)
+        self._conn.execute(
+            f"UPDATE learning_record SET {assignments} WHERE record_id = ?", params
+        )
+        return self.get_record(record_id), filled
+
     def soft_delete(self, record_id: str, now_iso: str) -> None:
         self._conn.execute(
             "UPDATE learning_record SET deleted_at = ? WHERE record_id = ?",
@@ -135,7 +178,8 @@ class RecordRepository:
             params.append(until)
 
         clause = (" WHERE " + " AND ".join(where)) if where else ""
-        params.append(max(1, min(limit, LIMIT_MAX)))
+        # 0 을 1 로 올리지 않는다. 0 건을 달라는 요청에 1 건을 주면 거짓말이다.
+        params.append(max(0, min(limit, LIMIT_MAX)))
         rows = self._conn.execute(
             f"SELECT * FROM learning_record{clause}"
             " ORDER BY occurred_at DESC, record_id DESC LIMIT ?",
@@ -164,7 +208,9 @@ class RecordRepository:
         rows = self._conn.execute(
             "SELECT topic_slug, topic, kind, occurred_at"
             f" FROM learning_record{clause}"
-            " ORDER BY occurred_at DESC",
+            # record_id 까지 봐야 같은 시각의 두 기록에서 원문 topic 이
+            # 매번 다르게 뽑히지 않는다. 한 턴 안의 기록은 시각이 같기 쉽다.
+            " ORDER BY occurred_at DESC, record_id DESC",
             params,
         ).fetchall()
 
@@ -214,9 +260,13 @@ class RecordRepository:
         # 이미 맞는 슬러그를 쓴 사람에게 그 슬러그를 알려줄 이유가 없다.
         candidates.discard(target)
 
+        # 후보 쪽에도 같은 길이 조건을 건다. `C++` 는 슬러그가 `c` 인데,
+        # 그 한 글자는 거의 모든 슬러그에 포함된다. 조건이 한쪽에만 있으면
+        # 힌트가 전부 그 쓰레기 슬러그를 가리키고, 에이전트는 그걸 따른다.
         hits = [
             candidate for candidate in candidates
-            if target in candidate or candidate in target
+            if len(candidate) >= _SIMILAR_MIN
+            and (target in candidate or candidate in target)
         ]
         # DB 에 있는 것을 먼저 — 이 사람이 실제로 쓰던 말이다.
         hits.sort(key=lambda candidate: (candidate not in known, candidate))

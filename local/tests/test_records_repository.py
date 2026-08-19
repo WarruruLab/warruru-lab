@@ -186,3 +186,50 @@ def test_자기_자신과_똑같은_슬러그는_힌트가_아니다(repo):
     """이미 맞는 슬러그를 쓴 사람에게 그 슬러그를 알려줄 이유가 없다."""
     _record(repo, "rec_A", slug="커넥션-풀")
     assert "커넥션-풀" not in repo.similar_slugs("커넥션-풀")
+
+
+# ── 보강 (같은 기록을 다시 불러 빈칸을 채운다) ──────────────────────
+
+def test_빈_필드를_나중에_채울_수_있다(repo):
+    """힌트가 '다시 불러 채우라'고 하는데 채울 방법이 없으면 그 장치는 무의미하다."""
+    _record(repo, "rec_A")
+    row, filled = repo.fill_record("rec_A", {"outcome": "p95 가 90ms 로 내려갔다"})
+    assert filled == ["outcome"]
+    assert row["outcome"] == "p95 가 90ms 로 내려갔다"
+
+
+def test_이미_있는_값은_덮어쓰지_않는다(repo):
+    """spool 을 두 번 흡수해도 안전해야 하고, 실수로 지워지면 안 된다."""
+    _record(repo, "rec_A", outcome="처음 결과")
+    row, filled = repo.fill_record("rec_A", {"outcome": "나중 결과"})
+    assert filled == []
+    assert row["outcome"] == "처음 결과"
+
+
+def test_공백뿐인_값으로는_채우지_않는다(repo):
+    _record(repo, "rec_A")
+    _, filled = repo.fill_record("rec_A", {"outcome": "   "})
+    assert filled == []
+
+
+def test_비어_있던_필수_필드도_채울_수_있다(repo):
+    _record(repo, "rec_A", title="")
+    row, filled = repo.fill_record("rec_A", {"title": "풀 크기 10→30"})
+    assert filled == ["title"]
+    assert row["title"] == "풀 크기 10→30"
+
+
+def test_없는_기록을_채우려_하면_None_이다(repo):
+    assert repo.fill_record("rec_없음", {"outcome": "x"}) == (None, [])
+
+
+# ── 유사 슬러그의 짧은 후보 ────────────────────────────────────────
+
+def test_짧은_슬러그가_아무_주제에나_달라붙지_않는다(repo):
+    """`C++` 는 `c` 로 슬러그가 된다. 그 한 글자가 모든 슬러그에 포함되므로,
+    후보 쪽에 길이 조건이 없으면 힌트가 전부 `c` 를 가리킨다.
+    에이전트는 그 힌트를 읽고 따르므로 기록이 쓰레기 슬러그로 쏠린다.
+    """
+    _record(repo, "rec_A", topic="C++", slug="c")
+    assert "c" not in repo.similar_slugs("connection-pool")
+    assert "c" not in repo.similar_slugs("misc")
