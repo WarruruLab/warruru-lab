@@ -8,8 +8,8 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from warruru_local.clock import local_date_of, to_iso
-from warruru_local.daemon import dayview
+from warruru_local.clock import local_date_of, local_day_bounds, to_iso
+from warruru_local.daemon import dayview, topicview
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 
 router = APIRouter()
@@ -30,6 +30,17 @@ async def day(request: Request, date: str, deleted: int = 0):
     template = "deleted.html" if deleted else "day.html"
     return templates.TemplateResponse(
         request, template, {"view": view, "token": ctx.settings.token}
+    )
+
+
+@router.get("/t")
+async def topics_index(request: Request):
+    """오늘 자정~자정 구간의 주제별 요약. 조회이므로 토큰이 필요 없다."""
+    ctx = request.app.state.ctx
+    today = local_date_of(to_iso(ctx.clock.now()))
+    view = topicview.build_index(ctx, today)
+    return templates.TemplateResponse(
+        request, "topics.html", {"view": view, "today": today}
     )
 
 

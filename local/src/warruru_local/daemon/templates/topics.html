@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}주제 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>주제</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="{{ 'empty-today' if view.today_count == 0 else 'meta' }}">
+  오늘 기록 {{ view.today_count }}건 · {{ view.date }}
+</p>
+
+{% if view.today_count == 0 %}
+  <p class="empty">
+    코드를 만진 날 0건이면 기록 규칙이 작동하지 않는 것이다.
+    에이전트에게 <code>record_learning</code> 을 부르게 한다.
+  </p>
+{% endif %}
+
+{% for group in view.groups %}
+<article class="work">
+  <div class="work-head">
+    <strong><a href="/t/{{ group.topic_slug }}">{{ group.topic }}</a></strong>
+    <span class="badge">{{ group.count }}건</span>
+    {% for kind, count in group.kinds %}
+      <span class="badge">{{ kind }}{{ count }}</span>
+    {% endfor %}
+    <span class="meta">마지막 {{ group.last_time }}</span>
+  </div>
+</article>
+{% endfor %}
+
+{% if view.unsorted %}
+<section class="tool">
+  <h2>미분류</h2>
+  <p class="meta">
+    기록이 1건뿐인 주제다. 표기가 갈린 것이면 다음 기록에서 맞춰 적는다.
+  </p>
+  {% for group in view.unsorted %}
+  <article class="work">
+    <div class="work-head">
+      <strong><a href="/t/{{ group.topic_slug }}">{{ group.topic }}</a></strong>
+      {% for kind, count in group.kinds %}
+        <span class="badge">{{ kind }}{{ count }}</span>
+      {% endfor %}
+      <span class="meta">마지막 {{ group.last_time }}</span>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}
