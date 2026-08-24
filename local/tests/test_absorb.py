@@ -285,19 +285,33 @@ def test_모르는_봉투_버전은_남겨_둔다(client, home):
     assert target.exists()
 
 
-def test_아직_읽지_못하는_버전은_파일째_남긴다(client, home):
-    """핸들러가 들어오기 전까지 버전 2 는 '못 읽는' 버전이다. 버리지 않고 기다린다."""
-    paths.ensure_layout(home)
-    target = spool.spool_path(home, CLIENT)
-    target.write_text(
-        '{"envelope_version": 2, "event_id": "evt_A", "kind": "record_checkpoint",'
-        ' "enqueued_at": "2026-07-22T09:00:00.000Z", "payload": {}}\n',
-        encoding="utf-8",
+def test_학습기록_봉투가_흡수되어_DB_에_들어온다(client, home):
+    """온라인 경로와 같은 함수(learning.record)를 부른다. 갈라지면 안 된다."""
+    spool.append(
+        home, CLIENT, "learning_record",
+        {"record_id": "rec_스풀A", "kind": "EXPERIMENT",
+         "topic": "connection pool", "title": "제목", "body": "본문", **COMMON},
+        "2026-07-22T09:00:00.000Z", "evt_A",
     )
     _age(home)
-    assert absorb.absorb_all(client.app.state.ctx) == 0
-    assert target.exists()
-    assert list(paths.dead_letter_dir(home).glob("*.jsonl")) == []
+    assert absorb.absorb_all(client.app.state.ctx) == 1
+    row = client.app.state.ctx.records.get_record("rec_스풀A")
+    assert row["source"] == "SPOOL"
+    assert row["topic_slug"] == "connection-pool"
+
+
+def test_학습기록_봉투를_두_번_흡수해도_한_건이다(client, home):
+    for event in ("evt_A", "evt_B"):
+        spool.append(
+            home, CLIENT, "learning_record",
+            {"record_id": "rec_스풀A", "kind": "EXPERIMENT",
+             "topic": "connection pool", "title": "제목", "body": "본문", **COMMON},
+            "2026-07-22T09:00:00.000Z", event,
+        )
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+    rows = client.app.state.ctx.records.list_records()
+    assert len(rows) == 1
 
 
 def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, home):

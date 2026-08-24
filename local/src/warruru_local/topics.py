@@ -20,6 +20,37 @@ import unicodedata
 # 화면의 '미분류' 구획에서 눈에 띄므로 조용히 묻히지는 않는다.
 FALLBACK_SLUG = "misc"
 
+# 유사 슬러그로 볼 최소 겹침. 너무 짧으면 아무 슬러그나 걸린다 —
+# `C++` 의 슬러그 `c` 는 거의 모든 슬러그에 포함된다.
+SIMILAR_MIN = 3
+
+
+def match_slugs(target: str, candidates) -> list[str]:
+    """`target` 과 비슷한 후보만 남긴다. 순서는 손대지 않고 거르기만 한다.
+
+    조건은 양쪽에 건다. 후보 쪽에 길이 조건이 없으면 짧은 쓰레기 슬러그가
+    모든 힌트에 달라붙고, 에이전트는 그 힌트를 따른다.
+    """
+    target = (target or "").strip()
+    if len(target) < SIMILAR_MIN:
+        return []
+    return [
+        candidate for candidate in candidates
+        if candidate != target
+        and len(candidate) >= SIMILAR_MIN
+        and (target in candidate or candidate in target)
+    ]
+
+
+def similar_recommended(slug: str, limit: int = 5) -> list[str]:
+    """권장 슬러그 상수 갈래만 본다. **SPOOL 응답용이다.**
+
+    데몬이 꺼져 있으면 DB 갈래는 못 보지만 상수는 임포트 한 번이면 읽힌다.
+    그래서 힌트가 가장 필요한 첫날에도 SPOOL 응답이 비지 않는다.
+    """
+    return sorted(match_slugs(slug, RECOMMENDED_SLUGS))[:limit]
+
+
 # 비어도 거절하지 않는 필드들. 순서가 곧 결손 목록의 순서다.
 OPTIONAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
 

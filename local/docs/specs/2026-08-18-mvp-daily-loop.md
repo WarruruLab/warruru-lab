@@ -319,6 +319,7 @@ def record_learning(
     interview: str | None = None,
     occurred_at: str | None = None,
     repo_path: str | None = None,
+    record_id: str | None = None,
 ) -> dict:
     """무언가를 배우거나 고치거나 고른 순간을 남긴다.
 
@@ -326,9 +327,12 @@ def record_learning(
     필수는 kind · topic · title · body 넷뿐이다. 나머지가 비어도
     거절하지 않는다 — 대신 응답이 무엇이 비었는지 알려준다.
     모르는 것을 지어내지 말고 비워 둔 채 부른 뒤, 사용자에게 되물어
-    답을 얻으면 같은 툴을 다시 불러 채운다.
+    답을 얻으면 응답의 record_id 를 그대로 넘겨 같은 툴을 다시 불러 채운다.
     """
 ```
+
+`record_id` 파라미터는 §4.1.1 보강 경로의 입구다. 생략하면 어댑터가 새 id 를
+만들고(첫 기록), 응답으로 받은 id 를 그대로 넘기면 빈 필드만 채워진다(보강).
 
 `occurred_at` 과 `repo_path` 는 새 파라미터가 아니라 `record_checkpoint` 의 관례를
 그대로 상속한 것이다. 브리프가 열거한 필드 목록(필수 4 + 선택 4)에는 영향이 없다.

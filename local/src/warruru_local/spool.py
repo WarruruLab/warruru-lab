@@ -8,15 +8,18 @@ from pathlib import Path
 from warruru_local import paths
 
 ENVELOPE_VERSION = 1
-KINDS = {"start_work", "record_checkpoint", "finish_work", "client_closed"}
+KINDS = {
+    "start_work", "record_checkpoint", "finish_work", "client_closed",
+    "learning_record",
+}
 
 # 데몬이 읽을 수 있는 봉투 버전. 모르는 버전이 섞인 파일은 이름조차 건드리지 않는다.
 #
 # **여기에 버전을 더하는 것은 그 버전을 처리할 핸들러를 더하는 것과 같은 커밋이어야 한다.**
 # 먼저 올리면 데몬이 파일을 붙잡아 놓고 핸들러가 없어 dead-letter 로 격리한다 —
 # 대기시키려던 봉투를 오히려 버리는 셈이라 이 장치의 목적이 뒤집힌다.
-# 그래서 `2` 는 `learning_record` 핸들러가 들어오는 태스크에서 함께 올린다.
-SUPPORTED_ENVELOPE_VERSIONS = {1}
+# `2` 는 `learning_record` 핸들러(absorb._HANDLERS)와 같은 커밋에서 올렸다.
+SUPPORTED_ENVELOPE_VERSIONS = {1, 2}
 
 # 봉투 종류 이름. 오타 하나가 이 장치를 통째로 무력화하므로 상수로 둔다.
 # 어댑터가 `send()` 에 넘기는 첫 인자가 이 값이어야 한다 — **툴 이름이 아니다.**

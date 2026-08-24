@@ -76,13 +76,15 @@ def test_기존_봉투는_버전_1_그대로다(home):
     assert versions == {1}
 
 
-def test_아직은_버전_1_만_읽는다():
+def test_버전_2_는_핸들러와_함께_열렸다():
     """버전을 올리는 것과 핸들러를 더하는 것은 같은 커밋이어야 한다.
 
-    먼저 올리면 데몬이 파일을 붙잡고도 핸들러가 없어 dead-letter 로 격리한다 —
-    대기시키려던 봉투를 오히려 버린다. `2` 는 핸들러와 함께 올린다.
+    K2 수정 때는 핸들러가 없어 `{1}` 로 묶어 뒀고, `learning_record` 핸들러가
+    들어온 커밋에서 `2` 를 함께 열었다. 이 두 값이 어긋난 채 갈라지는 것은
+    아래 두 테스트(`쓸_수_있는_봉투는…` · `KINDS_와_HANDLERS…`)가 막는다.
     """
-    assert spool.SUPPORTED_ENVELOPE_VERSIONS == {1}
+    assert spool.SUPPORTED_ENVELOPE_VERSIONS == {1, 2}
+    assert "learning_record" in spool.KINDS
 
 
 def test_쓸_수_있는_봉투는_전부_읽을_수_있어야_한다():

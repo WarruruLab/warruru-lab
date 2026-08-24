@@ -8,7 +8,7 @@ from pathlib import Path
 
 from warruru_local import paths, spool
 from warruru_local.clock import to_iso
-from warruru_local.daemon import recording
+from warruru_local.daemon import learning, recording
 
 # 고칠 수 없는 봉투 하나가 파일 전체를 영원히 붙잡지 않게 하는 상한이다.
 MAX_ATTEMPTS = 5
@@ -28,6 +28,11 @@ _HANDLERS = {
     ),
     "client_closed": lambda ctx, payload: ctx.sessions.close_client(
         payload["client_instance_id"]
+    ),
+    # 온라인 경로(POST /v1/records)와 **같은 함수**다.
+    # 갈라지면 두 경로의 동작이 조용히 달라진다.
+    "learning_record": lambda ctx, payload: learning.record(
+        ctx, payload, source="SPOOL"
     ),
 }
 

@@ -7,7 +7,7 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-from warruru_local import config, logging_setup
+from warruru_local import config, logging_setup, spool, topics
 from warruru_local.clock import Clock, SystemClock, to_iso
 from warruru_local.ids import new_id
 from warruru_local.mcp.client import DaemonClient, Outcome
@@ -98,6 +98,76 @@ class ToolService:
             "attached_by": result.get("attached_by"),
             "git": result.get("git"),
             **_common(outcome),
+        }
+
+    def record_learning(
+        self,
+        kind: str,
+        topic: str,
+        title: str,
+        body: str,
+        rationale: str | None = None,
+        outcome: str | None = None,
+        limitation: str | None = None,
+        interview: str | None = None,
+        occurred_at: str | None = None,
+        repo_path: str | None = None,
+        record_id: str | None = None,
+    ) -> dict:
+        # 보강 호출은 응답으로 받았던 record_id 를 그대로 넘긴다.
+        # 새 id 를 만들면 빈칸이 채워지는 대신 거의 같은 기록이 하나 더 생긴다.
+        resolved_id = record_id or new_id("rec")
+        payload = {
+            "record_id": resolved_id,
+            "kind": kind,
+            "topic": topic,
+            "title": title,
+            "body": body,
+            "rationale": rationale,
+            "outcome": outcome,
+            "limitation": limitation,
+            "interview": interview,
+            "occurred_at": occurred_at or to_iso(self._clock.now()),
+            **self._base(repo_path),
+        }
+        # 봉투 kind 는 툴 이름이 아니라 상수다. 오타 하나면 봉투 버전 매핑이
+        # 빗나가 구버전 데몬 방어(파일째 건너뛰기)가 통째로 무력화된다.
+        outcome_ = self._client.send(
+            spool.KIND_LEARNING_RECORD, "/v1/records", payload
+        )
+        result = outcome_.body or {}
+
+        if outcome_.body is not None:
+            # 데몬이 저장까지 마쳤다. 힌트는 저장된 값 기준으로 이미 계산돼 있다.
+            hints = {
+                "topic_slug": result.get("topic_slug"),
+                "missing_fields": result.get("missing_fields", []),
+                "example_call": result.get("example_call", ""),
+                "similar_slugs": result.get("similar_slugs", []),
+            }
+        else:
+            # SPOOL(또는 거절). 정규화·결손 판정은 순수 함수라 여기서도 채운다 —
+            # 그래서 topics 가 최상위에 있고, mcp/ 는 daemon/ 을 임포트하지 않는다.
+            slug = topics.slugify(topic)
+            missing = topics.missing_fields(payload)
+            hints = {
+                "topic_slug": slug,
+                "missing_fields": missing,
+                "example_call": topics.example_call(payload, missing),
+                # DB 갈래는 못 보지만 권장 상수는 임포트 한 번이면 읽힌다.
+                "similar_slugs": topics.similar_recommended(slug),
+            }
+
+        return {
+            "record_id": resolved_id,
+            "work_id": result.get("work_id"),
+            "work_origin": result.get("work_origin"),
+            "attached_by": result.get("attached_by"),
+            "git": result.get("git"),
+            "duplicate": result.get("duplicate", False),
+            "filled_fields": result.get("filled_fields", []),
+            **hints,
+            **_common(outcome_),
         }
 
     def finish_work(
@@ -200,6 +270,39 @@ def build_server(service: ToolService | None = None) -> FastMCP:
                 repo_path=repo_path,
             )
         except Exception as error:
+            return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
+
+    @server.tool()
+    def record_learning(
+        kind: str,
+        topic: str,
+        title: str,
+        body: str,
+        rationale: str | None = None,
+        outcome: str | None = None,
+        limitation: str | None = None,
+        interview: str | None = None,
+        occurred_at: str | None = None,
+        repo_path: str | None = None,
+        record_id: str | None = None,
+    ) -> dict:
+        """무언가를 배우거나 고치거나 고른 순간을 남긴다.
+
+        kind: EXPERIMENT TROUBLESHOOTING TECH_CHOICE CONCEPT
+        필수는 kind · topic · title · body 넷뿐이다. 나머지가 비어도
+        거절하지 않는다 — 대신 응답이 무엇이 비었는지 알려준다.
+        모르는 것을 지어내지 말고 비워 둔 채 부른 뒤, 사용자에게 되물어
+        답을 얻으면 응답의 record_id 를 그대로 넘겨 같은 툴을 다시 불러 채운다.
+        topic 은 원문 그대로 적는다. 정규화는 시스템이 한다.
+        """
+        try:
+            return resolved.record_learning(
+                kind=kind, topic=topic, title=title, body=body,
+                rationale=rationale, outcome=outcome, limitation=limitation,
+                interview=interview, occurred_at=occurred_at,
+                repo_path=repo_path, record_id=record_id,
+            )
+        except Exception as error:  # 툴은 예외를 밖으로 던지지 않는다
             return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
 
     @server.tool()
