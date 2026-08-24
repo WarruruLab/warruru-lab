@@ -92,6 +92,21 @@ def slugify(topic: str) -> str:
     return text or FALLBACK_SLUG
 
 
+def normalize_topic(raw: str | None, max_length: int) -> tuple[str, str]:
+    """주제 원문과 슬러그를 함께 만든다. **자른 뒤에** 슬러그를 만든다.
+
+    순서를 바꾸면 같은 원문이 상한 근처에서 두 슬러그로 갈리고, 그 둘은 영영
+    한 주제로 모이지 않는다. 어댑터(SPOOL 응답)와 데몬(저장)이 **이 함수 하나**를
+    부른다 — 각자 같은 두 줄을 손으로 적으면 한쪽만 바뀌었을 때
+    힌트가 알려준 슬러그와 실제 저장된 슬러그가 조용히 어긋난다.
+
+    `limits.clamp_text` 를 여기서 부르지 않는 이유는 이 모듈이 아무것도
+    임포트하지 않기 때문이다. 자르는 규칙은 인자로 받는다.
+    """
+    text = (raw or "")[:max_length].strip()
+    return text, slugify(text)
+
+
 def missing_fields(values: dict) -> list[str]:
     """비어 있는 필드 이름. 필수 넷을 먼저, 그다음 선택 넷을 정의 순서대로.
 

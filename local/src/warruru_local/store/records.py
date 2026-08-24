@@ -90,6 +90,8 @@ class RecordRepository:
         return self.get_record(record_id), False
 
     # 나중에 채울 수 있는 필드. `record_id` 같은 식별자와 시각은 손대지 않는다.
+    # `topic` 은 슬러그를 함께 고쳐야 하므로 아래에서 따로 다룬다 —
+    # 다만 "비어 있을 때만" 규칙은 나머지와 **같은 곳에서** 지켜진다.
     FILLABLE = (
         "kind", "title", "body",
         "rationale", "outcome", "limitation", "interview",
@@ -110,6 +112,18 @@ class RecordRepository:
             return None, []
 
         filled = []
+        # topic 이 빈 기록은 슬러그가 `misc` 로 좌초하는데, 힌트가 topic 을
+        # 채우라고 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
+        # 값이 있으면 절대 바꾸지 않는다 — 바꾸면 슬러그가 갈라져 기록이 이사한다.
+        topic_update: tuple[str, str] | None = None
+        incoming_topic = values.get("topic")
+        if isinstance(incoming_topic, str) and incoming_topic.strip():
+            if not (existing.get("topic") or "").strip():
+                topic_update = (
+                    incoming_topic.strip(), topics.slugify(incoming_topic.strip())
+                )
+                filled.append("topic")
+
         for name in self.FILLABLE:
             incoming = values.get(name)
             if isinstance(incoming, str):
@@ -124,26 +138,19 @@ class RecordRepository:
         if not filled:
             return existing, []
 
-        assignments = ", ".join(f"{name} = ?" for name in filled)
-        params = [str(values[name]).strip() for name in filled]
+        columns = [name for name in filled if name != "topic"]
+        assignments = [f"{name} = ?" for name in columns]
+        params: list = [str(values[name]).strip() for name in columns]
+        if topic_update is not None:
+            # 원문과 슬러그가 어긋난 행을 만들지 않는다. 한 UPDATE 안에서 함께 바꾼다.
+            assignments += ["topic = ?", "topic_slug = ?"]
+            params += list(topic_update)
+        assignments = ", ".join(assignments)
         params.append(record_id)
         self._conn.execute(
             f"UPDATE learning_record SET {assignments} WHERE record_id = ?", params
         )
         return self.get_record(record_id), filled
-
-    def set_topic(self, record_id: str, topic: str, topic_slug: str) -> None:
-        """비어 있던 topic 에 집을 준다. **비어 있을 때만** 부른다.
-
-        topic 이 빈 기록은 슬러그가 `misc` 로 좌초하는데, 힌트가 topic 을
-        채우라고 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
-        슬러그도 함께 바꾼다 — 원문과 슬러그가 어긋난 행을 만들지 않는다.
-        """
-        self._conn.execute(
-            "UPDATE learning_record SET topic = ?, topic_slug = ?"
-            " WHERE record_id = ?",
-            (topic, topic_slug, record_id),
-        )
 
     def soft_delete(self, record_id: str, now_iso: str) -> None:
         self._conn.execute(

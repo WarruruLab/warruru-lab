@@ -15,6 +15,14 @@ from warruru_local.mcp.client import DaemonClient, Outcome
 SERVER_NAME = "warruru-local"
 
 
+def _clamped(value, limit: int):
+    """어댑터가 데몬과 같은 모양으로 값을 다듬는다. 힌트 판단에만 쓴다."""
+    if value is None:
+        return None
+    text = str(value)[:limit].strip()
+    return text or None
+
+
 def _common(outcome: Outcome) -> dict:
     return {
         "ok": outcome.storage != "NONE" and not (
@@ -144,30 +152,48 @@ class ToolService:
                 "missing_fields": result.get("missing_fields", []),
                 "example_call": result.get("example_call", ""),
                 "similar_slugs": result.get("similar_slugs", []),
+                # 데몬은 저장된 행을 보고 판단했다.
+                "missing_fields_scope": "stored",
             }
         else:
             # SPOOL(또는 거절). 정규화·결손 판정은 순수 함수라 여기서도 채운다 —
             # 그래서 topics 가 최상위에 있고, mcp/ 는 daemon/ 을 임포트하지 않는다.
             #
-            # 데몬과 **같은 순서**로 자른 뒤 슬러그를 만든다. 안 자르면 긴 주제에서
-            # 여기서 알려준 슬러그와 흡수 후 저장되는 슬러그가 영영 어긋난다.
-            clamped_topic, _ = limits.clamp_text(topic, limits.TITLE_MAX)
-            slug = topics.slugify((clamped_topic or "").strip())
-            missing = topics.missing_fields(payload)
+            # 자르고 → 다듬고 → 슬러그. 데몬도 **같은 함수**를 부른다.
+            # 각자 같은 두 줄을 손으로 적으면 한쪽만 바뀌었을 때
+            # 힌트의 슬러그와 흡수 후 저장된 슬러그가 조용히 어긋난다.
+            normalized_topic, slug = topics.normalize_topic(topic, limits.TITLE_MAX)
+
+            # 데몬이 저장할 모양 그대로 판단한다. 원본 인자로 판단하면 예시가
+            # 다듬기 전 값을 되돌려 주고, 같은 호출의 힌트가 데몬 생사에 따라 달라진다.
+            stored_shape = {
+                "kind": (kind or "").strip().upper(),
+                "topic": normalized_topic,
+                "title": _clamped(title, limits.TITLE_MAX),
+                "body": _clamped(body, limits.BODY_MAX),
+                "rationale": _clamped(rationale, limits.TEXT_MAX),
+                "outcome": _clamped(outcome, limits.TEXT_MAX),
+                "limitation": _clamped(limitation, limits.TEXT_MAX),
+                "interview": _clamped(interview, limits.TEXT_MAX),
+            }
+            missing = topics.missing_fields(stored_shape)
             hints = {
                 "topic_slug": slug,
                 "missing_fields": missing,
                 "example_call": topics.example_call(
-                    payload, missing, record_id=resolved_id
+                    stored_shape, missing, record_id=resolved_id
                 ),
                 # DB 갈래는 못 보지만 권장 상수는 임포트 한 번이면 읽힌다.
                 "similar_slugs": topics.similar_recommended(slug),
+                # 보강 호출이면 이 목록은 **이번 호출 인자만** 본 값이다 —
+                # DB 에 이미 채워 둔 필드도 비어 보인다. 산문이 아니라 값으로
+                # 알려야 읽는 쪽이 프로그램적으로 분기할 수 있다.
+                "missing_fields_scope": "call_args" if record_id else "stored",
             }
 
         common = _common(outcome_)
-        if record_id and outcome_.body is None and outcome_.storage == "SPOOL":
-            # 오프라인 보강. 여기의 missing_fields 는 이번 호출 인자만 본 값이라
-            # DB 에 이미 채워진 필드도 비어 보인다. 그걸 다시 물으러 가지 않게 알린다.
+        if hints.get("missing_fields_scope") == "call_args":
+            # 사람이 읽을 자리에도 한 줄 남긴다. 판단은 위의 값으로 한다.
             common["message"] += (
                 " (보강 호출 — missing_fields 는 이번 호출 인자만 본 값입니다."
                 " 이미 채워 둔 필드는 다시 묻지 않아도 됩니다.)"

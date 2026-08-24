@@ -149,9 +149,15 @@ def _enrich(ctx, existing: dict, payload: dict, now: str) -> dict:
     limitation, _ = limits.clamp_text(payload.get("limitation"), limits.TEXT_MAX)
     interview, _ = limits.clamp_text(payload.get("interview"), limits.TEXT_MAX)
 
+    incoming_topic, _ = topics.normalize_topic(
+        payload.get("topic"), limits.TITLE_MAX
+    )
     row, filled = ctx.records.fill_record(
         existing["record_id"],
         {
+            # topic 도 여기 넘긴다. "비어 있을 때만 채운다" 규칙은
+            # 나머지 일곱 필드와 **같은 곳**에서 지켜져야 한다.
+            "topic": incoming_topic,
             "kind": (payload.get("kind") or "").strip().upper(),
             "title": title, "body": body,
             "rationale": rationale, "outcome": outcome,
@@ -160,19 +166,6 @@ def _enrich(ctx, existing: dict, payload: dict, now: str) -> dict:
     )
     if row is None:
         row = existing
-
-    # topic 만은 fill_record 밖에서 다룬다. **비어 있을 때만** 채운다 —
-    # topic 이 빈 기록은 `misc` 로 좌초하는데, 힌트가 topic 을 채우라고
-    # 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
-    # 이미 값이 있으면 바꾸지 않는다. 바꾸면 슬러그가 갈라져 기록이 이사한다.
-    incoming_topic, _ = limits.clamp_text(payload.get("topic"), limits.TITLE_MAX)
-    incoming_topic = (incoming_topic or "").strip()
-    if incoming_topic and not (row.get("topic") or "").strip():
-        ctx.records.set_topic(
-            row["record_id"], incoming_topic, topics.slugify(incoming_topic)
-        )
-        filled = [*filled, "topic"]
-        row = ctx.records.get_record(row["record_id"])
 
     if filled:
         ctx.repo.touch_work(row["work_id"], now, row.get("repo_path"))

@@ -111,3 +111,37 @@ def test_읽을_수_없는_버전의_봉투는_아직_쓸_수_없어야_한다()
                 f"{kind} 는 버전 {version} 로 쓰이는데 데몬이 읽지 못한다. "
                 "KINDS 에 넣으려면 SUPPORTED_ENVELOPE_VERSIONS 도 함께 올려라."
             )
+
+
+# v1 시절부터 있던 봉투. 이 넷은 버전 게이트 없이 존재해도 된다 —
+# 그때는 모든 데몬이 이미 그 핸들러를 갖고 있었다.
+V1_BASELINE_KINDS = {
+    "start_work", "record_checkpoint", "finish_work", "client_closed",
+}
+
+
+def test_새_봉투_종류는_반드시_버전을_올려야_한다():
+    """구버전 데몬이 새 kind 를 만나면 파일째 건너뛰게 만드는 유일한 장치다.
+
+    이게 없으면 새 kind 가 버전 1 로 나가고, 아직 안 뜬 구버전 데몬이
+    그 파일을 읽어 핸들러가 없다며 재시도하다 결국 dead-letter 로 격리한다.
+    데몬 업그레이드 창은 몇 시간~며칠인데 재시도 상한은 25분 남짓이라
+    흡수 쪽 안전망만으로는 그 창을 덮지 못한다.
+
+    "새 kind 를 더할 때 버전도 올린다" 를 관례가 아니라 구조로 만든다.
+    """
+    for kind in spool.KINDS - V1_BASELINE_KINDS:
+        version = spool.envelope_version_for(kind)
+        assert version > spool.ENVELOPE_VERSION, (
+            f"{kind} 는 버전 {version} 로 나간다. "
+            "ENVELOPE_VERSION_BY_KIND 에 더 높은 버전을 등록해야 "
+            "구버전 데몬이 이 봉투가 든 파일을 건너뛴다."
+        )
+
+
+def test_v1_봉투_넷은_그대로_버전_1_이다():
+    """기준선을 함께 잠근다. 기존 봉투의 버전을 올리면 구버전 데몬이
+    **기존 기록까지** 못 읽게 되므로, 그건 별도 판단이 필요한 변경이다.
+    """
+    for kind in V1_BASELINE_KINDS:
+        assert spool.envelope_version_for(kind) == spool.ENVELOPE_VERSION

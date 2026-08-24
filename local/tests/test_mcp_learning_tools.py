@@ -215,3 +215,44 @@ def test_오프라인_보강이면_힌트의_한계를_알린다():
     service, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
     result = _call(service, record_id="rec_이전것", outcome="채움")
     assert "이번 호출" in result["message"]
+
+
+def test_오프라인_힌트가_데몬_힌트와_같다(home):
+    """같은 호출의 힌트가 데몬 생사에 따라 달라지면 안 된다.
+
+    어댑터가 원본 인자로 판단하면 예시가 다듬기 전 값(앞뒤 공백, 소문자 kind)을
+    되돌려 주고, 그걸 복사한 보강 호출이 정리 전 값을 다시 보낸다.
+    """
+    from fastapi.testclient import TestClient
+
+    from warruru_local.config import load_settings
+    from warruru_local.daemon.app import create_app
+
+    args = dict(kind="experiment", topic="  Connection Pool  ",
+                title="  풀 크기  ", body="  본문  ")
+
+    service, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
+    offline = service.record_learning(**args)
+
+    settings = load_settings(home)
+    app = create_app(settings, clock=FixedClock(START), start_background=False)
+    with TestClient(app) as made:
+        made.headers.update({"X-Warruru-Token": settings.token})
+        online = made.post("/v1/records", json={
+            "record_id": offline["record_id"],
+            "client_instance_id": "cli_X", "tool": "codex", **args,
+        }).json()
+
+    assert offline["topic_slug"] == online["topic_slug"]
+    assert offline["missing_fields"] == online["missing_fields"]
+    assert offline["example_call"] == online["example_call"]
+
+
+def test_힌트의_범위가_값으로_표시된다():
+    """산문이 아니라 값이어야 읽는 쪽이 프로그램적으로 분기할 수 있다."""
+    service, _ = _service(Outcome(None, "SPOOL", "보관"))
+    assert _call(service)["missing_fields_scope"] == "stored"
+
+    service, _ = _service(Outcome(None, "SPOOL", "보관"))
+    enrich = _call(service, record_id="rec_이전것", outcome="채움")
+    assert enrich["missing_fields_scope"] == "call_args"
