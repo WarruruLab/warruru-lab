@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
-from warruru_local.daemon import dayview, topicview
+from warruru_local.daemon import dayview, drafting, topicview
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 
 router = APIRouter()
@@ -55,7 +55,8 @@ async def topic_detail(request: Request, topic_slug: str):
         )
     today = local_date_of(to_iso(ctx.clock.now()))
     return templates.TemplateResponse(
-        request, "topic.html", {"view": view, "today": today}
+        request, "topic.html",
+        {"view": view, "today": today, "token": ctx.settings.token}
     )
 
 
@@ -74,6 +75,28 @@ def _check_token(request: Request, token: str | None) -> None:
 
 def _back(date: str) -> RedirectResponse:
     return RedirectResponse(f"/d/{date}", status_code=302)
+
+
+@router.post("/web/topics/{topic_slug}/draft")
+async def create_draft_form(
+    request: Request,
+    topic_slug: str,
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """[초안 만들기] 버튼. 상태를 바꾸므로 폼 토큰을 요구한다.
+
+    API 와 **같은 함수**를 부른다. 갈라지면 두 경로의 동작이 조용히 달라진다.
+    """
+    ctx = request.app.state.ctx
+    _check_token(request, form_token)
+    try:
+        result = drafting.create(ctx, topic_slug)
+    except drafting.NoRecordsError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그 주제의 기록이 없습니다"},
+        ) from None
+    return RedirectResponse(f"/drafts/{result['draft_id']}", status_code=302)
 
 
 @router.post("/web/works/{work_id}/delete")

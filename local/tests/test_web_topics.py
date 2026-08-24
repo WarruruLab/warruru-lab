@@ -151,13 +151,17 @@ def test_다_채운_주제는_부족한_필드가_없다고_말한다(client):
     assert "부족한 필드 없음" in page
 
 
-def test_초안_만들기는_아직_동작하지_않는다고_밝힌다(client):
-    """자리만 만든다(Task 8 에서 붙는다). 눌러도 아무 일이 없으면
-    고장난 것으로 오해한다.
+def test_초안_만들기는_폼이고_토큰을_싣는다(client):
+    """Task 7 에서는 disabled 자리표시자였고, Task 8 에서 동작이 붙었다.
+
+    상태를 바꾸는 요청이므로 폼 토큰을 함께 보낸다 —
+    다른 출처의 페이지가 내 데몬을 조작하지 못하게 하는 유일한 방어선이다.
     """
     _record(client, "rec_A")
     page = client.get("/t/connection-pool").text
-    assert "준비 중" in page
+    assert 'action="/web/topics/connection-pool/draft"' in page
+    assert 'name="_token"' in page
+    assert "준비 중" not in page
 
 
 def test_기록이_없는_슬러그는_404(client):

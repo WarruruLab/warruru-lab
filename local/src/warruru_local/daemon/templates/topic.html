@@ -24,7 +24,10 @@
 
 <section class="tool">
   <div class="work-head">
-    <button type="button" disabled>초안 만들기 (준비 중)</button>
+    <form class="inline" method="post" action="/web/topics/{{ view.topic_slug }}/draft">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <button type="submit">초안 만들기</button>
+    </form>
     {% if view.shortages %}
       <span class="meta">
         이 주제로 글을 쓰기에 부족한 필드:

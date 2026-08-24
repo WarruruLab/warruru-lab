@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from warruru_local import topics
 from warruru_local.clock import local_day_bounds
-from warruru_local.daemon import context, learning, recording
+from warruru_local.daemon import context, drafting, learning, recording
 from warruru_local.daemon.auth import require_token
 from warruru_local.store.records import LIMIT_DEFAULT
 from warruru_local.daemon.models import (
     CheckpointRequest,
+    DraftRequest,
     FinishWorkRequest,
     RecordRequest,
     StartWorkRequest,
@@ -59,6 +60,18 @@ async def list_records(
             topic_slug=slug, since=start, until=end, limit=limit
         )
     }
+
+
+@router.post("/drafts")
+async def create_draft(request: Request, payload: DraftRequest) -> dict:
+    """그 주제의 기록으로 초안을 조립한다. 같은 주제면 덮어쓴다(upsert)."""
+    try:
+        return drafting.create(request.app.state.ctx, payload.topic_slug)
+    except drafting.NoRecordsError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그 주제의 기록이 없습니다"},
+        ) from None
 
 
 @router.post("/works/{work_id}/finish")

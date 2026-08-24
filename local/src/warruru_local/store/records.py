@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 from warruru_local import topics
@@ -253,6 +254,67 @@ class RecordRepository:
             summary.values(),
             key=lambda item: (-item["count"], item["topic_slug"]),
         )
+
+    # ── draft ─────────────────────────────────────────────────────
+
+    def upsert_draft(
+        self,
+        *,
+        draft_id: str,
+        topic: str,
+        topic_slug: str,
+        kinds: list[str],
+        title: str,
+        markdown: str,
+        markdown_truncated: bool,
+        source_record_ids: list[str],
+        file_path: str | None,
+        now_iso: str,
+    ) -> tuple[dict, bool]:
+        """그 주제의 **가장 최근 미발행 초안**을 덮어쓰고, 없으면 만든다.
+
+        조립기와 (나중에 붙을) `save_draft` 가 결국 여기로 모인다.
+        발행된 초안은 건드리지 않는다 — 이미 티스토리에 올라간 글의 본문을
+        말없이 바꾸면 로컬과 원격이 어긋난다.
+        """
+        existing = self._conn.execute(
+            "SELECT * FROM draft"
+            " WHERE topic_slug = ? AND status = 'DRAFT' AND deleted_at IS NULL"
+            " ORDER BY updated_at DESC, draft_id DESC LIMIT 1",
+            (topic_slug,),
+        ).fetchone()
+
+        kinds_json = json.dumps(sorted(set(kinds)), ensure_ascii=False)
+        ids_json = json.dumps(source_record_ids, ensure_ascii=False)
+
+        if existing is not None:
+            self._conn.execute(
+                "UPDATE draft SET topic = ?, kind_json = ?, title = ?,"
+                " markdown = ?, markdown_truncated = ?, source_record_ids_json = ?,"
+                " file_path = ?, updated_at = ? WHERE draft_id = ?",
+                (topic, kinds_json, title, markdown,
+                 1 if markdown_truncated else 0, ids_json, file_path, now_iso,
+                 existing["draft_id"]),
+            )
+            return self.get_draft(existing["draft_id"]), True
+
+        self._conn.execute(
+            "INSERT INTO draft ("
+            " draft_id, topic, topic_slug, kind_json, title, markdown,"
+            " markdown_truncated, source_record_ids_json, file_path, status,"
+            " created_at, updated_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?)",
+            (draft_id, topic, topic_slug, kinds_json, title, markdown,
+             1 if markdown_truncated else 0, ids_json, file_path,
+             now_iso, now_iso),
+        )
+        return self.get_draft(draft_id), False
+
+    def get_draft(self, draft_id: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT * FROM draft WHERE draft_id = ?", (draft_id,)
+        ).fetchone()
+        return dict(row) if row else None
 
     def similar_slugs(
         self, slug: str, limit: int = topics.SIMILAR_LIMIT
