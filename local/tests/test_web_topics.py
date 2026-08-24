@@ -111,3 +111,71 @@ def test_오늘_경계는_로컬_자정_기준이다(client):
 def test_주제_한_줄에서_상세로_간다(client):
     _record(client, "rec_A")
     assert '/t/connection-pool' in client.get("/t").text
+
+
+# ── /t/{slug} 상세 ─────────────────────────────────────────────────
+
+def test_주제_상세는_기록을_시간순으로_보여준다(client):
+    """읽는 순서가 곧 서사 순서다. 목록과 달리 오래된 것부터 펼친다."""
+    _record(client, "rec_먼저", title="먼저 한 것",
+            occurred_at="2026-08-24T07:00:00.000Z")
+    _record(client, "rec_나중", title="나중 한 것",
+            occurred_at="2026-08-24T09:00:00.000Z")
+    page = client.get("/t/connection-pool").text
+    assert page.index("먼저 한 것") < page.index("나중 한 것")
+
+
+def test_상세도_topic_원문을_보여준다(client):
+    _record(client, "rec_A", topic="  Connection Pool  ")
+    assert "Connection Pool" in client.get("/t/connection-pool").text
+
+
+def test_부족한_필드_목록이_초안_만들기_옆에_보인다(client):
+    """초안 품질이 낮은 이유가 조립기가 아니라 재료라는 사실을
+    누르기 전에 보여줘야 다음 기록이 나아진다.
+    """
+    _record(client, "rec_A")
+    _record(client, "rec_B", outcome="결과 있음")
+    page = client.get("/t/connection-pool").text
+    assert "초안 만들기" in page
+    assert "부족한 필드" in page
+    assert "limitation" in page
+    assert "2건 중 2건" in page      # limitation 은 둘 다 비었다
+    assert "2건 중 1건" in page      # outcome 은 하나만 비었다
+
+
+def test_다_채운_주제는_부족한_필드가_없다고_말한다(client):
+    _record(client, "rec_A", rationale="근거", outcome="결과",
+            limitation="한계", interview="문장")
+    page = client.get("/t/connection-pool").text
+    assert "부족한 필드 없음" in page
+
+
+def test_초안_만들기는_아직_동작하지_않는다고_밝힌다(client):
+    """자리만 만든다(Task 8 에서 붙는다). 눌러도 아무 일이 없으면
+    고장난 것으로 오해한다.
+    """
+    _record(client, "rec_A")
+    page = client.get("/t/connection-pool").text
+    assert "준비 중" in page
+
+
+def test_기록이_없는_슬러그는_404(client):
+    assert client.get("/t/그런-주제-없다").status_code == 404
+
+
+def test_상세는_그_주제의_전체_기간을_보여준다(client):
+    """목록은 오늘이지만 상세는 전체다. 글 한 편의 재료는 하루치가 아니다."""
+    _record(client, "rec_어제", occurred_at="2026-08-20T09:00:00.000Z")
+    _record(client, "rec_오늘", occurred_at="2026-08-24T09:00:00.000Z")
+    page = client.get("/t/connection-pool").text
+    assert "2건" in page
+
+
+def test_nav_로_날짜_화면과_오갈_수_있다(client):
+    _record(client, "rec_A")
+    for path in ("/t", "/t/connection-pool"):
+        page = client.get(path).text
+        assert "<nav>" in page
+        assert 'href="/d/2026-08-24"' in page
+        assert 'href="/t"' in page

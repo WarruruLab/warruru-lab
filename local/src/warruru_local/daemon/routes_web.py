@@ -44,6 +44,21 @@ async def topics_index(request: Request):
     )
 
 
+@router.get("/t/{topic_slug}")
+async def topic_detail(request: Request, topic_slug: str):
+    ctx = request.app.state.ctx
+    view = topicview.build_detail(ctx, topic_slug)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그 주제의 기록이 없습니다"},
+        )
+    today = local_date_of(to_iso(ctx.clock.now()))
+    return templates.TemplateResponse(
+        request, "topic.html", {"view": view, "today": today}
+    )
+
+
 def _check_token(request: Request, token: str | None) -> None:
     """다른 출처의 페이지가 로컬 데몬을 조작하지 못하게 한다.
 

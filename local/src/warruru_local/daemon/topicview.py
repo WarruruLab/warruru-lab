@@ -39,6 +39,49 @@ def _group(row: dict) -> dict:
     }
 
 
+# 글 한 편을 쓰기에 있어야 하는 필드. 비어 있으면 그 절이 TODO 로 남는다.
+MATERIAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
+
+
+def build_detail(ctx, topic_slug: str) -> dict | None:
+    """한 주제의 전체 기록. **하루치가 아니다** — 글 한 편의 재료는 며칠에 걸친다.
+
+    부족한 필드를 함께 센다. 초안 품질이 낮은 이유가 조립기가 아니라
+    재료라는 사실을 [초안 만들기] 를 누르기 전에 보여줘야 다음 기록이 나아진다.
+    """
+    rows = ctx.records.list_records(topic_slug=topic_slug, limit=100)
+    if not rows:
+        return None
+
+    # 목록은 최신순이지만 상세는 시간순이다. 읽는 순서가 곧 서사 순서다.
+    rows = sorted(rows, key=lambda row: (row["occurred_at"], row["record_id"]))
+
+    shortages = []
+    for name in MATERIAL_FIELDS:
+        blank = sum(1 for row in rows if not (row.get(name) or "").strip())
+        if blank:
+            shortages.append({"field": name, "blank": blank, "total": len(rows)})
+
+    return {
+        "topic": rows[-1]["topic"],
+        "topic_slug": topic_slug,
+        "count": len(rows),
+        "records": [
+            {
+                "record_id": row["record_id"],
+                "kind": KIND_LABELS.get(row["kind"], row["kind"] or "미상"),
+                "title": row["title"],
+                "body": row["body"],
+                "time": _local_time(row["occurred_at"]),
+                "date": row["occurred_at"][:10],
+                "project": row["project"],
+            }
+            for row in rows
+        ],
+        "shortages": shortages,
+    }
+
+
 def build_index(ctx, date: str) -> dict:
     """그 날짜의 주제별 요약. 경계는 예외 없이 `local_day_bounds` 로 만든다.
 
