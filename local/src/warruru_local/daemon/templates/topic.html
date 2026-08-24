@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ view.topic }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.topic }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">{{ view.count }}건 · <code>{{ view.topic_slug }}</code></p>
+
+<ul class="checkpoints">
+{% for record in view.records %}
+  <li>
+    <div class="work-head">
+      <span class="badge">{{ record.kind }}</span>
+      <strong>{{ record.title }}</strong>
+      <span class="meta">{{ record.date }} {{ record.time }}</span>
+      {% if record.project %}<span class="badge">{{ record.project }}</span>{% endif %}
+    </div>
+    {% if record.body %}<pre class="body">{{ record.body }}</pre>{% endif %}
+  </li>
+{% endfor %}
+</ul>
+
+<section class="tool">
+  <div class="work-head">
+    <button type="button" disabled>초안 만들기 (준비 중)</button>
+    {% if view.shortages %}
+      <span class="meta">
+        이 주제로 글을 쓰기에 부족한 필드:
+        {% for item in view.shortages %}
+          {{ item.field }}({{ item.total }}건 중 {{ item.blank }}건 비어 있음){% if not loop.last %} · {% endif %}
+        {% endfor %}
+      </span>
+    {% else %}
+      <span class="meta">부족한 필드 없음</span>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
