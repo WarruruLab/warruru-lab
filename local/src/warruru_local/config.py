@@ -36,6 +36,12 @@ class Settings:
     git_dirty_file_cap: int
     spool_quiet_seconds: int
     log_level: str
+    # 초안이 앉는 자리. `None` 은 "정해진 자리"(`~/.warruru/drafts`)를 뜻한다.
+    # 해석은 `paths.drafts_dir` 한 곳에서 하므로 여기서는 덮어쓴 값만 담는다.
+    drafts_root: Path | None = None
+    # 이 경로 안에는 초안을 쓰지 않는다. 저장소가 public 이라 사고 방지 장치다.
+    # `None` 이면 검사하지 않는다 — 저장소 밖에서 데몬을 돌리는 경우다.
+    repo_root: Path | None = None
 
 
 def _env_int(key: str, fallback: int) -> int:
@@ -113,4 +119,20 @@ def load_settings(home: Path | None = None) -> Settings:
         git_dirty_file_cap=_env_int("WARRURU_GIT_DIRTY_FILE_CAP", 500),
         spool_quiet_seconds=_env_int("WARRURU_SPOOL_QUIET_SECONDS", 10),
         log_level=os.environ.get("WARRURU_LOG_LEVEL", "INFO"),
+        drafts_root=(
+            Path(os.environ["WARRURU_DRAFTS_ROOT"]).expanduser()
+            if os.environ.get("WARRURU_DRAFTS_ROOT")
+            else None
+        ),
+        repo_root=_repo_root(),
     )
+
+
+def _repo_root() -> Path | None:
+    """초안을 쓰면 안 되는 경로. 없으면 검사하지 않는다.
+
+    기본값을 두지 않는 이유는, 데몬이 어느 저장소 안에서 도는지 모르기 때문이다.
+    `WARRURU_REPO_ROOT` 로 알려 준 경우에만 막는다.
+    """
+    override = os.environ.get("WARRURU_REPO_ROOT")
+    return Path(override).expanduser().resolve() if override else None

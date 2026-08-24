@@ -68,6 +68,14 @@ class RecordRequest(CommonFields):
     repo_path: str | None = None
 
 
+class DraftRequest(BaseModel):
+    """초안 만들기. 재료는 서버가 `topic_slug` 로 찾는다 —
+    클라이언트가 기록 목록을 골라 보내면 두 곳의 판단이 갈린다.
+    """
+
+    topic_slug: str
+
+
 class FinishWorkRequest(CommonFields):
     result: str | None = None
     limitations: str | None = None
