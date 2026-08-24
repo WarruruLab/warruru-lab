@@ -156,6 +156,7 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 **루트**
 
 - `README.md` — 프로젝트 소개와 현재 상태
+- `docs/git-convention.md` — 커밋·브랜치·PR 규칙 (Google 관례 기반)
 - `docs/guides/backend-infra-roadmap-31w.md` — 31주 학습 로드맵,
   주차별 권장 `topic_slug` 의 원본
 - `docs/superpowers/specs/2026-08-12-learning-record-design.md` —

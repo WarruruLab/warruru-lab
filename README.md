@@ -137,6 +137,7 @@ DB 하나(`~/.warruru/warruru.db`) 안에서 끝낸다.
 | 문서 | 위치 |
 |------|------|
 | AI 에이전트 가이드 | [`AGENTS.md`](./AGENTS.md) |
+| Git 컨벤션 | [`docs/git-convention.md`](./docs/git-convention.md) |
 | 기록 시스템 사용법 | [`local/README.md`](./local/README.md) |
 | 구현 계획 | [`local/docs/plans/`](./local/docs/plans/) |
 | 미해결 결함 | [`local/docs/OUTSTANDING.md`](./local/docs/OUTSTANDING.md) |
