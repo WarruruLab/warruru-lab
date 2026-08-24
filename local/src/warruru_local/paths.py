@@ -46,6 +46,16 @@ def dead_letter_dir(home: Path) -> Path:
     return home / "spool" / "dead-letter"
 
 
+def drafts_dir(home: Path) -> Path:
+    """초안이 앉는 자리. **저장소 바깥이다.**
+
+    origin 이 public 저장소이고 `blog/` 는 이미 추적 중이라, 저장소 안에
+    초안을 떨구면 `git add -A` 한 번으로 미완성 사고 과정이 인터넷에 올라간다.
+    `.gitignore` 한 줄은 `git add -f` · 새 클론 · 다른 도구 한 번이면 뚫린다.
+    """
+    return home / "drafts"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 
