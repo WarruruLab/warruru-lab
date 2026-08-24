@@ -8,15 +8,18 @@ from pathlib import Path
 from warruru_local import paths
 
 ENVELOPE_VERSION = 1
-KINDS = {"start_work", "record_checkpoint", "finish_work", "client_closed"}
+KINDS = {
+    "start_work", "record_checkpoint", "finish_work", "client_closed",
+    "learning_record",
+}
 
 # 데몬이 읽을 수 있는 봉투 버전. 모르는 버전이 섞인 파일은 이름조차 건드리지 않는다.
 #
-# **여기에 버전을 더하는 것은 그 버전을 처리할 핸들러를 더하는 것과 같은 커밋이어야 한다.**
-# 먼저 올리면 데몬이 파일을 붙잡아 놓고 핸들러가 없어 dead-letter 로 격리한다 —
-# 대기시키려던 봉투를 오히려 버리는 셈이라 이 장치의 목적이 뒤집힌다.
-# 그래서 `2` 는 `learning_record` 핸들러가 들어오는 태스크에서 함께 올린다.
-SUPPORTED_ENVELOPE_VERSIONS = {1}
+# **손으로 적지 않고 아래에서 파생시킨다** — "이 패키지가 쓰는 봉투를 이 패키지가
+# 못 읽는" 상태를 테스트로 감시하는 대신 표현 자체가 불가능하게 만든다.
+# 새 버전의 kind 를 더하면 이 집합이 저절로 넓어지고, 구버전 데몬만
+# (이 상수가 좁은 채로) 그 파일을 건너뛴다. 정의는 파일 아래쪽에 있다 —
+# ENVELOPE_VERSION_BY_KIND 뒤에 와야 하기 때문이다.
 
 # 봉투 종류 이름. 오타 하나가 이 장치를 통째로 무력화하므로 상수로 둔다.
 # 어댑터가 `send()` 에 넘기는 첫 인자가 이 값이어야 한다 — **툴 이름이 아니다.**
@@ -33,6 +36,12 @@ ENVELOPE_VERSION_BY_KIND = {KIND_LEARNING_RECORD: 2}
 
 def envelope_version_for(kind: str) -> int:
     return ENVELOPE_VERSION_BY_KIND.get(kind, ENVELOPE_VERSION)
+
+
+# 위 주석 참조. {1, 2} 를 손으로 적는 대신 쓰는 쪽에서 파생시킨다.
+SUPPORTED_ENVELOPE_VERSIONS = frozenset(
+    {ENVELOPE_VERSION} | set(ENVELOPE_VERSION_BY_KIND.values())
+)
 
 
 def spool_path(home: Path, client_instance_id: str) -> Path:

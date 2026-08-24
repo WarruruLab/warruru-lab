@@ -205,3 +205,44 @@ def test_소수점_자릿수가_달라도_사전순이_시간순과_같다(ctx):
                                   occurred_at="2026-08-18T09:00:00.150Z"))
     ids = [r["record_id"] for r in ctx.records.list_records()]
     assert ids == ["rec_B", "rec_A"]
+
+
+# ── 리뷰 반영 (2026-08-24) ─────────────────────────────────────────
+
+def test_중복이면_세션을_새로_붙이지_않는다(ctx, monkeypatch):
+    """봉투 재생(daemon 크래시 후 재시도, 보강 호출)은 설계된 일상이다.
+    attach 를 멱등 확인보다 먼저 부르면 재생마다 빈 INFERRED 작업이 생겨
+    날짜 화면에 유령 작업이 쌓인다.
+    """
+    learning.record(ctx, _payload())
+    boom = lambda **kwargs: (_ for _ in ()).throw(AssertionError("attach 불림"))
+    monkeypatch.setattr(ctx.sessions, "attach", boom)
+    result = learning.record(ctx, _payload(outcome="보강"))
+    assert result["duplicate"] is True
+    assert result["filled_fields"] == ["outcome"]
+
+
+def test_비어_있던_topic_은_보강으로_채울_수_있다(ctx):
+    """topic 이 빈 기록은 misc 로 좌초한다. 힌트가 topic 을 채우라고
+    말하는데 채울 수 없으면 그 힌트는 영원히 도는 헛바퀴다.
+    """
+    learning.record(ctx, _payload(topic=""))
+    assert ctx.records.get_record("rec_A")["topic_slug"] == "misc"
+
+    result = learning.record(ctx, _payload(topic="connection pool"))
+    assert "topic" in result["filled_fields"]
+    row = ctx.records.get_record("rec_A")
+    assert row["topic"] == "connection pool"
+    assert row["topic_slug"] == "connection-pool"
+
+
+def test_이미_있는_topic_은_보강으로_바뀌지_않는다(ctx):
+    """topic 을 바꾸면 슬러그가 갈라져 기록이 다른 주제로 이사한다."""
+    learning.record(ctx, _payload(topic="connection pool"))
+    learning.record(ctx, _payload(topic="jvm gc"))
+    assert ctx.records.get_record("rec_A")["topic_slug"] == "connection-pool"
+
+
+def test_예시_재호출에_record_id_가_들어_있다(ctx):
+    result = learning.record(ctx, _payload())
+    assert 'record_id="rec_A"' in result["example_call"]

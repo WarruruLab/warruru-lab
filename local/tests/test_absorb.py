@@ -285,19 +285,33 @@ def test_모르는_봉투_버전은_남겨_둔다(client, home):
     assert target.exists()
 
 
-def test_아직_읽지_못하는_버전은_파일째_남긴다(client, home):
-    """핸들러가 들어오기 전까지 버전 2 는 '못 읽는' 버전이다. 버리지 않고 기다린다."""
-    paths.ensure_layout(home)
-    target = spool.spool_path(home, CLIENT)
-    target.write_text(
-        '{"envelope_version": 2, "event_id": "evt_A", "kind": "record_checkpoint",'
-        ' "enqueued_at": "2026-07-22T09:00:00.000Z", "payload": {}}\n',
-        encoding="utf-8",
+def test_학습기록_봉투가_흡수되어_DB_에_들어온다(client, home):
+    """온라인 경로와 같은 함수(learning.record)를 부른다. 갈라지면 안 된다."""
+    spool.append(
+        home, CLIENT, "learning_record",
+        {"record_id": "rec_스풀A", "kind": "EXPERIMENT",
+         "topic": "connection pool", "title": "제목", "body": "본문", **COMMON},
+        "2026-07-22T09:00:00.000Z", "evt_A",
     )
     _age(home)
-    assert absorb.absorb_all(client.app.state.ctx) == 0
-    assert target.exists()
-    assert list(paths.dead_letter_dir(home).glob("*.jsonl")) == []
+    assert absorb.absorb_all(client.app.state.ctx) == 1
+    row = client.app.state.ctx.records.get_record("rec_스풀A")
+    assert row["source"] == "SPOOL"
+    assert row["topic_slug"] == "connection-pool"
+
+
+def test_학습기록_봉투를_두_번_흡수해도_한_건이다(client, home):
+    for event in ("evt_A", "evt_B"):
+        spool.append(
+            home, CLIENT, "learning_record",
+            {"record_id": "rec_스풀A", "kind": "EXPERIMENT",
+             "topic": "connection pool", "title": "제목", "body": "본문", **COMMON},
+            "2026-07-22T09:00:00.000Z", event,
+        )
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+    rows = client.app.state.ctx.records.list_records()
+    assert len(rows) == 1
 
 
 def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, home):
@@ -319,8 +333,28 @@ def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, 
     assert target.exists()
 
 
-def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
-    """재시도해도 결과가 달라질 수 없는 봉투다. 격리해서 흔적을 남긴다.
+def test_모르는_kind_는_바로_버리지_않고_재시도한다(client, home):
+    """데몬 업그레이드 창에서는 재시도가 결과를 바꾼다 — 새 데몬이 뜨면 읽힌다.
+
+    "재시도해도 결과가 달라질 수 없다" 는 처음 판단은 그 창을 빼먹은 것이었다.
+    버전 게이트가 있는 kind 는 애초 여기 오지 않으므로, 이 분기는 게이트를
+    거치지 않은(버전 1 그대로인) 새 kind 를 위한 안전망이다.
+    """
+    paths.ensure_layout(home)
+    spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
+                 "2026-07-22T09:00:00.000Z", "evt_A")
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+
+    assert list(paths.dead_letter_dir(home).glob("*.jsonl")) == []
+    # absorbed/ 디렉터리가 spool/ 안에 살므로 파일만 센다.
+    kept = [p for p in paths.spool_dir(home).glob("*") if p.is_file()]
+    assert len(kept) == 1
+    assert "그런_봉투는_없다" in kept[0].read_text(encoding="utf-8")
+
+
+def test_모르는_kind_봉투는_결국_dead_letter_로_간다(client, home):
+    """영영 모르는 kind 를 무한정 안고 있을 수도 없다. 실패 봉투와 같은 상한이다.
 
     예전에는 경고만 남기고 `continue` 해서 remaining 에도 dead 에도 들어가지
     않은 채 파일이 absorbed/ 로 옮겨졌다 — 조용히 사라졌다.
@@ -328,8 +362,9 @@ def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
     paths.ensure_layout(home)
     spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
                  "2026-07-22T09:00:00.000Z", "evt_A")
-    _age(home)
-    absorb.absorb_all(client.app.state.ctx)
+    for _ in range(absorb.MAX_ATTEMPTS):
+        _age(home)
+        absorb.absorb_all(client.app.state.ctx)
 
     dead = list(paths.dead_letter_dir(home).glob("*.jsonl"))
     assert len(dead) == 1

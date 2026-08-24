@@ -20,6 +20,41 @@ import unicodedata
 # 화면의 '미분류' 구획에서 눈에 띄므로 조용히 묻히지는 않는다.
 FALLBACK_SLUG = "misc"
 
+# 유사 슬러그로 볼 최소 겹침. 너무 짧으면 아무 슬러그나 걸린다 —
+# `C++` 의 슬러그 `c` 는 거의 모든 슬러그에 포함된다.
+SIMILAR_MIN = 3
+
+# 힌트 개수. SPOOL 경로(similar_recommended)와 데몬 경로(records.similar_slugs)가
+# 서로 다른 개수를 돌려주면, 같은 호출의 힌트가 데몬 생사에 따라 달라진다.
+SIMILAR_LIMIT = 5
+
+
+def match_slugs(target: str, candidates) -> list[str]:
+    """`target` 과 비슷한 후보만 남긴다. 순서는 손대지 않고 거르기만 한다.
+
+    조건은 양쪽에 건다. 후보 쪽에 길이 조건이 없으면 짧은 쓰레기 슬러그가
+    모든 힌트에 달라붙고, 에이전트는 그 힌트를 따른다.
+    """
+    target = (target or "").strip()
+    if len(target) < SIMILAR_MIN:
+        return []
+    return [
+        candidate for candidate in candidates
+        if candidate != target
+        and len(candidate) >= SIMILAR_MIN
+        and (target in candidate or candidate in target)
+    ]
+
+
+def similar_recommended(slug: str, limit: int = SIMILAR_LIMIT) -> list[str]:
+    """권장 슬러그 상수 갈래만 본다. **SPOOL 응답용이다.**
+
+    데몬이 꺼져 있으면 DB 갈래는 못 보지만 상수는 임포트 한 번이면 읽힌다.
+    그래서 힌트가 가장 필요한 첫날에도 SPOOL 응답이 비지 않는다.
+    """
+    return sorted(match_slugs(slug, RECOMMENDED_SLUGS))[:limit]
+
+
 # 비어도 거절하지 않는 필드들. 순서가 곧 결손 목록의 순서다.
 OPTIONAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
 
@@ -57,6 +92,21 @@ def slugify(topic: str) -> str:
     return text or FALLBACK_SLUG
 
 
+def normalize_topic(raw: str | None, max_length: int) -> tuple[str, str]:
+    """주제 원문과 슬러그를 함께 만든다. **자른 뒤에** 슬러그를 만든다.
+
+    순서를 바꾸면 같은 원문이 상한 근처에서 두 슬러그로 갈리고, 그 둘은 영영
+    한 주제로 모이지 않는다. 어댑터(SPOOL 응답)와 데몬(저장)이 **이 함수 하나**를
+    부른다 — 각자 같은 두 줄을 손으로 적으면 한쪽만 바뀌었을 때
+    힌트가 알려준 슬러그와 실제 저장된 슬러그가 조용히 어긋난다.
+
+    `limits.clamp_text` 를 여기서 부르지 않는 이유는 이 모듈이 아무것도
+    임포트하지 않기 때문이다. 자르는 규칙은 인자로 받는다.
+    """
+    text = (raw or "")[:max_length].strip()
+    return text, slugify(text)
+
+
 def missing_fields(values: dict) -> list[str]:
     """비어 있는 필드 이름. 필수 넷을 먼저, 그다음 선택 넷을 정의 순서대로.
 
@@ -80,7 +130,9 @@ def missing_fields(values: dict) -> list[str]:
 ECHO_MAX = 80
 
 
-def example_call(values: dict, missing: list[str]) -> str:
+def example_call(
+    values: dict, missing: list[str], record_id: str | None = None
+) -> str:
     """결손 필드를 채워 같은 툴을 다시 부르는 예시.
 
     **반드시 문법이 맞는 파이썬이어야 한다.** 이 문자열의 유일한 용도가
@@ -98,7 +150,9 @@ def example_call(values: dict, missing: list[str]) -> str:
         return ""
 
     blank = set(missing)
-    parts = []
+    # record_id 가 맨 앞이다. 이게 빠지면 예시를 복사한 순간 새 id 가
+    # 만들어져, 보강 대신 거의 같은 기록이 하나 더 생긴다.
+    parts = [f'record_id="{record_id}"'] if record_id else []
     for name in REQUIRED_FIELDS + OPTIONAL_FIELDS:
         if name in blank:
             parts.append(f'{name}="..."')

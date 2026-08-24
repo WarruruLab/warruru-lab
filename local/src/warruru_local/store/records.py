@@ -18,8 +18,7 @@ from warruru_local import topics
 LIMIT_MAX = 100
 LIMIT_DEFAULT = 20
 
-# 유사 슬러그로 볼 최소 겹침. 너무 짧으면 아무 슬러그나 걸린다.
-_SIMILAR_MIN = 3
+
 
 
 class RecordRepository:
@@ -91,6 +90,8 @@ class RecordRepository:
         return self.get_record(record_id), False
 
     # 나중에 채울 수 있는 필드. `record_id` 같은 식별자와 시각은 손대지 않는다.
+    # `topic` 은 슬러그를 함께 고쳐야 하므로 아래에서 따로 다룬다 —
+    # 다만 "비어 있을 때만" 규칙은 나머지와 **같은 곳에서** 지켜진다.
     FILLABLE = (
         "kind", "title", "body",
         "rationale", "outcome", "limitation", "interview",
@@ -111,6 +112,18 @@ class RecordRepository:
             return None, []
 
         filled = []
+        # topic 이 빈 기록은 슬러그가 `misc` 로 좌초하는데, 힌트가 topic 을
+        # 채우라고 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
+        # 값이 있으면 절대 바꾸지 않는다 — 바꾸면 슬러그가 갈라져 기록이 이사한다.
+        topic_update: tuple[str, str] | None = None
+        incoming_topic = values.get("topic")
+        if isinstance(incoming_topic, str) and incoming_topic.strip():
+            if not (existing.get("topic") or "").strip():
+                topic_update = (
+                    incoming_topic.strip(), topics.slugify(incoming_topic.strip())
+                )
+                filled.append("topic")
+
         for name in self.FILLABLE:
             incoming = values.get(name)
             if isinstance(incoming, str):
@@ -125,8 +138,14 @@ class RecordRepository:
         if not filled:
             return existing, []
 
-        assignments = ", ".join(f"{name} = ?" for name in filled)
-        params = [str(values[name]).strip() for name in filled]
+        columns = [name for name in filled if name != "topic"]
+        assignments = [f"{name} = ?" for name in columns]
+        params: list = [str(values[name]).strip() for name in columns]
+        if topic_update is not None:
+            # 원문과 슬러그가 어긋난 행을 만들지 않는다. 한 UPDATE 안에서 함께 바꾼다.
+            assignments += ["topic = ?", "topic_slug = ?"]
+            params += list(topic_update)
+        assignments = ", ".join(assignments)
         params.append(record_id)
         self._conn.execute(
             f"UPDATE learning_record SET {assignments} WHERE record_id = ?", params
@@ -235,7 +254,9 @@ class RecordRepository:
             key=lambda item: (-item["count"], item["topic_slug"]),
         )
 
-    def similar_slugs(self, slug: str, limit: int = 5) -> list[str]:
+    def similar_slugs(
+        self, slug: str, limit: int = topics.SIMILAR_LIMIT
+    ) -> list[str]:
         """비슷한 슬러그. **두 갈래를 본다.**
 
         (1) DB 에 이미 있는 `topic_slug`, (2) `topics.RECOMMENDED_SLUGS`.
@@ -245,9 +266,10 @@ class RecordRepository:
         로드맵 문서의 슬러그를 함께 보면 첫 기록부터 한 갈래로 모인다.
         """
         target = (slug or "").strip()
-        if len(target) < _SIMILAR_MIN:
+        if len(target) < topics.SIMILAR_MIN:
+            # match_slugs 가 어차피 빈 목록을 돌려준다. 기록 삽입 응답마다
+            # 도는 가장 뜨거운 경로에서 전체 DISTINCT 스캔을 할 이유가 없다.
             return []
-
         known = {
             row["topic_slug"]
             for row in self._conn.execute(
@@ -255,19 +277,11 @@ class RecordRepository:
                 " WHERE deleted_at IS NULL"
             ).fetchall()
         }
-        candidates = known | set(topics.RECOMMENDED_SLUGS)
-
-        # 이미 맞는 슬러그를 쓴 사람에게 그 슬러그를 알려줄 이유가 없다.
-        candidates.discard(target)
-
-        # 후보 쪽에도 같은 길이 조건을 건다. `C++` 는 슬러그가 `c` 인데,
-        # 그 한 글자는 거의 모든 슬러그에 포함된다. 조건이 한쪽에만 있으면
-        # 힌트가 전부 그 쓰레기 슬러그를 가리키고, 에이전트는 그걸 따른다.
-        hits = [
-            candidate for candidate in candidates
-            if len(candidate) >= _SIMILAR_MIN
-            and (target in candidate or candidate in target)
-        ]
+        # 거르는 규칙은 topics.match_slugs 한 곳에만 있다.
+        # SPOOL 경로(어댑터)와 여기가 다른 규칙을 쓰면 데몬을 켰을 때 힌트가 바뀐다.
+        hits = topics.match_slugs(
+            target, known | set(topics.RECOMMENDED_SLUGS)
+        )
         # DB 에 있는 것을 먼저 — 이 사람이 실제로 쓰던 말이다.
         hits.sort(key=lambda candidate: (candidate not in known, candidate))
         return hits[:limit]
