@@ -333,8 +333,28 @@ def test_모르는_버전이_섞이면_파일을_건드리지_않는다(client, 
     assert target.exists()
 
 
-def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
-    """재시도해도 결과가 달라질 수 없는 봉투다. 격리해서 흔적을 남긴다.
+def test_모르는_kind_는_바로_버리지_않고_재시도한다(client, home):
+    """데몬 업그레이드 창에서는 재시도가 결과를 바꾼다 — 새 데몬이 뜨면 읽힌다.
+
+    "재시도해도 결과가 달라질 수 없다" 는 처음 판단은 그 창을 빼먹은 것이었다.
+    버전 게이트가 있는 kind 는 애초 여기 오지 않으므로, 이 분기는 게이트를
+    거치지 않은(버전 1 그대로인) 새 kind 를 위한 안전망이다.
+    """
+    paths.ensure_layout(home)
+    spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
+                 "2026-07-22T09:00:00.000Z", "evt_A")
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+
+    assert list(paths.dead_letter_dir(home).glob("*.jsonl")) == []
+    # absorbed/ 디렉터리가 spool/ 안에 살므로 파일만 센다.
+    kept = [p for p in paths.spool_dir(home).glob("*") if p.is_file()]
+    assert len(kept) == 1
+    assert "그런_봉투는_없다" in kept[0].read_text(encoding="utf-8")
+
+
+def test_모르는_kind_봉투는_결국_dead_letter_로_간다(client, home):
+    """영영 모르는 kind 를 무한정 안고 있을 수도 없다. 실패 봉투와 같은 상한이다.
 
     예전에는 경고만 남기고 `continue` 해서 remaining 에도 dead 에도 들어가지
     않은 채 파일이 absorbed/ 로 옮겨졌다 — 조용히 사라졌다.
@@ -342,8 +362,9 @@ def test_모르는_kind_봉투는_dead_letter_로_간다(client, home):
     paths.ensure_layout(home)
     spool.append(home, CLIENT, "그런_봉투는_없다", {"a": 1},
                  "2026-07-22T09:00:00.000Z", "evt_A")
-    _age(home)
-    absorb.absorb_all(client.app.state.ctx)
+    for _ in range(absorb.MAX_ATTEMPTS):
+        _age(home)
+        absorb.absorb_all(client.app.state.ctx)
 
     dead = list(paths.dead_letter_dir(home).glob("*.jsonl"))
     assert len(dead) == 1

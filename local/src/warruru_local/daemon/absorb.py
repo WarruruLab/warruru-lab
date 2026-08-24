@@ -133,12 +133,20 @@ def _apply_file(ctx, path: Path, envelopes: list[dict]) -> int:
 
         handler = _HANDLERS.get(envelope.get("kind"))
         if handler is None:
-            # 예전에는 여기서 `continue` 했다. 그러면 이 봉투가 remaining 에도
-            # dead 에도 들어가지 않은 채 파일이 absorbed/ 로 옮겨져 조용히 사라졌다.
-            # 재시도해도 결과가 달라질 수 없는 봉투이므로 바로 격리한다.
+            # "재시도해도 결과가 달라질 수 없다" 는 데몬 업그레이드를 빼먹은
+            # 판단이었다 — 새 kind 의 봉투를 구버전 데몬이 받는 창에서는
+            # 재시도가 정확히 결과를 바꾼다(새 데몬이 뜨면 읽힌다).
+            # 그래서 실패한 봉투와 같은 규칙을 탄다: 시도 횟수를 세고,
+            # MAX_ATTEMPTS 를 넘겨도 모르는 kind 면 그때 격리한다.
+            # 버전 게이트가 있는 kind(learning_record 등)는 애초 여기 오지 않는다.
             ctx.logger.warning("모르는 봉투 종류: %s", envelope.get("kind"))
-            dead.append(envelope)
-            unknown_kind += 1
+            attempts = _attempts(envelope) + 1
+            envelope[ATTEMPTS_FIELD] = attempts
+            if attempts >= MAX_ATTEMPTS:
+                dead.append(envelope)
+                unknown_kind += 1
+            else:
+                remaining.append(envelope)
             continue
         try:
             handler(ctx, envelope.get("payload") or {})

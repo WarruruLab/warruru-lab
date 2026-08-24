@@ -24,6 +24,10 @@ FALLBACK_SLUG = "misc"
 # `C++` 의 슬러그 `c` 는 거의 모든 슬러그에 포함된다.
 SIMILAR_MIN = 3
 
+# 힌트 개수. SPOOL 경로(similar_recommended)와 데몬 경로(records.similar_slugs)가
+# 서로 다른 개수를 돌려주면, 같은 호출의 힌트가 데몬 생사에 따라 달라진다.
+SIMILAR_LIMIT = 5
+
 
 def match_slugs(target: str, candidates) -> list[str]:
     """`target` 과 비슷한 후보만 남긴다. 순서는 손대지 않고 거르기만 한다.
@@ -42,7 +46,7 @@ def match_slugs(target: str, candidates) -> list[str]:
     ]
 
 
-def similar_recommended(slug: str, limit: int = 5) -> list[str]:
+def similar_recommended(slug: str, limit: int = SIMILAR_LIMIT) -> list[str]:
     """권장 슬러그 상수 갈래만 본다. **SPOOL 응답용이다.**
 
     데몬이 꺼져 있으면 DB 갈래는 못 보지만 상수는 임포트 한 번이면 읽힌다.
@@ -111,7 +115,9 @@ def missing_fields(values: dict) -> list[str]:
 ECHO_MAX = 80
 
 
-def example_call(values: dict, missing: list[str]) -> str:
+def example_call(
+    values: dict, missing: list[str], record_id: str | None = None
+) -> str:
     """결손 필드를 채워 같은 툴을 다시 부르는 예시.
 
     **반드시 문법이 맞는 파이썬이어야 한다.** 이 문자열의 유일한 용도가
@@ -129,7 +135,9 @@ def example_call(values: dict, missing: list[str]) -> str:
         return ""
 
     blank = set(missing)
-    parts = []
+    # record_id 가 맨 앞이다. 이게 빠지면 예시를 복사한 순간 새 id 가
+    # 만들어져, 보강 대신 거의 같은 기록이 하나 더 생긴다.
+    parts = [f'record_id="{record_id}"'] if record_id else []
     for name in REQUIRED_FIELDS + OPTIONAL_FIELDS:
         if name in blank:
             parts.append(f'{name}="..."')

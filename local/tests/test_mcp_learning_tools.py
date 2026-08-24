@@ -182,3 +182,36 @@ def test_기존_툴_4개의_동작이_그대로다():
     assert {"start_work", "record_checkpoint", "finish_work",
             "get_today_context"} <= names
     assert "record_learning" in names
+
+
+# ── 리뷰 반영 (2026-08-24) ─────────────────────────────────────────
+
+def test_SPOOL_슬러그는_자른_뒤에_만든다():
+    """데몬은 TITLE_MAX 로 자른 뒤 슬러그를 만든다. 어댑터가 안 자르면
+    긴 주제에서 힌트의 슬러그와 흡수 후 저장된 슬러그가 영영 어긋난다.
+    """
+    from warruru_local import limits
+
+    service, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
+    long_topic = "가" * (limits.TITLE_MAX + 50)
+    result = _call(service, topic=long_topic)
+    clamped, _ = limits.clamp_text(long_topic, limits.TITLE_MAX)
+    assert result["topic_slug"] == topics.slugify(clamped.strip())
+
+
+def test_예시_재호출에_record_id_가_들어_있다():
+    """예시의 유일한 용도는 복사해서 다시 부르는 것이다. record_id 가 빠지면
+    복사한 순간 새 id 가 만들어져 보강 대신 중복 기록이 생긴다.
+    """
+    service, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
+    result = _call(service)
+    assert f'record_id="{result["record_id"]}"' in result["example_call"]
+
+
+def test_오프라인_보강이면_힌트의_한계를_알린다():
+    """SPOOL 보강 응답의 missing_fields 는 이번 호출 인자만 본 값이다.
+    DB 에 이미 있는 값을 다시 물으러 가지 않게 메시지로 알린다.
+    """
+    service, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
+    result = _call(service, record_id="rec_이전것", outcome="채움")
+    assert "이번 호출" in result["message"]

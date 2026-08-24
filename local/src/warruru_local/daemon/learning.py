@@ -38,6 +38,13 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
     now = to_iso(ctx.clock.now())
     _register_client(ctx, payload, now)
 
+    # 멱등 확인이 attach 보다 먼저다. 봉투 재생(크래시 후 재시도, 보강 호출)은
+    # 이 kind 에서 설계된 일상인데, attach 를 먼저 부르면 활성 세션이 없을 때마다
+    # 빈 INFERRED 작업이 새로 생겨 날짜 화면에 유령 작업이 쌓인다.
+    existing = ctx.records.get_record(payload["record_id"])
+    if existing is not None:
+        return _enrich(ctx, existing, payload, now)
+
     snapshot = _snapshot(ctx, payload)
     attachment = ctx.sessions.attach(
         work_id=payload.get("work_id"),
@@ -93,25 +100,7 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         dirty_count_capped=snapshot.dirty_count_capped,
     )
 
-    filled: list[str] = []
-    if duplicate:
-        # 같은 record_id 로 다시 온 것은 보강 호출이다. 빈칸만 채운다.
-        # 이 경로가 없으면 `missing_fields` 힌트를 따라도 채울 방법이 없어
-        # 힌트 장치 전체가 무의미해진다.
-        updated, filled = ctx.records.fill_record(
-            row["record_id"],
-            {
-                "kind": (payload.get("kind") or "").strip().upper(),
-                "title": title, "body": body,
-                "rationale": rationale, "outcome": outcome,
-                "limitation": limitation, "interview": interview,
-            },
-        )
-        if updated is not None:
-            row = updated
-
-    if not duplicate or filled:
-        ctx.repo.touch_work(work["work_id"], now, snapshot.repo_path)
+    ctx.repo.touch_work(work["work_id"], now, snapshot.repo_path)
 
     # 거절하지 않는 대신 무엇이 비었는지와 어떻게 채우는지를 돌려준다.
     # 에이전트는 재시도 비용이 거의 0이라 방법을 알려주면 실제로 보강 호출을 한다.
@@ -134,12 +123,81 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         "topic_slug": row["topic_slug"],
         "project": row["project"],
         "missing_fields": missing,
-        "example_call": topics.example_call(stored, missing),
+        "example_call": topics.example_call(
+            stored, missing, record_id=row["record_id"]
+        ),
         # 저장된 슬러그를 기준으로 한다. 중복 경로에서 새 payload 의
         # 슬러그를 쓰면, 보고한 것과 다른 주제의 힌트가 나간다.
         "similar_slugs": ctx.records.similar_slugs(row["topic_slug"]),
         "git": snapshot.as_dict(),
         "duplicate": duplicate,
+        "filled_fields": [],
+    }
+
+
+def _enrich(ctx, existing: dict, payload: dict, now: str) -> dict:
+    """같은 record_id 로 다시 온 보강 호출. **비어 있던 필드만** 채운다.
+
+    이 경로가 없으면 `missing_fields` 힌트를 따라도 채울 방법이 없어
+    힌트 장치 전체가 무의미해진다. 세션은 새로 붙이지 않는다 —
+    기록은 이미 자기 작업을 알고 있다.
+    """
+    title, _ = limits.clamp_text(payload.get("title"), limits.TITLE_MAX)
+    body, _ = limits.clamp_text(payload.get("body"), limits.BODY_MAX)
+    rationale, _ = limits.clamp_text(payload.get("rationale"), limits.TEXT_MAX)
+    outcome, _ = limits.clamp_text(payload.get("outcome"), limits.TEXT_MAX)
+    limitation, _ = limits.clamp_text(payload.get("limitation"), limits.TEXT_MAX)
+    interview, _ = limits.clamp_text(payload.get("interview"), limits.TEXT_MAX)
+
+    row, filled = ctx.records.fill_record(
+        existing["record_id"],
+        {
+            "kind": (payload.get("kind") or "").strip().upper(),
+            "title": title, "body": body,
+            "rationale": rationale, "outcome": outcome,
+            "limitation": limitation, "interview": interview,
+        },
+    )
+    if row is None:
+        row = existing
+
+    # topic 만은 fill_record 밖에서 다룬다. **비어 있을 때만** 채운다 —
+    # topic 이 빈 기록은 `misc` 로 좌초하는데, 힌트가 topic 을 채우라고
+    # 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
+    # 이미 값이 있으면 바꾸지 않는다. 바꾸면 슬러그가 갈라져 기록이 이사한다.
+    incoming_topic, _ = limits.clamp_text(payload.get("topic"), limits.TITLE_MAX)
+    incoming_topic = (incoming_topic or "").strip()
+    if incoming_topic and not (row.get("topic") or "").strip():
+        ctx.records.set_topic(
+            row["record_id"], incoming_topic, topics.slugify(incoming_topic)
+        )
+        filled = [*filled, "topic"]
+        row = ctx.records.get_record(row["record_id"])
+
+    if filled:
+        ctx.repo.touch_work(row["work_id"], now, row.get("repo_path"))
+
+    stored = {
+        "kind": row["kind"], "topic": row["topic"],
+        "title": row["title"], "body": row["body"],
+        "rationale": row["rationale"], "outcome": row["outcome"],
+        "limitation": row["limitation"], "interview": row["interview"],
+    }
+    missing = topics.missing_fields(stored)
+    return {
+        "record_id": row["record_id"],
+        "work_id": row["work_id"],
+        "work_origin": None,
+        "attached_by": None,
+        "topic_slug": row["topic_slug"],
+        "project": row["project"],
+        "missing_fields": missing,
+        "example_call": topics.example_call(
+            stored, missing, record_id=row["record_id"]
+        ),
+        "similar_slugs": ctx.records.similar_slugs(row["topic_slug"]),
+        "git": None,
+        "duplicate": True,
         "filled_fields": filled,
     }
 

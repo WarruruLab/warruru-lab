@@ -132,6 +132,19 @@ class RecordRepository:
         )
         return self.get_record(record_id), filled
 
+    def set_topic(self, record_id: str, topic: str, topic_slug: str) -> None:
+        """비어 있던 topic 에 집을 준다. **비어 있을 때만** 부른다.
+
+        topic 이 빈 기록은 슬러그가 `misc` 로 좌초하는데, 힌트가 topic 을
+        채우라고 말하면서 채울 경로가 없으면 그 힌트는 영원히 도는 헛바퀴다.
+        슬러그도 함께 바꾼다 — 원문과 슬러그가 어긋난 행을 만들지 않는다.
+        """
+        self._conn.execute(
+            "UPDATE learning_record SET topic = ?, topic_slug = ?"
+            " WHERE record_id = ?",
+            (topic, topic_slug, record_id),
+        )
+
     def soft_delete(self, record_id: str, now_iso: str) -> None:
         self._conn.execute(
             "UPDATE learning_record SET deleted_at = ? WHERE record_id = ?",
@@ -234,7 +247,9 @@ class RecordRepository:
             key=lambda item: (-item["count"], item["topic_slug"]),
         )
 
-    def similar_slugs(self, slug: str, limit: int = 5) -> list[str]:
+    def similar_slugs(
+        self, slug: str, limit: int = topics.SIMILAR_LIMIT
+    ) -> list[str]:
         """비슷한 슬러그. **두 갈래를 본다.**
 
         (1) DB 에 이미 있는 `topic_slug`, (2) `topics.RECOMMENDED_SLUGS`.
@@ -244,6 +259,10 @@ class RecordRepository:
         로드맵 문서의 슬러그를 함께 보면 첫 기록부터 한 갈래로 모인다.
         """
         target = (slug or "").strip()
+        if len(target) < topics.SIMILAR_MIN:
+            # match_slugs 가 어차피 빈 목록을 돌려준다. 기록 삽입 응답마다
+            # 도는 가장 뜨거운 경로에서 전체 DISTINCT 스캔을 할 이유가 없다.
+            return []
         known = {
             row["topic_slug"]
             for row in self._conn.execute(

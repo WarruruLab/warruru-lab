@@ -7,7 +7,7 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-from warruru_local import config, logging_setup, spool, topics
+from warruru_local import config, limits, logging_setup, spool, topics
 from warruru_local.clock import Clock, SystemClock, to_iso
 from warruru_local.ids import new_id
 from warruru_local.mcp.client import DaemonClient, Outcome
@@ -148,16 +148,30 @@ class ToolService:
         else:
             # SPOOL(또는 거절). 정규화·결손 판정은 순수 함수라 여기서도 채운다 —
             # 그래서 topics 가 최상위에 있고, mcp/ 는 daemon/ 을 임포트하지 않는다.
-            slug = topics.slugify(topic)
+            #
+            # 데몬과 **같은 순서**로 자른 뒤 슬러그를 만든다. 안 자르면 긴 주제에서
+            # 여기서 알려준 슬러그와 흡수 후 저장되는 슬러그가 영영 어긋난다.
+            clamped_topic, _ = limits.clamp_text(topic, limits.TITLE_MAX)
+            slug = topics.slugify((clamped_topic or "").strip())
             missing = topics.missing_fields(payload)
             hints = {
                 "topic_slug": slug,
                 "missing_fields": missing,
-                "example_call": topics.example_call(payload, missing),
+                "example_call": topics.example_call(
+                    payload, missing, record_id=resolved_id
+                ),
                 # DB 갈래는 못 보지만 권장 상수는 임포트 한 번이면 읽힌다.
                 "similar_slugs": topics.similar_recommended(slug),
             }
 
+        common = _common(outcome_)
+        if record_id and outcome_.body is None and outcome_.storage == "SPOOL":
+            # 오프라인 보강. 여기의 missing_fields 는 이번 호출 인자만 본 값이라
+            # DB 에 이미 채워진 필드도 비어 보인다. 그걸 다시 물으러 가지 않게 알린다.
+            common["message"] += (
+                " (보강 호출 — missing_fields 는 이번 호출 인자만 본 값입니다."
+                " 이미 채워 둔 필드는 다시 묻지 않아도 됩니다.)"
+            )
         return {
             "record_id": resolved_id,
             "work_id": result.get("work_id"),
@@ -167,7 +181,7 @@ class ToolService:
             "duplicate": result.get("duplicate", False),
             "filled_fields": result.get("filled_fields", []),
             **hints,
-            **_common(outcome_),
+            **common,
         }
 
     def finish_work(
@@ -232,21 +246,44 @@ def _detect_tool(settings: config.Settings) -> str:
     return settings.tool or "unknown"
 
 
+def _never_raises(prefix: str):
+    """툴은 예외를 밖으로 던지지 않는다 — 이 관례를 복사-붙여넣기가 아니라
+    한 곳에서 강제한다. 다음 툴을 붙이는 사람이 try/except 를 빼먹으면
+    그 툴만 날 예외가 MCP 클라이언트로 새고, 기록 실패가 개발을 멈춘다.
+    """
+    import functools
+
+    def decorate(fn):
+        @functools.wraps(fn)
+        def guarded(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "storage": "NONE",
+                    "message": f"{prefix}: {error}",
+                }
+
+        return guarded
+
+    return decorate
+
+
 def build_server(service: ToolService | None = None) -> FastMCP:
     resolved = service or _build_service()
     server = FastMCP(SERVER_NAME)
 
     @server.tool()
+    @_never_raises("기록 실패")
     def start_work(
         title: str, goal: str | None = None, repo_path: str | None = None
     ) -> dict:
         """작업을 시작한다. 무엇을 하려는지 title 에 한 줄로 적는다."""
-        try:
-            return resolved.start_work(title=title, goal=goal, repo_path=repo_path)
-        except Exception as error:  # 툴은 예외를 밖으로 던지지 않는다
-            return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
+        return resolved.start_work(title=title, goal=goal, repo_path=repo_path)
 
     @server.tool()
+    @_never_raises("기록 실패")
     def record_checkpoint(
         type: str,
         title: str,
@@ -263,16 +300,14 @@ def build_server(service: ToolService | None = None) -> FastMCP:
         type: PROBLEM ATTEMPT FAILED_ATTEMPT ERROR TEST_RESULT
               DECISION RESULT LIMITATION NOTE
         """
-        try:
-            return resolved.record_checkpoint(
-                type=type, title=title, body=body, work_id=work_id, files=files,
-                error_excerpt=error_excerpt, tags=tags, occurred_at=occurred_at,
-                repo_path=repo_path,
-            )
-        except Exception as error:
-            return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
+        return resolved.record_checkpoint(
+            type=type, title=title, body=body, work_id=work_id, files=files,
+            error_excerpt=error_excerpt, tags=tags, occurred_at=occurred_at,
+            repo_path=repo_path,
+        )
 
     @server.tool()
+    @_never_raises("기록 실패")
     def record_learning(
         kind: str,
         topic: str,
@@ -295,17 +330,15 @@ def build_server(service: ToolService | None = None) -> FastMCP:
         답을 얻으면 응답의 record_id 를 그대로 넘겨 같은 툴을 다시 불러 채운다.
         topic 은 원문 그대로 적는다. 정규화는 시스템이 한다.
         """
-        try:
-            return resolved.record_learning(
-                kind=kind, topic=topic, title=title, body=body,
-                rationale=rationale, outcome=outcome, limitation=limitation,
-                interview=interview, occurred_at=occurred_at,
-                repo_path=repo_path, record_id=record_id,
-            )
-        except Exception as error:  # 툴은 예외를 밖으로 던지지 않는다
-            return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
+        return resolved.record_learning(
+            kind=kind, topic=topic, title=title, body=body,
+            rationale=rationale, outcome=outcome, limitation=limitation,
+            interview=interview, occurred_at=occurred_at,
+            repo_path=repo_path, record_id=record_id,
+        )
 
     @server.tool()
+    @_never_raises("기록 실패")
     def finish_work(
         work_id: str | None = None,
         result: str | None = None,
@@ -313,23 +346,18 @@ def build_server(service: ToolService | None = None) -> FastMCP:
         next_steps: str | None = None,
     ) -> dict:
         """작업을 마감한다. 결과와 남은 한계, 다음 작업을 적는다."""
-        try:
-            return resolved.finish_work(
-                work_id=work_id, result=result, limitations=limitations,
-                next_steps=next_steps,
-            )
-        except Exception as error:
-            return {"ok": False, "storage": "NONE", "message": f"기록 실패: {error}"}
+        return resolved.finish_work(
+            work_id=work_id, result=result, limitations=limitations,
+            next_steps=next_steps,
+        )
 
     @server.tool()
+    @_never_raises("조회 실패")
     def get_today_context(
         date: str | None = None, tool: str | None = None, limit: int = 10
     ) -> dict:
         """이 머신에서 오늘(또는 지정한 날짜) 기록한 작업 요약을 읽는다."""
-        try:
-            return resolved.get_today_context(date=date, tool=tool, limit=limit)
-        except Exception as error:
-            return {"ok": False, "storage": "NONE", "message": f"조회 실패: {error}"}
+        return resolved.get_today_context(date=date, tool=tool, limit=limit)
 
     return server
 
