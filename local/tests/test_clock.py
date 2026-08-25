@@ -1,3 +1,5 @@
+import pytest
+
 from datetime import datetime, timedelta, timezone
 
 from warruru_local.clock import FixedClock, SystemClock, parse_iso, to_iso
@@ -95,3 +97,50 @@ def test_달_경계도_시스템_시계를_읽지_않는다(monkeypatch):
     monkeypatch.setattr(clock_module, "datetime", NoNow)
     start, end = clock_module.local_month_bounds("2026-07")
     assert start < end
+
+
+# ── 서머타임 경계 (OUTSTANDING I5) ─────────────────────────────────
+
+@pytest.fixture
+def 뉴욕(monkeypatch):
+    """서머타임이 있는 시간대. 한국에서는 이 결함이 드러나지 않는다."""
+    import time
+
+    monkeypatch.setenv("TZ", "America/New_York")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_25시간짜리_날은_25시간으로_끝난다(뉴욕):
+    """서머타임이 끝나는 날은 25시간이다.
+
+    끝을 '시작 + 24시간' 으로 잡으면 그날 23:30 기록이 **어느 날짜에도**
+    안 보인다. 그날의 끝 뒤이면서 다음 날의 시작 앞이기 때문이다.
+    """
+    from warruru_local.clock import local_day_bounds, parse_iso
+
+    start, end = local_day_bounds("2026-11-01")
+    hours = (parse_iso(end) - parse_iso(start)).total_seconds() / 3600
+    assert hours == 25
+
+
+def test_23시간짜리_날은_23시간으로_끝난다(뉴욕):
+    """서머타임이 시작하는 날은 23시간이다.
+
+    '시작 + 24시간' 이면 다음 날 00:30 기록이 **양쪽에** 보인다.
+    """
+    from warruru_local.clock import local_day_bounds, parse_iso
+
+    start, end = local_day_bounds("2026-03-08")
+    hours = (parse_iso(end) - parse_iso(start)).total_seconds() / 3600
+    assert hours == 23
+
+
+def test_하루의_끝은_다음_날의_시작과_같다(뉴욕):
+    """경계에 틈도 겹침도 없어야 한다. 이것이 두 결함의 공통 원인이다."""
+    from warruru_local.clock import local_day_bounds
+
+    assert local_day_bounds("2026-11-01")[1] == local_day_bounds("2026-11-02")[0]
+    assert local_day_bounds("2026-03-08")[1] == local_day_bounds("2026-03-09")[0]
