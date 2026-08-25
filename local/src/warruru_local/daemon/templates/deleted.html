@@ -21,7 +21,7 @@
       <form class="inline" method="post" action="/web/works/{{ work.work_id }}/restore">
         <input type="hidden" name="_token" value="{{ token }}">
         <input type="hidden" name="date" value="{{ view.date }}">
-        <button type="submit">복구</button>
+        <button class="primary" type="submit">복구</button>
       </form>
     </div>
     <div class="meta">
@@ -33,14 +33,14 @@
       {% for item in work.checkpoints %}
       <li>
         <div class="work-head">
-          <span class="meta">{{ item.occurred_local }}</span>
           <span class="badge">{{ item.type }}</span>
           <span>{{ item.title }}</span>
+          <span class="when">{{ item.occurred_local }}</span>
           <form class="inline" method="post"
                 action="/web/checkpoints/{{ item.checkpoint_id }}/restore">
             <input type="hidden" name="_token" value="{{ token }}">
             <input type="hidden" name="date" value="{{ view.date }}">
-            <button type="submit">복구</button>
+            <button class="primary" type="submit">복구</button>
           </form>
         </div>
         {% if item.body %}<pre class="body">{{ item.body }}</pre>{% endif %}
