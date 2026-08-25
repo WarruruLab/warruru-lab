@@ -110,3 +110,36 @@ def test_화면은_외부_주소를_불러오지_않는다(client):
     body = client.get(f"/d/{TODAY}").text
     assert "http://" not in body.replace('http://127.0.0.1', '')
     assert "https://" not in body
+
+
+# ── 학습 기록 섹션 (Task 11) ───────────────────────────────────────
+
+def test_날짜_화면에_그날의_학습_기록이_보인다(client, home):
+    """작업·체크포인트와 학습 기록은 성격이 다르지만 같은 하루에 속한다.
+
+    날짜 화면은 '그날 무엇을 했나' 를 보는 자리라 둘 다 있어야 한다.
+    """
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "EXPERIMENT", "topic": "connection pool",
+        "title": "풀 크기 10→30", "body": "p95 320ms→90ms",
+        "occurred_at": "2026-07-22T09:00:00.000Z",
+    })
+    page = client.get("/d/2026-07-22").text
+    assert "학습 기록" in page
+    assert "풀 크기 10→30" in page
+    assert 'href="/t/connection-pool"' in page
+
+
+def test_학습_기록이_없는_날에는_그_섹션이_없다(client):
+    assert "학습 기록" not in client.get("/d/2026-07-22").text
+
+
+def test_다른_날_학습_기록은_안_보인다(client):
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "EXPERIMENT", "topic": "connection pool",
+        "title": "어제 것", "body": "본문",
+        "occurred_at": "2026-07-21T09:00:00.000Z",
+    })
+    assert "어제 것" not in client.get("/d/2026-07-22").text
