@@ -267,6 +267,25 @@
     border-top: 1px solid var(--rule);
   }
 
+  /* 면접 문장. 기록 본문과 성격이 달라 눈에 다르게 보여야 한다 —
+     이건 독자에게 갈 글이 아니라 본인이 되읽을 문장이다. */
+  .say {
+    margin: .45rem 0 0;
+    padding: .55rem .7rem;
+    border-left: 2px solid var(--full);
+    background: var(--full-soft);
+    font-size: var(--t-md);
+    line-height: 1.7;
+  }
+  .say-tag {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .06em;
+    color: var(--full);
+    margin-right: .5em;
+    white-space: nowrap;
+  }
+
   pre.body, code {
     font-family: var(--mono);
     font-size: var(--t-md);

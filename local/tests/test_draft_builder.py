@@ -126,3 +126,67 @@ def test_LLM_을_부르지_않는다():
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
     assert not ({"httpx", "requests", "urllib", "openai"} & imported)
+
+
+def _record(**extra):
+    """한 건짜리 기록. 절 매핑을 시험할 때는 최소한만 채우고 나머지를 준다."""
+    row = {
+        "record_id": "rec_X", "kind": "EXPERIMENT", "topic": "connection pool",
+        "title": "제목", "body": "", "rationale": None, "outcome": None,
+        "limitation": None, "interview": None,
+        "occurred_at": "2026-08-25T07:00:00.000Z", "project": None,
+    }
+    row.update(extra)
+    return row
+
+# ── 발행 본문과 정본을 가른다 ───────────────────────────────────────
+
+def test_꼬리말을_뺀_본문을_돌려준다():
+    """꼬리말은 **정본 파일에는 남고 발행 본문에서는 빠진다.**
+
+    파일만 열어도 재료를 되짚을 수 있어야 한다는 이유로 넣은 줄인데,
+    티스토리 독자에게 rec_01M0… 은 아무 뜻이 없다.
+    """
+    text = draft.build([_record(body="본문")])
+    assert "조립에 쓴 기록" in text
+    assert "조립에 쓴 기록" not in draft.body_only(text)
+    assert "본문" in draft.body_only(text)
+
+
+def test_꼬리말이_없으면_그대로_둔다():
+    """사람이 다듬어 save_draft 로 덮어쓴 글에는 꼬리말이 없을 수 있다."""
+    assert draft.body_only("# 제목\n\n본문") == "# 제목\n\n본문"
+
+
+def test_본문_안의_구분선은_건드리지_않는다():
+    """다듬은 글이 가로줄을 쓸 수 있다. 마지막 --- 라고 다 꼬리말이 아니다."""
+    text = "# 제목\n\n앞\n\n---\n\n뒤"
+    assert draft.body_only(text) == text
+
+
+# ── 어느 절이 빌 것인가 ────────────────────────────────────────────
+
+def test_채울_수_없는_절을_미리_알려준다():
+    """재료 막대가 4/4 여도 초안에 빈 절이 남을 수 있다.
+
+    막대는 **필드**를 보고 조립기는 **kind** 도 본다. CONCEPT 한 건짜리
+    주제는 '구현' 절을 영원히 못 채운다 — 누르기 전에 알아야 한다.
+    """
+    concept = _record(kind="CONCEPT", body="본문", rationale="근거",
+                      outcome="p95 90ms", limitation="한계")
+    assert draft.empty_sections([concept]) == ["구현", "결과"]
+
+
+def test_다_채우면_빈_절이_없다():
+    full = _record(kind="EXPERIMENT", body="본문", rationale="근거",
+                   outcome="p95 90ms\n대기가 사라졌다", limitation="한계")
+    assert draft.empty_sections([full]) == []
+
+
+def test_빈_절_목록은_실제_초안과_어긋나지_않는다():
+    """두 곳이 따로 판단하면 화면과 파일이 다른 말을 한다."""
+    rows = [_record(kind="CONCEPT", body="본문")]
+    text = draft.build(rows)
+    for name in ("문제", "선택", "구현", "측정", "결과", "한계"):
+        section = text.split(f"## {name}")[1].split("##")[0]
+        assert (draft.TODO in section) == (name in draft.empty_sections(rows))
