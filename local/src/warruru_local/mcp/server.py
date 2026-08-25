@@ -24,13 +24,18 @@ def _clamped(value, limit: int):
 
 
 def _common(outcome: Outcome) -> dict:
-    return {
+    common = {
         "ok": outcome.storage != "NONE" and not (
             outcome.storage == "DAEMON" and outcome.body is None
         ),
         "storage": outcome.storage,
         "message": outcome.message,
     }
+    if outcome.spool_backlog is not None:
+        # 보관 경로에서만 온다. `ok: True` 와 "나중에 반영됩니다" 만으로는
+        # 잠깐 꺼둔 것과 영영 안 닿는 것이 구분되지 않는다(OUTSTANDING K9).
+        common["spool_backlog"] = outcome.spool_backlog
+    return common
 
 
 class ToolService:

@@ -285,3 +285,15 @@ def test_권장_판정은_데몬_생사와_무관하다():
     offline, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
     assert _call(online, topic="net tcp")["recommended"] is True
     assert _call(offline, topic="net tcp")["recommended"] is True
+
+
+def test_보관하면_쌓인_건수가_응답에_실린다():
+    """에이전트가 '나중에 반영됩니다' 를 곧이곧대로 읽지 않게 한다."""
+    service, _ = _service(Outcome(None, "SPOOL", "보관했습니다.", spool_backlog=3))
+    assert _call(service)["spool_backlog"] == 3
+
+
+def test_데몬에_닿았으면_그_값이_없다():
+    """저장된 것에 '쌓인 건수' 를 붙이면 읽는 쪽이 헷갈린다."""
+    service, _ = _service(Outcome(DAEMON_BODY, "DAEMON", "ok"))
+    assert "spool_backlog" not in _call(service)

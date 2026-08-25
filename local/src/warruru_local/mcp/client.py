@@ -28,6 +28,10 @@ class Outcome:
     body: dict | None
     storage: str
     message: str
+    # 보관 경로에서만 채운다. 산문이 아니라 값으로 알려야 읽는 쪽이
+    # 프로그램적으로 분기할 수 있다.
+    spool_backlog: int | None = None
+    ok_backlog_warning: bool = False
 
 
 class _HttpxTransport:
@@ -105,7 +109,15 @@ class DaemonClient:
                     outcome.body,
                     outcome.storage,
                     "데몬이 이 경로를 모릅니다. 보관은 했으나 반영되려면"
-                    " 데몬을 최신 버전으로 다시 시작해야 합니다.",
+                    " 데몬을 최신 버전으로 다시 시작해야 합니다."
+                    + (
+                        f" (반영되지 않은 기록 {outcome.spool_backlog}건)"
+                        if outcome.ok_backlog_warning else ""
+                    ),
+                    # 세어 둔 값을 버리지 않는다. 404 가 영구적일 때가
+                    # 정확히 K9 이 말하는 상황이다.
+                    spool_backlog=outcome.spool_backlog,
+                    ok_backlog_warning=outcome.ok_backlog_warning,
                 )
 
             if response.status_code == 503 and attempt == 1:
@@ -148,7 +160,25 @@ class DaemonClient:
             to_iso(self._clock.now()),
             new_id("evt"),
         )
-        return Outcome(None, "SPOOL", "데몬에 닿지 못해 로컬에 보관했습니다. 나중에 반영됩니다.")
+        # 세는 값은 이 호출을 포함한 **아직 반영되지 않은 전부**다.
+        # "나중에 반영됩니다" 한 줄만으로는 잠깐 꺼둔 것과 영영 안 닿는 것이
+        # 구분되지 않고, 후자에서 이 도구는 매번 거짓말을 한다(OUTSTANDING K9).
+        backlog = spool.backlog_count(self._settings.home)
+        if backlog >= spool.BACKLOG_WARN_AT:
+            self._logger.warning("반영되지 않은 기록이 %d건 쌓였다", backlog)
+            return Outcome(
+                None, "SPOOL",
+                f"보관했지만 반영되지 않은 기록이 {backlog}건 쌓여 있습니다."
+                " 데몬이 뜨지 않고 있을 수 있습니다 —"
+                " `warruru-daemon` 을 직접 실행해 확인하세요.",
+                spool_backlog=backlog,
+                ok_backlog_warning=True,
+            )
+        return Outcome(
+            None, "SPOOL",
+            "데몬에 닿지 못해 로컬에 보관했습니다. 나중에 반영됩니다.",
+            spool_backlog=backlog,
+        )
 
     def _try_spawn(self) -> None:
         if self._spawn_tried:

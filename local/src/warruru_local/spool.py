@@ -100,3 +100,32 @@ def read_envelopes(path: Path, logger=None) -> list[dict]:
     if dropped and logger is not None:
         logger.warning("깨진 spool 줄 %d개를 버렸다: %s", dropped, path.name)
     return envelopes
+
+
+# 이 수를 넘으면 어댑터가 사람이 읽는 자리에도 경고를 남긴다.
+# 하루 열심히 쓰면 20~30건이므로, 50건이 쌓였다는 것은 **하루치가 넘도록
+# 한 번도 데몬에 닿지 못했다**는 뜻이다. 잠깐 꺼둔 것과 구분되는 선이다.
+BACKLOG_WARN_AT = 50
+
+
+def backlog_count(home: Path) -> int:
+    """아직 흡수되지 않은 봉투 수.
+
+    `absorbed/` 와 dead-letter 는 세지 않는다 — 그것들은 끝난 것이다.
+    붙잡힌 파일(`.claimed`)은 센다. 흡수 중일 뿐 아직 반영되지 않았다.
+
+    **상한을 넘겨도 버리지 않는다.** 버리는 것은 "성공을 반환한 기록은
+    잃지 않는다" 는 약속을 정면으로 깬다. 쌓이는 것의 실제 피해는 디스크가
+    아니라 **툴이 매번 '나중에 반영됩니다' 라고 거짓말을 한다**는 것이고
+    (OUTSTANDING K9), 그건 세어서 알려주는 것으로 고쳐진다.
+    한 줄에 수백 바이트라 만 건이 몇 MB 다.
+    """
+    spool_dir = paths.spool_dir(home)
+    if not spool_dir.exists():
+        return 0
+    total = 0
+    for path in spool_dir.iterdir():
+        if path.is_dir() or not (path.name.endswith(".jsonl") or ".claimed" in path.name):
+            continue
+        total += len(read_envelopes(path))
+    return total
