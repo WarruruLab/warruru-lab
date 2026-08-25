@@ -173,7 +173,9 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 **루트**
 
 - `README.md` — 프로젝트 소개와 현재 상태
-- `docs/git-convention.md` — 커밋·브랜치·PR 규칙 (Google 관례 기반)
+- `docs/git-convention.md` — 커밋·브랜치·PR 규칙 (Google 관례 기반).
+  **§0 을 먼저 읽어라 — `git add -A` 를 쓰지 않는다.** 작업 트리에 있던
+  남의 파일이 public 저장소에 올라간 사고가 하루에 두 번 났다(2026-08-25)
 - `docs/guides/backend-infra-roadmap-31w.md` — 31주 학습 로드맵,
   주차별 권장 `topic_slug` 의 원본
 - `docs/superpowers/specs/2026-08-12-learning-record-design.md` —
