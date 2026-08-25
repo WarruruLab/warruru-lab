@@ -111,8 +111,11 @@ MVP 전체가 `local/src/warruru_local/` 안에서 산다.
   답을 받으면 **응답에 실려 온 `record_id` 를 그대로 넘겨** 같은 툴을 다시 부른다.
   그래야 빈칸이 채워진다. `record_id` 없이 다시 부르면 거의 같은 기록이 하나 더 생긴다.
   지어낸 문장은 면접장에서 안 나온다. 그게 이 도구의 유일한 실패 방식이다.
-- 응답의 `missing_fields` · `example_call` · `similar_slugs` 를 읽어라.
+- 응답의 `missing_fields` · `example_call` · `similar_slugs` · `recommended` 를 읽어라.
   거절 대신 오는 것이다. `example_call` 은 복사해서 바로 다시 부를 수 있는 형태다.
+  `recommended` 가 `true` 면 로드맵 위의 주제를 정확히 짚은 것이다.
+  `similar_slugs` 는 **비슷한 다른 것**만 준다 — 자기 자신은 빼므로,
+  권장 슬러그를 그대로 적었을 때 비는 것이 정상이다.
 - `missing_fields_scope` 가 `call_args` 면 그 목록은 **이번 호출 인자만** 본 값이다
   (데몬이 꺼진 채 보강한 경우). 이미 채워 둔 필드를 다시 묻지 마라.
 - `topic` 은 원문 그대로 적는다. 정규화는 시스템이 한다.

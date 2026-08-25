@@ -256,3 +256,32 @@ def test_힌트의_범위가_값으로_표시된다():
     service, _ = _service(Outcome(None, "SPOOL", "보관"))
     enrich = _call(service, record_id="rec_이전것", outcome="채움")
     assert enrich["missing_fields_scope"] == "call_args"
+
+
+# ── recommended (A13) ─────────────────────────────────────────────
+
+def test_권장_슬러그를_그대로_적으면_응답이_그렇다고_말한다():
+    """평가 기준 A13 이 지키려던 것 — 로드맵 문서와 힌트 장치가 이어져 있다.
+
+    similar_slugs 로는 증명할 수 없다. 자기 자신을 빼므로 권장 슬러그를
+    그대로 적으면 빈 목록이 오고, 그것은 '목록 밖' 과 구분되지 않는다.
+    """
+    service, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "net-tcp"}, "DAEMON", "ok"))
+    assert _call(service, topic="net tcp")["recommended"] is True
+
+
+def test_권장_목록_밖이면_아니라고_말한다():
+    service, _ = _service(Outcome(DAEMON_BODY, "DAEMON", "ok"))
+    assert _call(service)["recommended"] is False
+
+
+def test_권장_판정은_데몬_생사와_무관하다():
+    """데몬이 꺼져 있어도 상수는 임포트 한 번이면 읽힌다.
+
+    이 값이 온라인/오프라인에서 갈리면 에이전트가 데몬 상태에 따라
+    다른 주제를 적게 된다 — 힌트가 가장 필요한 첫날이 바로 오프라인이다.
+    """
+    online, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "net-tcp"}, "DAEMON", "ok"))
+    offline, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
+    assert _call(online, topic="net tcp")["recommended"] is True
+    assert _call(offline, topic="net tcp")["recommended"] is True
