@@ -69,11 +69,20 @@ class RecordRequest(CommonFields):
 
 
 class DraftRequest(BaseModel):
-    """초안 만들기. 재료는 서버가 `topic_slug` 로 찾는다 —
+    """초안 만들기 또는 덮어쓰기.
+
+    `markdown` 이 없으면 조립기가 기록에서 만든다(버튼 경로).
+    있으면 그것을 그대로 저장한다(`save_draft` — 에이전트가 다듬은 글).
+    조립기로 다시 만들어 버리면 다듬은 문장이 통째로 사라진다.
+
+    재료를 고르는 일은 `markdown` 이 없을 때만 서버가 한다 —
     클라이언트가 기록 목록을 골라 보내면 두 곳의 판단이 갈린다.
     """
 
     topic_slug: str
+    title: str | None = None
+    markdown: str | None = None
+    source_record_ids: list[str] | None = None
 
 
 class FinishWorkRequest(CommonFields):

@@ -9,7 +9,7 @@ from warruru_local.clock import FixedClock
 from warruru_local.config import load_settings
 from warruru_local.daemon.app import create_app
 
-START = datetime(2026, 8, 24, 9, 0, 0, tzinfo=timezone.utc)
+START = datetime(2026, 8, 25, 9, 0, 0, tzinfo=timezone.utc)
 CLIENT = "cli_01K0X4KZ7Y6M2B9DQPXAJ3HTF4"
 
 
@@ -43,7 +43,7 @@ def test_초안을_만들면_파일과_행이_함께_생긴다(client, home):
     assert payload["draft_id"].startswith("drf_")
     assert payload["status"] == "DRAFT"
 
-    path = home / "drafts" / "2026" / "08" / "2026-08-24-connection-pool.md"
+    path = home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md"
     assert path.exists()
     text = path.read_text(encoding="utf-8")
     assert "## 문제" in text and "## 한계" in text
@@ -71,7 +71,7 @@ def test_다시_만들면_새_기록이_반영된다(client, home):
     _record(client, "rec_B", title="나중에 안 것")
     client.post("/v1/drafts", json={"topic_slug": "connection-pool"})
 
-    path = home / "drafts" / "2026" / "08" / "2026-08-24-connection-pool.md"
+    path = home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md"
     assert "나중에 안 것" in path.read_text(encoding="utf-8")
 
 
@@ -117,10 +117,60 @@ def test_front_matter_의_기록_순서가_본문과_같다(client, home):
     _record(client, "rec_나중", occurred_at="2026-08-24T09:00:00.000Z")
     client.post("/v1/drafts", json={"topic_slug": "connection-pool"})
 
-    text = (home / "drafts" / "2026" / "08" / "2026-08-24-connection-pool.md").read_text(
+    text = (home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md").read_text(
         encoding="utf-8"
     )
     front = text.split("---")[1]
     assert front.index("rec_먼저") < front.index("rec_나중")
     footer = text.split("조립에 쓴 기록")[1]
     assert footer.index("rec_먼저") < footer.index("rec_나중")
+
+
+# ── 다듬은 글로 덮어쓰기 ───────────────────────────────────────────
+
+def test_마크다운을_주면_그것을_저장한다(client, home):
+    """save_draft 의 목적 자체다. 조립기로 다시 만들어 버리면
+    에이전트가 다듬은 문장이 통째로 사라진다.
+    """
+    _record(client, "rec_A")
+    client.post("/v1/drafts", json={"topic_slug": "connection-pool"})
+
+    polished = "# 다듬은 제목\n\n## 문제\n\n사람이 읽을 만한 문장.\n"
+    payload = client.post("/v1/drafts", json={
+        "topic_slug": "connection-pool", "title": "다듬은 제목",
+        "markdown": polished,
+    }).json()
+
+    assert payload["status"] == "DRAFT"
+    text = (home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md").read_text(
+        encoding="utf-8"
+    )
+    assert "사람이 읽을 만한 문장" in text
+    assert "TODO: 여기서 무엇을 판단했는가?" not in text
+
+
+def test_마크다운을_주면_같은_행을_덮어쓴다(client):
+    _record(client, "rec_A")
+    first = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+    second = client.post("/v1/drafts", json={
+        "topic_slug": "connection-pool", "markdown": "# 다듬음\n",
+    }).json()
+    assert first["draft_id"] == second["draft_id"]
+
+
+def test_미발행_초안이_없으면_새로_만든다(client):
+    """save_draft 가 조립기보다 먼저 불릴 수도 있다."""
+    _record(client, "rec_A")
+    payload = client.post("/v1/drafts", json={
+        "topic_slug": "connection-pool", "markdown": "# 처음부터 다듬음\n",
+    }).json()
+    assert payload["draft_id"].startswith("drf_")
+
+
+def test_마크다운_없이_부르면_조립기가_돈다(client, home):
+    _record(client, "rec_A")
+    client.post("/v1/drafts", json={"topic_slug": "connection-pool"})
+    text = (home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## 문제" in text and "## 한계" in text

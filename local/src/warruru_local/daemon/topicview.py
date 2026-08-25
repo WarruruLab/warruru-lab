@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from warruru_local import topics
 from warruru_local.clock import local_day_bounds, parse_iso
 from warruru_local.daemon import draft as draft_builder
 
@@ -40,10 +41,6 @@ def _group(row: dict) -> dict:
     }
 
 
-# 글 한 편을 쓰기에 있어야 하는 필드. 비어 있으면 그 절이 TODO 로 남는다.
-MATERIAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
-
-
 def build_detail(ctx, topic_slug: str) -> dict | None:
     """한 주제의 전체 기록. **하루치가 아니다** — 글 한 편의 재료는 며칠에 걸친다.
 
@@ -56,12 +53,6 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
 
     # 목록은 최신순이지만 상세는 시간순이다. 읽는 순서가 곧 서사 순서다.
     rows = sorted(rows, key=lambda row: (row["occurred_at"], row["record_id"]))
-
-    shortages = []
-    for name in MATERIAL_FIELDS:
-        blank = sum(1 for row in rows if not (row.get(name) or "").strip())
-        if blank:
-            shortages.append({"field": name, "blank": blank, "total": len(rows)})
 
     return {
         "topic": rows[-1]["topic"],
@@ -79,7 +70,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
             }
             for row in rows
         ],
-        "shortages": shortages,
+        "shortages": topics.shortages(rows),
     }
 
 

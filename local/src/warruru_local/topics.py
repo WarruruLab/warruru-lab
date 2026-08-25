@@ -92,6 +92,26 @@ def slugify(topic: str) -> str:
     return text or FALLBACK_SLUG
 
 
+# 글 한 편을 쓰기에 있어야 하는 필드. 비어 있으면 그 절이 TODO 로 남는다.
+MATERIAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
+
+
+def shortages(records: list[dict]) -> list[dict]:
+    """이 주제로 글을 쓰기에 부족한 필드. `{field, blank, total}` 목록.
+
+    **화면과 툴이 이 함수 하나를 쓴다.** 같은 사실을 두 곳에서 따로 계산하면
+    두 문구가 갈라지고, 갈라진 뒤에는 어느 쪽이 옳은지 모른다.
+    순수 함수라 어댑터도 데몬 없이 부를 수 있다.
+    """
+    total = len(records)
+    found = []
+    for name in MATERIAL_FIELDS:
+        blank = sum(1 for row in records if not (row.get(name) or "").strip())
+        if blank:
+            found.append({"field": name, "blank": blank, "total": total})
+    return found
+
+
 def normalize_topic(raw: str | None, max_length: int) -> tuple[str, str]:
     """주제 원문과 슬러그를 함께 만든다. **자른 뒤에** 슬러그를 만든다.
 
