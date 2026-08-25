@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ view.title }} — 초안{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.title }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">
+  <a href="/t/{{ view.topic_slug }}">← {{ view.topic }}</a>
+  · {{ view.status }}
+  · 남은 TODO {{ view.todo_count }}개
+</p>
+
+{% if view.todo_count %}
+<p class="empty">
+  비어 있는 절은 지우지 않았다. 그 자리가 곧 면접에서 대답 못 할 부분이다.
+  <strong>지어내지 말고</strong> 기록을 보강해 다시 만든다.
+</p>
+{% endif %}
+
+<section class="tool">
+  <h2>다듬기</h2>
+  <p class="meta">
+    아래 한 줄을 에이전트에게 붙여넣는다. 붙여넣지 않아도 초안 파일은 이미 있다 —
+    다듬기는 관문이 아니라 선택지다.
+  </p>
+  <pre class="body">{{ view.polish_prompt }}</pre>
+</section>
+
+<section class="tool">
+  <h2>본문</h2>
+  <p class="meta">정본은 이 파일이다: <code>{{ view.file_path }}</code></p>
+  <pre class="body">{{ view.markdown }}</pre>
+</section>
+{% endblock %}
