@@ -22,7 +22,7 @@
   (`machine` / `client_instance` / `work_session` / `checkpoint`
   / `learning_record` / `draft`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
-- 화면 — `/d/{date}` · `/t` · `/t/{slug}` · `/drafts/{id}`
+- 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
   JavaScript 는 초안 화면의 복사 버튼 하나뿐이고, 그것이 죽어도 경로는 살아 있다
 
@@ -196,12 +196,12 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 "문제 → 선택 → 구현 → 측정 → 결과 → 한계" 6단 마크다운 한 편이 되어
 저장소 **바깥**에 앉는 것까지 한 바퀴를 돌린다.
 
-1주차 경로는 **닫혔다**(2026-08-25). 남은 것은 달력 `/c/{YYYY-MM}` 하나이고,
-기한은 '두 번째 글이 나온 직후' 다.
+**계획서의 구현 태스크는 전부 닫혔다**(2026-08-25). 다음은 새 코드가 아니라
+한 주 써 보고 재는 일이다 — 기록 건수(기준선 주 5건)와 초안의 TODO 수.
 
 - 마이그레이션 v2 — `learning_record` · `draft` ✅
 - MCP 툴 3개 추가(총 7개) ✅
-- 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` ✅ / 달력 `/c/{YYYY-MM}` 은 2주차
+- 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` · 달력 `/c/{YYYY-MM}` ✅
 - 결정적 6단 조립기 — **LLM 호출 0** ✅
 - `PublishTarget` 인터페이스 + 어댑터 2개 ✅
 
