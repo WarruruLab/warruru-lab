@@ -51,10 +51,24 @@ def local_day_bounds(date_str: str) -> tuple[str, str]:
     자정을 나타내는 naive datetime 을 `.astimezone()` 인자 없이 변환하면
     그 날짜에 맞는 로컬 오프셋을 얻는다 — 서머타임 경계를 사이에 두고
     "지금"과 대상 날짜가 갈라져도 어긋나지 않는다.
+
+    **끝은 '시작 + 24시간' 이 아니라 다음 날의 시작이다.** 앞의 것은 하루가
+    항상 24시간이라고 가정하는데, 서머타임이 끝나는 날은 25시간이고 시작하는
+    날은 23시간이다(OUTSTANDING I5). 25시간짜리 날에는 23:30 기록이 **어느
+    날짜에도** 안 보이고 — 그날의 끝 뒤이면서 다음 날의 시작 앞이다 —
+    23시간짜리 날에는 다음 날 00:30 기록이 **양쪽에** 보인다.
+    다음 날의 자정을 같은 방법으로 구하면 경계에 틈도 겹침도 없다.
+
+    한국 시간대에서는 드러나지 않지만, 이 함수가 모든 화면의 날짜 경계라
+    한 번 틀리면 어디가 틀렸는지 찾기 어렵다. `local_month_bounds` 도 같은
+    이유로 말일을 계산하지 않고 다음 달 1일의 시작을 쓴다.
     """
     day = datetime.strptime(date_str, "%Y-%m-%d")
     start = day.astimezone()
-    return to_iso(start), to_iso(start + timedelta(days=1))
+    # naive 로 하루를 더한 뒤 다시 로컬로 읽는다. aware 인 start 에 더하면
+    # 그 시점의 오프셋이 그대로 따라와서 고정 24시간 계산으로 되돌아간다.
+    end = (day + timedelta(days=1)).astimezone()
+    return to_iso(start), to_iso(end)
 
 
 def local_month_bounds(year_month: str) -> tuple[str, str]:
