@@ -74,6 +74,9 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
             for row in rows
         ],
         "shortages": topics.shortages(rows),
+        # 목록과 **같은 함수**를 쓴다. 두 화면이 따로 계산하면
+        # 같은 주제를 두고 다른 막대를 그린다.
+        "material": topics.material_fill(rows),
         # 만들어 둔 초안이 있으면 돌아갈 길을 준다. 그 화면에 붙여넣기용
         # HTML 과 발행 폼이 있어서, 길이 없으면 다음 날 이어서 하려는
         # 사람은 다시 만들거나 포기한다.
@@ -125,9 +128,16 @@ def build_index(ctx, date: str) -> dict:
 
     published = ctx.records.published_slugs()
 
+    # 재료 막대의 재료. 슬러그마다 따로 물으면 주제 수만큼 질의가 나가므로
+    # 하루치를 **한 번** 읽어 파이썬에서 접는다. 하루 기록은 많아야 수십 건이다.
+    by_slug: dict[str, list[dict]] = {}
+    for record in ctx.records.list_records(since=start, until=end, limit=100):
+        by_slug.setdefault(record["topic_slug"], []).append(record)
+
     def _with_flag(row: dict) -> dict:
         entry = _group(row)
         entry["published"] = row["topic_slug"] in published
+        entry["material"] = topics.material_fill(by_slug.get(row["topic_slug"], []))
         return entry
 
     groups = [_with_flag(row) for row in rows if row["count"] > UNSORTED_MAX]

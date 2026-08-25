@@ -232,3 +232,29 @@ def test_주제_상세의_날짜는_로컬_기준이다(client):
     _record(client, "rec_A", occurred_at="2026-08-24T16:30:00.000Z")
     page = client.get("/t/connection-pool").text
     assert "2026-08-25" in page      # KST 25일 01:30
+
+
+# ── 재료 막대 ──────────────────────────────────────────────────────
+
+def test_주제_목록이_재료가_얼마나_찼는지_보여준다(client):
+    """이 화면의 질문은 '오늘 뭘 글로 쓸 수 있나' 다.
+    건수만으로는 답이 안 나온다 — 3건이어도 재료가 비면 못 쓴다.
+    """
+    _record(client, "rec_A", rationale="골랐다", outcome="p95 90ms")
+    _record(client, "rec_B")
+    page = client.get("/t").text
+    assert 'class="gauge"' in page
+    assert "재료" in page
+
+
+def test_막대는_주제마다_네_칸이다(client):
+    """칸 수가 주제마다 다르면 눈으로 비교가 안 된다."""
+    _record(client, "rec_A", rationale="골랐다")
+    _record(client, "rec_B")
+    page = client.get("/t").text
+    assert page.count('class="seg') == 4
+
+
+def test_상세도_같은_막대를_쓴다(client):
+    _record(client, "rec_A", rationale="골랐다")
+    assert 'class="gauge"' in client.get("/t/connection-pool").text

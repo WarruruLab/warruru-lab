@@ -128,6 +128,30 @@ async def mark_published_form(
     return RedirectResponse(f"/drafts/{draft_id}", status_code=302)
 
 
+@router.post("/web/drafts/from-records")
+async def create_draft_from_records(
+    request: Request,
+    record_id: list[str] = Form(default=[]),
+    date: str | None = Form(None),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """체크한 기록만으로 초안을 만든다. 상태를 바꾸므로 토큰을 요구한다.
+
+    **나중에 LLM 을 붙일 자리다.** 지금은 결정적 조립기가 재료를 절에 나눠
+    담고, 그 자리에 모델 호출이 들어가도 이 라우트는 그대로다 —
+    화면이 하는 일은 '무엇을 재료로 쓸지 고르는 것' 하나이기 때문이다.
+    """
+    ctx = request.app.state.ctx
+    _check_token(request, form_token)
+    try:
+        result = drafting.create_from_records(ctx, record_id)
+    except drafting.NoRecordsError:
+        # 하나도 안 고르고 눌렀다. 오류 화면 대신 하던 자리로 돌려보낸다 —
+        # 고칠 것이 '다시 고르기' 뿐인데 화면을 갈아탈 이유가 없다.
+        return _back(date or local_date_of(to_iso(ctx.clock.now())))
+    return RedirectResponse(f"/drafts/{result['draft_id']}", status_code=302)
+
+
 @router.post("/web/topics/{topic_slug}/draft")
 async def create_draft_form(
     request: Request,

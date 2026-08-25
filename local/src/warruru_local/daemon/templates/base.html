@@ -4,41 +4,344 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Warruru Local{% endblock %}</title>
+{#
+  스타일은 여기 한 곳에만 둔다. 화면이 여섯이고 사용자가 한 명이라
+  빌드 파이프라인도 CSS 파일 분리도 값을 못 한다.
+
+  **웹폰트를 부르지 않는다.** 로컬 우선 도구라 네트워크 없이도 열려야 하는데,
+  구글 폰트 한 줄이면 비행기 안에서 이 화면이 무너진다. 대신 표제를
+  **모노로 세운다** — 이건 터미널에서 사는 도구이고, 그 성격이 곧 글꼴이다.
+
+  **색은 축 하나만 뜻한다: 이 주제가 글이 될 준비가 되었는가.**
+  이끼색은 재료가 있다(끝점은 '발행함'), 흙색은 비었다.
+  그 축 밖의 것 — 미커밋 변경, 작업 상태, kind — 은 색을 쓰지 않는다.
+  링크도 색이 아니라 밑줄로 알린다. 색이 두 가지를 뜻하기 시작하면
+  이 화면이 답해야 하는 질문("오늘 뭘 글로 쓸 수 있나")이 흐려진다.
+#}
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-         margin: 0; padding: 1.5rem; line-height: 1.6; }
-  header { display: flex; gap: 1rem; align-items: baseline;
-           flex-wrap: wrap; margin-bottom: 1.5rem; }
-  h1 { font-size: 1.4rem; margin: 0; }
-  nav a { margin-right: .75rem; }
-  .tool { border: 1px solid currentColor; border-radius: 8px;
-          padding: 1rem; margin-bottom: 1.25rem; }
-  .tool > h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
-  .work { border-top: 1px solid currentColor; padding: .75rem 0; }
-  .work:first-of-type { border-top: none; }
-  .work-head { display: flex; gap: .5rem; align-items: baseline;
-               flex-wrap: wrap; }
-  .work-head strong { font-size: 1rem; }
-  .badge { font-size: .75rem; border: 1px solid currentColor;
-           border-radius: 4px; padding: 0 .35rem; }
-  .meta { font-size: .8rem; opacity: .75; }
-  ul.checkpoints { list-style: none; margin: .5rem 0 0; padding: 0; }
-  ul.checkpoints > li { padding: .4rem 0 .4rem .75rem;
-                        border-left: 2px solid currentColor; margin-bottom: .3rem; }
-  pre.body { white-space: pre-wrap; word-break: break-word;
-             margin: .3rem 0 0; font-size: .85rem; }
+  :root {
+    color-scheme: light dark;
+
+    --ground:    #eef0ea;
+    --panel:     #f9faf6;
+    --panel-2:   #e4e7dd;
+    --ink:       #1b201c;
+    --ink-soft:  #4f5a51;
+    --ink-faint: #7e8a7f;
+    --rule:      #d5dacc;
+    --rule-soft: #e3e7db;
+
+    /* 유일한 의미색 */
+    --full:      #4d6b23;   /* 재료가 있다 */
+    --full-soft: #dde6c9;
+    --gap:       #8c4f35;   /* 재료가 비었다 */
+    --gap-soft:  #eedfd6;
+
+    --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+            "Malgun Gothic", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+            "D2Coding", monospace;
+
+    --t-xs: .7rem;
+    --t-sm: .8rem;
+    --t-md: .875rem;
+    --t-base: 1rem;
+    --t-lg: 1.05rem;
+    --t-xl: 1.45rem;
+
+    --radius: 6px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:    #141814;
+      --panel:     #1b211c;
+      --panel-2:   #242b24;
+      --ink:       #e6eae2;
+      --ink-soft:  #a3ada2;
+      --ink-faint: #74806f;
+      --rule:      #2d352d;
+      --rule-soft: #232a23;
+
+      --full:      #9dbf5f;
+      --full-soft: #24301a;
+      --gap:       #d09068;
+      --gap-soft:  #33241c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--t-base);
+    line-height: 1.65;
+    margin: 0;
+    padding: 1.6rem 1.25rem 5rem;
+    word-break: keep-all;          /* 한글을 어절 단위로 끊는다 */
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+  }
+  body > * { max-width: 58rem; margin-inline: auto; }
+
+  /* ── 표제 ─────────────────────────────────────────────
+     모노로 세운다. 이 도구의 세계가 터미널이라 글꼴 자체가 성격이다. */
+  header {
+    display: flex;
+    gap: .5rem 1.1rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    padding-bottom: .75rem;
+    margin-bottom: 1.4rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: var(--t-xl);
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1.15;
+    margin: 0;
+  }
+  header nav { margin-left: auto; }
+
+  nav { display: flex; gap: .9rem; flex-wrap: wrap; font-size: var(--t-md); }
+
+  /* 링크는 색이 아니라 밑줄로 알린다. 색은 재료 상태만 뜻한다. */
+  a { color: inherit; text-decoration: underline; text-underline-offset: .18em;
+      text-decoration-color: var(--ink-faint); }
+  a:hover { text-decoration-color: var(--ink); }
+  nav a { text-decoration-thickness: 1px; }
+
+  /* ── 카드 ───────────────────────────────────────────── */
+  .tool {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .tool > h2 {
+    font-family: var(--mono);
+    margin: 0 0 .85rem;
+    font-size: var(--t-xs);
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .work { border-top: 1px solid var(--rule-soft); padding: .85rem 0; }
+  .work:first-of-type { border-top: none; padding-top: 0; }
+  .work:last-of-type { padding-bottom: 0; }
+
+  .work-head {
+    display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap;
+  }
+  .work-head strong {
+    font-size: var(--t-lg); font-weight: 600; letter-spacing: -.01em;
+  }
+
+  /* ── 재료 막대 — 이 화면의 서명 ───────────────────────────
+     칸 넷은 rationale · outcome · limitation · interview 다.
+     주제마다 **항상 네 칸**이라 눈으로 비교가 된다. */
+  .gauge {
+    display: inline-grid;
+    grid-template-columns: repeat(4, 1.5rem);
+    gap: 2px;
+    vertical-align: -1px;
+  }
+  .seg {
+    height: .42rem;
+    border-radius: 1px;
+    background: var(--gap-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .seg > i {
+    display: block;
+    height: 100%;
+    background: var(--full);
+  }
+  .seg.none { background: var(--gap-soft); box-shadow: inset 0 0 0 1px var(--gap); }
+
+  .material {
+    display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+  }
+  .material .ready { color: var(--full); }
+  .material .short { color: var(--gap); }
+
+  /* ── 라벨 ───────────────────────────────────────────────
+     기본 배지는 조용하다. 색은 글쓰기 준비 축의 것이라 쓰지 않는다.
+     구분은 모노와 옅은 바닥으로 한다. */
+  .badge {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    line-height: 1.55;
+    letter-spacing: .03em;
+    background: var(--panel-2);
+    color: var(--ink-soft);
+    border-radius: 3px;
+    padding: 0 .4em;
+    white-space: nowrap;
+  }
+  .badge.ok   { color: var(--full); background: var(--full-soft); }
+  .badge.warn { color: var(--gap);  background: var(--gap-soft); }
+
+  .meta { font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.6; }
+
+  /* ── 목록 ───────────────────────────────────────────────
+     시각을 왼쪽 고정 폭 레일에 세워 봤다가 걷었다. 대부분의 줄에서
+     그 칸이 비어 있어 본문이 통째로 밀려 보였다. 시각은 제목 줄
+     오른쪽 끝에 붙인다 — 읽을 때 먼저 오는 것은 제목이다. */
+  ul.checkpoints { list-style: none; margin: .7rem 0 0; padding: 0; }
+  ul.checkpoints > li {
+    padding: .5rem 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  ul.checkpoints > li:first-child { border-top: none; }
+
+  .when {
+    font-family: var(--mono);
+    font-size: var(--t-xs);
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;      /* 제목 줄의 오른쪽 끝으로 */
+    white-space: nowrap;
+  }
+
+  /* ── 고를 수 있는 기록 목록 ───────────────────────────────
+     체크한 것만 초안의 재료가 된다. 체크박스는 왼쪽 고정 폭에 두되
+     시각 레일과 달리 **항상 무언가 들어 있어서** 빈 칸으로 안 보인다. */
+  ul.records { list-style: none; margin: .7rem 0 0; padding: 0; }
+  ul.records > li {
+    display: grid;
+    grid-template-columns: 1.15rem 1fr;
+    gap: 0 .65rem;
+    align-items: start;
+    padding: .5rem 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  ul.records > li:first-child { border-top: none; }
+  ul.records input[type="checkbox"] {
+    margin: .38rem 0 0;
+    accent-color: var(--full);
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+  ul.records .line {
+    display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap;
+  }
+  ul.records .title {
+    font-size: var(--t-lg);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    text-decoration-color: var(--ink-faint);
+  }
+  ul.records .title .go {
+    font-size: var(--t-xs);
+    color: var(--ink-faint);
+    margin-left: .3em;
+    display: inline-block;
+    text-decoration: none;
+  }
+  ul.records .title:hover .go { color: var(--ink); }
+  ul.records label.meta { cursor: pointer; }
+
+  .pick-bar {
+    display: flex; gap: .7rem; align-items: center; flex-wrap: wrap;
+    margin: .9rem 0 0;
+    padding-top: .8rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  pre.body, code {
+    font-family: var(--mono);
+    font-size: var(--t-md);
+    background: var(--panel-2);
+    border-radius: 4px;
+  }
+  code { padding: .1em .35em; }
+  pre.body {
+    white-space: pre-wrap; word-break: break-word;
+    margin: .45rem 0 0; padding: .6rem .7rem;
+    line-height: 1.55; overflow-x: auto;
+  }
+
+  /* ── 조작 ───────────────────────────────────────────── */
   form.inline { display: inline; }
-  button { font: inherit; cursor: pointer; }
-  table.calendar { border-collapse: collapse; }
-  table.calendar th, table.calendar td { width: 2.6rem; height: 2.6rem;
-         text-align: center; border: 1px solid currentColor; padding: 0; }
-  table.calendar th { font-size: .8rem; font-weight: 500; opacity: .75; }
-  table.calendar td.marked { font-weight: 700; }
-  table.calendar td.today { outline: 2px solid currentColor; outline-offset: -3px; }
-  .quiet { opacity: .35; }
-  .empty { opacity: .8; }
-  .empty-today { color: #c0392b; font-weight: 600; }
+  button {
+    font: inherit; font-size: var(--t-sm); line-height: 1.4;
+    cursor: pointer; padding: .2rem .6rem;
+    border-radius: 5px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  button:hover { border-color: var(--ink-faint); color: var(--ink); }
+  button.primary {
+    border-color: var(--ink); background: var(--ink);
+    color: var(--ground); font-weight: 600;
+  }
+  button.primary:hover { opacity: .86; color: var(--ground); }
+  button.danger { color: var(--gap); border-color: var(--gap-soft); }
+  button.danger:hover { border-color: var(--gap); color: var(--gap); }
+
+  input[type="url"], input[type="text"], textarea {
+    font: inherit; font-size: var(--t-md);
+    color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 5px;
+    padding: .35rem .55rem;
+  }
+  input[type="url"] { min-width: min(24rem, 100%); }
+  textarea.body {
+    display: block; width: 100%;
+    font-family: var(--mono); line-height: 1.55; resize: vertical;
+  }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* ── 달력 ───────────────────────────────────────────────
+     칠해진 날은 '기록이 있다' 는 뜻이라 재료색과 같은 계열을 쓴다. */
+  table.calendar { border-collapse: separate; border-spacing: 3px; margin: .3rem 0 0 -3px; }
+  table.calendar th, table.calendar td {
+    width: 2.45rem; height: 2.45rem; text-align: center; padding: 0;
+    font-family: var(--mono); font-size: var(--t-md);
+    font-variant-numeric: tabular-nums;
+  }
+  table.calendar th {
+    font-size: var(--t-xs); font-weight: 600; letter-spacing: .08em;
+    color: var(--ink-faint); height: 1.5rem;
+  }
+  table.calendar td { border-radius: 5px; }
+  table.calendar td.marked { background: var(--full-soft); }
+  table.calendar td.marked a {
+    display: grid; place-items: center; width: 100%; height: 100%;
+    text-decoration: none; color: var(--full); font-weight: 600;
+    border-radius: 5px;
+  }
+  table.calendar td.marked:hover { background: var(--full); }
+  table.calendar td.marked:hover a { color: var(--ground); }
+  table.calendar td.today { box-shadow: inset 0 0 0 2px var(--ink-faint); }
+  table.calendar td.marked.today { box-shadow: inset 0 0 0 2px var(--full); }
+
+  .quiet { color: var(--ink-faint); }
+  .empty { color: var(--ink-soft); }
+  .empty-today { color: var(--gap); font-weight: 600; }
+
+  @media (max-width: 32rem) {
+    body { padding: 1.1rem .9rem 4rem; }
+    header nav { margin-left: 0; }
+    table.calendar th, table.calendar td { width: 2.05rem; height: 2.05rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
 </style>
 </head>
 <body>

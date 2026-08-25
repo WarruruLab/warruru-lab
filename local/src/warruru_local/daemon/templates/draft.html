@@ -8,7 +8,7 @@
 
 <p class="meta">
   <a href="/t/{{ view.topic_slug }}">← {{ view.topic }}</a>
-  · {{ view.status }}
+  · <span class="badge {{ 'ok' if view.status == 'PUBLISHED' else '' }}">{{ view.status }}</span>
   · 남은 TODO {{ view.todo_count }}개
 </p>
 
@@ -51,7 +51,7 @@
       <input type="hidden" name="_token" value="{{ token }}">
       <input type="url" name="published_url" required
              placeholder="붙여넣고 저장한 글의 주소">
-      <button type="submit">발행함</button>
+      <button class="primary" type="submit">발행함</button>
     </form>
     {# 이 프로젝트의 유일한 JavaScript 다. 매일 쓰는 동작이라 예외를 두되,
        실패해도 경로가 끊기지 않게 위의 전체 선택이 같은 일을 한다. #}

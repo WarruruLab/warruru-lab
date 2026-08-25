@@ -13,18 +13,34 @@
 {% if view.learnings %}
 <section class="tool">
   <h2>학습 기록</h2>
-  <ul class="checkpoints">
-    {% for item in view.learnings %}
-    <li>
-      <div class="work-head">
-        <span class="badge">{{ item.kind }}</span>
-        <strong>{{ item.title }}</strong>
-        <a class="meta" href="/t/{{ item.topic_slug }}">{{ item.topic }}</a>
-        <span class="meta">{{ item.time }}</span>
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
+  {# 체크한 것만 재료가 된다. 나중에 LLM 을 붙여도 고르는 방식은 그대로다. #}
+  <form method="post" action="/web/drafts/from-records">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <input type="hidden" name="date" value="{{ view.date }}">
+    <ul class="records">
+      {% for item in view.learnings %}
+      <li>
+        <input type="checkbox" name="record_id" value="{{ item.record_id }}"
+               id="pick-{{ item.record_id }}">
+        <div class="row">
+          <div class="line">
+            <span class="badge">{{ item.kind }}</span>
+            {# 눈이 먼저 가는 것은 제목이고, 보고 싶은 것은 '무슨 이슈였나' 다.
+               닻까지 붙여 그 기록 자리로 내려보낸다. #}
+            <a class="title" href="/t/{{ item.topic_slug }}#{{ item.record_id }}"
+               >{{ item.title }}<span class="go" aria-hidden="true">↗</span></a>
+            <span class="when">{{ item.time }}</span>
+          </div>
+          <label class="meta" for="pick-{{ item.record_id }}">{{ item.topic }}</label>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="pick-bar">
+      <button class="primary" type="submit">선택한 기록으로 초안 만들기</button>
+      <span class="meta">체크한 것만 재료가 된다. 주제가 섞여도 된다.</span>
+    </p>
+  </form>
 </section>
 {% endif %}
 
@@ -49,7 +65,7 @@
       <form class="inline" method="post" action="/web/works/{{ work.work_id }}/delete">
         <input type="hidden" name="_token" value="{{ token }}">
         <input type="hidden" name="date" value="{{ view.date }}">
-        <button type="submit">삭제</button>
+        <button class="danger" type="submit">삭제</button>
       </form>
     </div>
     <div class="meta">
@@ -69,14 +85,14 @@
       {% for item in work.checkpoints %}
       <li>
         <div class="work-head">
-          <span class="meta">{{ item.occurred_local }}</span>
           <span class="badge">{{ item.type }}</span>
           <span>{{ item.title }}</span>
+          <span class="when">{{ item.occurred_local }}</span>
           <form class="inline" method="post"
                 action="/web/checkpoints/{{ item.checkpoint_id }}/delete">
             <input type="hidden" name="_token" value="{{ token }}">
             <input type="hidden" name="date" value="{{ view.date }}">
-            <button type="submit">삭제</button>
+            <button class="danger" type="submit">삭제</button>
           </form>
         </div>
         {% if item.body %}<pre class="body">{{ item.body }}</pre>{% endif %}
@@ -85,7 +101,7 @@
           {% if item.repo_name %}
             {{ item.repo_name }} / {{ item.branch or "-" }}
             {% if item.commit_short %} @ {{ item.commit_short }}{% endif %}
-            {% if item.dirty %} · 미커밋 변경 있음{% endif %}
+            {% if item.dirty %} · <span class="badge">미커밋</span>{% endif %}
           {% else %}Git 정보 없음{% endif %}
           {% if item.files %} · {{ item.files | join(", ") }}{% endif %}
           {% if item.tags %} · {{ item.tags | join(" ") }}{% endif %}

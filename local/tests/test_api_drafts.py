@@ -1,5 +1,6 @@
 """`POST /v1/drafts` 와 [초안 만들기] 폼 — 주제가 파일이 된다."""
 
+import pathlib
 from datetime import datetime, timezone
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from warruru_local.clock import FixedClock
 from warruru_local.config import load_settings
+from warruru_local.daemon import drafting
 from warruru_local.daemon.app import create_app
 
 START = datetime(2026, 8, 25, 9, 0, 0, tzinfo=timezone.utc)
@@ -174,3 +176,59 @@ def test_마크다운_없이_부르면_조립기가_돈다(client, home):
         encoding="utf-8"
     )
     assert "## 문제" in text and "## 한계" in text
+
+
+# ── 고른 기록으로 만드는 초안 ───────────────────────────────────────
+
+def test_고른_기록만으로_초안을_만든다(client):
+    """주제 전체가 아니라 사람이 체크한 것만 재료가 된다.
+
+    나중에 LLM 을 붙일 때 넘길 값이 이 목록이다 — 조립기 자리에
+    모델 호출이 들어가도 재료를 고르는 방식은 그대로다.
+    """
+    _record(client, "rec_A", title="첫째", body="첫째 본문")
+    _record(client, "rec_B", title="둘째", body="둘째 본문")
+    _record(client, "rec_C", title="셋째", body="셋째 본문")
+
+    made = drafting.create_from_records(client.app.state.ctx, ["rec_A", "rec_C"])
+    text = pathlib.Path(made["file_path"]).read_text(encoding="utf-8")
+    assert "첫째 본문" in text
+    assert "셋째 본문" in text
+    assert "둘째 본문" not in text
+    assert made["source_record_count"] == 2
+
+
+def test_고른_순서가_아니라_시간순으로_쓴다(client):
+    """읽는 순서가 곧 서사 순서다. 체크한 순서는 서사가 아니다."""
+    _record(client, "rec_늦은", title="늦은", body="늦은 본문",
+            occurred_at="2026-08-20T09:00:00.000Z")
+    _record(client, "rec_이른", title="이른", body="이른 본문",
+            occurred_at="2026-08-18T09:00:00.000Z")
+    made = drafting.create_from_records(client.app.state.ctx, ["rec_늦은", "rec_이른"])
+    text = pathlib.Path(made["file_path"]).read_text(encoding="utf-8")
+    assert text.index("이른 본문") < text.index("늦은 본문")
+
+
+def test_없는_기록은_건너뛴다(client):
+    """체크한 뒤 다른 곳에서 지웠을 수 있다. 그것 때문에 실패하지 않는다."""
+    _record(client, "rec_A", title="첫째", body="첫째 본문")
+    made = drafting.create_from_records(client.app.state.ctx, ["rec_A", "rec_없는것"])
+    assert made["source_record_count"] == 1
+
+
+def test_하나도_안_고르면_거절한다(client):
+    """빈 파일을 조용히 쓰면 나중에 왜 비었는지 아무도 모른다."""
+    with pytest.raises(drafting.NoRecordsError):
+        drafting.create_from_records(client.app.state.ctx, [])
+
+
+def test_재료_목록이_고른_것과_같다(client):
+    """front matter 의 source_record_ids 가 화면에서 체크한 것과 달라지면
+    파일만 열었을 때 재료를 되짚을 수 없다.
+    """
+    _record(client, "rec_A", title="첫째", body="본문")
+    _record(client, "rec_B", title="둘째", body="본문")
+    made = drafting.create_from_records(client.app.state.ctx, ["rec_B"])
+    text = pathlib.Path(made["file_path"]).read_text(encoding="utf-8")
+    assert "rec_B" in text
+    assert "rec_A" not in text

@@ -1,0 +1,21 @@
+{#
+  재료 막대. 목록과 상세가 **이 파일 하나**를 쓴다 —
+  두 곳에 각각 그리면 같은 주제를 두고 다른 막대가 나온다.
+
+  칸 넷은 rationale · outcome · limitation · interview 고, 순서는 고정이다.
+  주제마다 칸 수가 같아야 눈으로 비교가 되고, 그 비교가 이 화면의 일이다.
+#}
+{% set done = material | selectattr('filled') | list | length %}
+<span class="material">
+  <span class="gauge" role="img"
+        aria-label="재료 {{ done }}/4 종류 채움">
+    {% for item in material %}
+      {% if item.filled %}
+        <span class="seg"><i style="width: {{ (item.filled * 100 // item.total) if item.total else 0 }}%"></i></span>
+      {% else %}
+        <span class="seg none"></span>
+      {% endif %}
+    {% endfor %}
+  </span>
+  <span class="{{ 'ready' if done == 4 else 'short' }}">재료 {{ done }}/4</span>
+</span>
