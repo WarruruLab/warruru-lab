@@ -30,6 +30,13 @@
              margin: .3rem 0 0; font-size: .85rem; }
   form.inline { display: inline; }
   button { font: inherit; cursor: pointer; }
+  table.calendar { border-collapse: collapse; }
+  table.calendar th, table.calendar td { width: 2.6rem; height: 2.6rem;
+         text-align: center; border: 1px solid currentColor; padding: 0; }
+  table.calendar th { font-size: .8rem; font-weight: 500; opacity: .75; }
+  table.calendar td.marked { font-weight: 700; }
+  table.calendar td.today { outline: 2px solid currentColor; outline-offset: -3px; }
+  .quiet { opacity: .35; }
   .empty { opacity: .8; }
   .empty-today { color: #c0392b; font-weight: 600; }
 </style>
