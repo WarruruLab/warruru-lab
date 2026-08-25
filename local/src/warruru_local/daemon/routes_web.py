@@ -9,8 +9,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
-from warruru_local.daemon import dayview, drafting, publishing, topicview
+from warruru_local.daemon import (
+    calendarview, dayview, drafting, publishing, topicview,
+)
 from warruru_local.daemon.validation import validate_date_param as _validate_date
+from warruru_local.daemon.validation import validate_month_param as _validate_month
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -30,6 +33,18 @@ async def day(request: Request, date: str, deleted: int = 0):
     template = "deleted.html" if deleted else "day.html"
     return templates.TemplateResponse(
         request, template, {"view": view, "token": ctx.settings.token}
+    )
+
+
+@router.get("/c/{year_month}")
+async def calendar_month(request: Request, year_month: str):
+    """한 달의 격자. 조회이므로 토큰이 필요 없다."""
+    ctx = request.app.state.ctx
+    _validate_month(year_month)
+    today = local_date_of(to_iso(ctx.clock.now()))
+    view = calendarview.build_month(ctx, year_month, today)
+    return templates.TemplateResponse(
+        request, "calendar.html", {"view": view, "today": today}
     )
 
 

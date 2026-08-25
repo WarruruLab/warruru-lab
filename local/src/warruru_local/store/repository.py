@@ -423,6 +423,19 @@ class Repository:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def works_started_between(self, start_iso: str, end_iso: str) -> list[str]:
+        """구간 안 세션의 `started_at` 목록. 달력이 쓴다.
+
+        `list_works_between` 은 행 전체를 가져오지만 달력은 시각 하나면 된다.
+        한 달치 세션의 모든 컬럼을 읽어 버리는 대신 한 컬럼만 읽는다.
+        """
+        rows = self._conn.execute(
+            "SELECT started_at FROM work_session"
+            " WHERE started_at >= ? AND started_at < ? AND deleted_at IS NULL",
+            (start_iso, end_iso),
+        ).fetchall()
+        return [row["started_at"] for row in rows]
+
     def list_deleted_works_between(self, start_iso: str, end_iso: str) -> list[dict]:
         rows = self._conn.execute(
             "SELECT * FROM work_session"

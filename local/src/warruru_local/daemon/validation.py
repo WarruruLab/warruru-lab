@@ -13,10 +13,16 @@ from datetime import datetime
 from fastapi import HTTPException
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 _INVALID_DATE_DETAIL = {
     "code": "INVALID_REQUEST",
     "message": "날짜는 YYYY-MM-DD 여야 합니다",
+}
+
+_INVALID_MONTH_DETAIL = {
+    "code": "INVALID_REQUEST",
+    "message": "달은 YYYY-MM 여야 합니다",
 }
 
 
@@ -33,4 +39,19 @@ def validate_date_param(value: str) -> str:
         datetime.strptime(value, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail=dict(_INVALID_DATE_DETAIL)) from None
+    return value
+
+
+def validate_month_param(value: str) -> str:
+    """`YYYY-MM`. 날짜와 같은 이유로 정규식이 먼저다.
+
+    `2026-13` 은 형태가 맞아도 달이 아니다. 통과시키면 달력이 다음 해
+    1월을 13월이라 부르며 그린다. `-01` 을 붙여 실재하는 날인지 확인한다.
+    """
+    if not _MONTH_RE.match(value):
+        raise HTTPException(status_code=400, detail=dict(_INVALID_MONTH_DETAIL))
+    try:
+        datetime.strptime(value + "-01", "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail=dict(_INVALID_MONTH_DETAIL)) from None
     return value

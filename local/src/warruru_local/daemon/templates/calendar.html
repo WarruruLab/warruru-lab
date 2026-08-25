@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ view.label }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.label }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<nav>
+  <a href="/c/{{ view.prev_month }}">← {{ view.prev_month }}</a>
+  <a href="/c/{{ view.next_month }}">{{ view.next_month }} →</a>
+</nav>
+
+<p class="meta">기록이 있는 날 {{ view.marked_days }}일</p>
+
+<table class="calendar">
+  <thead>
+    <tr>{% for name in view.weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for week in view.weeks %}
+    <tr>
+      {% for cell in week %}
+      <td class="{{ 'marked' if cell.marked }}{{ ' today' if cell.today }}">
+        {% if cell.marked %}
+          <a href="/d/{{ cell.date }}">{{ cell.day }}</a>
+        {% elif cell.day %}
+          <span class="quiet">{{ cell.day }}</span>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if view.marked_days == 0 %}
+  <p class="empty">이 달에는 기록이 없습니다.</p>
+{% endif %}
+{% endblock %}

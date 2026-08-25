@@ -56,3 +56,42 @@ def test_local_day_bounds는_시스템_시계를_읽지_않는다(monkeypatch):
     start, end = clock_module.local_day_bounds("2026-07-22")
     assert start < end
     assert clock_module.local_date_of(start) == "2026-07-22"
+
+
+# ── local_month_bounds (Task 12) ──────────────────────────────────
+
+def test_달_경계는_다음_달_1일의_시작이다():
+    from warruru_local.clock import local_date_of, local_month_bounds
+
+    start, end = local_month_bounds("2026-07")
+    assert local_date_of(start) == "2026-07-01"
+    # 끝은 배타적이다. 7월 31일이 아니라 8월 1일 자정이어야
+    # 31일 하루가 통째로 달력에서 빠지지 않는다.
+    assert local_date_of(end) == "2026-08-01"
+
+
+def test_12월은_다음_해_1월로_넘어간다():
+    from warruru_local.clock import local_date_of, local_month_bounds
+
+    assert local_date_of(local_month_bounds("2026-12")[1]) == "2027-01-01"
+
+
+def test_윤년_2월도_말일_계산_없이_맞는다():
+    """말일을 구해 하루를 더하는 방식이었다면 여기서 틀린다."""
+    from warruru_local.clock import local_date_of, local_month_bounds
+
+    assert local_date_of(local_month_bounds("2028-02")[1]) == "2028-03-01"
+    assert local_date_of(local_month_bounds("2026-02")[1]) == "2026-03-01"
+
+
+def test_달_경계도_시스템_시계를_읽지_않는다(monkeypatch):
+    import warruru_local.clock as clock_module
+
+    class NoNow(clock_module.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            raise AssertionError("local_month_bounds는 datetime.now()를 부르면 안 된다")
+
+    monkeypatch.setattr(clock_module, "datetime", NoNow)
+    start, end = clock_module.local_month_bounds("2026-07")
+    assert start < end

@@ -40,7 +40,8 @@ Python 3.11+ 가 필요하다(이 머신의 시스템 python 은 3.9.6 이라 �
 저장소 루트에서 `pip install -e local/` 로 설치하면 `warruru-mcp` 와 `warruru-daemon`
 두 진입점이 생긴다. `warruru-daemon` 을 띄운 뒤 브라우저에서 <http://127.0.0.1:8787>
 을 열면 오늘 날짜 화면으로 이동한다. 화면은 넷이다 —
-`/d/{date}` 날짜 · `/t` 오늘의 주제 · `/t/{slug}` 주제 상세 · `/drafts/{id}` 초안. 에이전트의 MCP 설정에 `warruru-mcp` 를 등록해 두면
+`/d/{date}` 날짜 · `/c/{YYYY-MM}` 달력 · `/t` 오늘의 주제 ·
+`/t/{slug}` 주제 상세 · `/drafts/{id}` 초안. 에이전트의 MCP 설정에 `warruru-mcp` 를 등록해 두면
 데몬이 꺼져 있을 때 어댑터가 알아서 띄우므로, 평소에는 데몬을 직접 실행할 일이 없다.
 설정 방법과 개발 절차는 [`local/README.md`](./local/README.md) 에 있다.
 
@@ -126,8 +127,7 @@ MCP 툴 7개(`start_work` · `record_checkpoint` · `finish_work` · `get_today_
 새 프로세스·새 포트·새 저장소·새 런타임 의존성은 0이다. 데몬 하나, 포트 하나(8787),
 DB 하나(`~/.warruru/warruru.db`) 안에서 끝냈다.
 
-**남은 것** — 달력 `/c/{YYYY-MM}` 하나. 기한은 "두 번째 글이 나온 직후" 다.
-날짜로 건너뛰는 일이 실제로 불편해진 뒤에 만든다.
+계획했던 화면은 달력까지 전부 들어왔다.
 상세는 [`local/docs/plans/`](./local/docs/plans/) 의 구현 계획 문서에 있다.
 
 **빼기로 한 것과 이유**
