@@ -46,6 +46,22 @@ def match_slugs(target: str, candidates) -> list[str]:
     ]
 
 
+def is_recommended(slug: str | None) -> bool:
+    """이 슬러그가 31주 로드맵의 권장 목록에 있는가.
+
+    `similar_slugs` 로는 이 사실을 알 수 없다. 그쪽은 `candidate != target`
+    으로 자기 자신을 빼므로, 권장 슬러그를 **그대로** 적으면 오히려 빈 목록이
+    온다. 되돌려 줄 "비슷한 다른 것" 이 없기 때문이지 목록 밖이라서가 아닌데,
+    받는 쪽에서는 그 둘이 구분되지 않는다(평가 기준 A13, 2026-08-25 채점).
+
+    그래서 값 하나를 따로 둔다. `similar_slugs` 의 의미는 손대지 않는다.
+
+    **원문이 아니라 슬러그를 받는다.** 여기서 다시 정규화하면 규칙이 두 곳에
+    살게 되고, 한쪽만 바뀌었을 때 조용히 어긋난다. 정규화는 `slugify` 한 곳이다.
+    """
+    return slug in _RECOMMENDED_SET
+
+
 def similar_recommended(slug: str, limit: int = SIMILAR_LIMIT) -> list[str]:
     """권장 슬러그 상수 갈래만 본다. **SPOOL 응답용이다.**
 
@@ -235,3 +251,8 @@ RECOMMENDED_SLUGS: tuple[str, ...] = (
     "terraform-module", "github-actions-pipeline", "k8s-pod-deployment", "k8s-service-ingress",
     "k8s-configmap-secret", "k8s-probe", "k8s-hpa", "prometheus-grafana", "k8s-necessity"
 )
+
+
+# 판정 전용 집합. RECOMMENDED_SLUGS 는 순서가 의미를 가지므로 튜플로 두고,
+# 멤버십만 여기서 상수 시간으로 본다.
+_RECOMMENDED_SET = frozenset(RECOMMENDED_SLUGS)

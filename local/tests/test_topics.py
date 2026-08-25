@@ -214,3 +214,28 @@ def test_이미_채운_선택_필드도_예시에_남는다():
 def test_숫자_0_은_결손이_아니다():
     """`not value` 로 판정하면 0 과 False 가 결손으로 보고된다."""
     assert topics.missing_fields(dict(FULL, outcome=0)) == []
+
+
+# ── is_recommended (A13) ──────────────────────────────────────────
+
+def test_권장_슬러그는_권장으로_표시된다():
+    """로드맵 문서와 힌트 장치가 이어져 있다는 것을 값 하나로 증명한다.
+
+    `similar_slugs` 로는 증명할 수 없다 — 그쪽은 자기 자신을 빼므로
+    권장 슬러그를 그대로 적으면 오히려 빈 목록이 온다(A13 채점 참조).
+    """
+    assert topics.is_recommended("net-tcp") is True
+    assert topics.is_recommended(topics.RECOMMENDED_SLUGS[0]) is True
+
+
+def test_권장_목록에_없으면_권장이_아니다():
+    assert topics.is_recommended("connection-pool") is False
+    assert topics.is_recommended("") is False
+    assert topics.is_recommended(None) is False
+
+
+def test_권장_판정은_슬러그를_다시_만들지_않는다():
+    """이미 슬러그인 값만 받는다. 원문을 넣으면 아니라고 답한다 —
+    정규화를 두 곳에서 하면 한쪽만 바뀌었을 때 조용히 어긋난다.
+    """
+    assert topics.is_recommended("Net TCP") is False

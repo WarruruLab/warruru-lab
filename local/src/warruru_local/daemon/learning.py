@@ -129,6 +129,10 @@ def record(ctx, payload: dict, source: str = "MCP") -> dict:
         # 저장된 슬러그를 기준으로 한다. 중복 경로에서 새 payload 의
         # 슬러그를 쓰면, 보고한 것과 다른 주제의 힌트가 나간다.
         "similar_slugs": ctx.records.similar_slugs(row["topic_slug"]),
+        # similar_slugs 는 자기 자신을 빼므로, 권장 슬러그를 **그대로** 적으면
+        # 빈 목록이 온다. 받는 쪽에서는 그것이 '목록 밖' 과 구분되지 않는다.
+        # 로드맵과의 연결은 값 하나로 따로 말한다(평가 기준 A13).
+        "recommended": topics.is_recommended(row["topic_slug"]),
         "git": snapshot.as_dict(),
         "duplicate": duplicate,
         "filled_fields": [],
@@ -189,6 +193,7 @@ def _enrich(ctx, existing: dict, payload: dict, now: str) -> dict:
             stored, missing, record_id=row["record_id"]
         ),
         "similar_slugs": ctx.records.similar_slugs(row["topic_slug"]),
+        "recommended": topics.is_recommended(row["topic_slug"]),
         "git": None,
         "duplicate": True,
         "filled_fields": filled,

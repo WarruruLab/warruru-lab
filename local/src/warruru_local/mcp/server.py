@@ -191,6 +191,11 @@ class ToolService:
                 "missing_fields_scope": "call_args" if record_id else "stored",
             }
 
+        # 두 갈래 **밖**에서 한 번만 판단한다. 갈래마다 적으면 온라인과
+        # 오프라인의 답이 갈릴 수 있고, 이 값이 갈리면 에이전트가 데몬 상태에
+        # 따라 다른 주제를 적는다. 입력은 어느 갈래든 저장될 슬러그 하나다.
+        hints["recommended"] = topics.is_recommended(hints["topic_slug"])
+
         common = _common(outcome_)
         if hints.get("missing_fields_scope") == "call_args":
             # 사람이 읽을 자리에도 한 줄 남긴다. 판단은 위의 값으로 한다.

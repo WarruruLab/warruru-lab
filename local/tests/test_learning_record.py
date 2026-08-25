@@ -155,6 +155,29 @@ def test_유사_슬러그가_응답에_실린다(ctx):
     assert "jpa-n-plus-one" in result["similar_slugs"]
 
 
+def test_권장_슬러그면_응답이_그렇다고_말한다(ctx):
+    """유사 슬러그로는 알 수 없다 — 자기 자신을 빼므로 빈 목록이 온다.
+
+    `/v1/records` 를 직접 부르는 쪽도 이 값을 봐야 한다. 어댑터만 채우면
+    API 사용자에게는 로드맵과의 연결이 보이지 않는다(평가 기준 A13).
+    """
+    result = learning.record(ctx, _payload(topic="net tcp"))
+    assert result["recommended"] is True
+    assert result["similar_slugs"] == []
+
+
+def test_권장_목록_밖이면_아니라고_말한다(ctx):
+    assert learning.record(ctx, _payload())["recommended"] is False
+
+
+def test_보강_응답도_권장_여부를_말한다(ctx):
+    """보강 경로가 이 값을 빼먹으면 두 번째 호출에서 조용히 사라진다."""
+    learning.record(ctx, _payload(topic="net tcp"))
+    again = learning.record(ctx, _payload(topic="net tcp", outcome="p95 90ms"))
+    assert again["duplicate"] is True
+    assert again["recommended"] is True
+
+
 def test_흡수_경로는_source_가_SPOOL_이다(ctx):
     learning.record(ctx, _payload(), source="SPOOL")
     assert ctx.records.get_record("rec_A")["source"] == "SPOOL"
