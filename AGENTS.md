@@ -14,13 +14,17 @@
 테스트 파일 24개(`conftest.py` 별도), 테스트 248개가 이 머신에서 전원 통과한다
 (2026-08-18 실측, Python 3.12.14). `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
 
-- MCP stdio 어댑터 `warruru-mcp` — 툴 4개
-  (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`)
+- MCP stdio 어댑터 `warruru-mcp` — 툴 7개
+  (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
+  / `record_learning` / `get_topic_records` / `save_draft`)
 - 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
-- SQLite `~/.warruru/warruru.db` — 테이블 4개
-  (`machine` / `client_instance` / `work_session` / `checkpoint`)
-- 화면 `/d/{date}` 하나. JavaScript 없음.
-  조회는 토큰 불필요, 상태 변경 폼만 토큰
+- SQLite `~/.warruru/warruru.db` — 스키마 v2, 테이블 6개
+  (`machine` / `client_instance` / `work_session` / `checkpoint`
+  / `learning_record` / `draft`)
+- 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
+- 화면 — `/d/{date}` · `/t` · `/t/{slug}` · `/drafts/{id}`
+  조회는 토큰 불필요, 상태 변경 폼만 토큰.
+  JavaScript 는 초안 화면의 복사 버튼 하나뿐이고, 그것이 죽어도 경로는 살아 있다
 
 ### 코드 0줄이었던 명세 7묶음은 폐기한다
 
@@ -102,23 +106,30 @@ MVP 전체가 `local/src/warruru_local/` 안에서 산다.
 - 필수는 `kind` · `topic` · `title` · `body` 넷뿐이다.
   `rationale` · `outcome` · `limitation` · `interview` 는 비어도 거절당하지 않는다.
 - **재료가 없으면 지어내지 마라.** 특히 `limitation` 과 `rationale` 은
-  사용자 머릿속에만 있는 경우가 대부분이다. 비운 채로 저장한 다음,
-  **그 자리에서 사용자에게 되물어라** — "풀 크기를 30 이상으로 못 올린
-  이유가 무엇이었나요?" 답을 받으면 같은 툴을 다시 불러 채운다.
-  그럴듯한 문장으로 빈칸을 메우면 면접에서 대답 못 할 자리가
-  채워진 것처럼 보이게 되고, 그게 이 도구의 유일한 실패 방식이다.
-- 응답에 `missing_fields` · `example_call` · `similar_slugs` 가 실려 온다.
-  거절 대신 오는 것이니 읽고 실제로 보강 호출을 해라.
+  사용자 머릿속에만 있다. 비운 채로 저장한 다음 **그 자리에서 되물어라** —
+  "풀 크기를 30 이상으로 못 올린 이유가 무엇이었나요?"
+  답을 받으면 **응답에 실려 온 `record_id` 를 그대로 넘겨** 같은 툴을 다시 부른다.
+  그래야 빈칸이 채워진다. `record_id` 없이 다시 부르면 거의 같은 기록이 하나 더 생긴다.
+  지어낸 문장은 면접장에서 안 나온다. 그게 이 도구의 유일한 실패 방식이다.
+- 응답의 `missing_fields` · `example_call` · `similar_slugs` 를 읽어라.
+  거절 대신 오는 것이다. `example_call` 은 복사해서 바로 다시 부를 수 있는 형태다.
+- `missing_fields_scope` 가 `call_args` 면 그 목록은 **이번 호출 인자만** 본 값이다
+  (데몬이 꺼진 채 보강한 경우). 이미 채워 둔 필드를 다시 묻지 마라.
 - `topic` 은 원문 그대로 적는다. 정규화는 시스템이 한다.
-  권장 슬러그는 `docs/guides/backend-infra-roadmap-31w.md` 에 있다.
+  권장 슬러그는 `docs/guides/backend-infra-roadmap-31w.md` 부록 A 에 있다 —
+  **그 목록을 쓰면 힌트가 첫 호출부터 맞는다.** 한글로 적으면 한글 슬러그가 되어
+  그 목록과 절대 만나지 않으므로, 한쪽으로 정해 쓴다.
 
-### 몇 건이 정상인가
+### 글로 만들 때
 
-코드를 만진 날 **0건이면 이 규칙이 작동하지 않는 것**이다. 기준선은
-`local/docs/acceptance.md` §4 와 같은 **1주 5건** — 실측이 아닌 임의값이니 한 주 재본 뒤 고친다.
-
-기록이 없으면 주제 화면도 초안도 전부 빈 화면이고,
-나머지 설계의 장점은 전부 무의미해진다.
+- 하루 끝에 `http://127.0.0.1:8787/t` 를 열면 그날 기록이 주제로 묶여 있다.
+- 주제를 눌러 [초안 만들기] 를 누르면 6단 마크다운이
+  `~/.warruru/drafts/YYYY/MM/` 에 생긴다. **LLM 호출은 0이다.**
+- 빈 절은 `TODO:` 로 남는다. 그 자리가 곧 "면접에서 대답 못 할 부분" 이다.
+  **지어내서 채우지 마라** — 기록을 보강하고 다시 만든다.
+- 초안 화면이 주는 `polish topic=... draft=...` 한 줄을 받으면
+  `get_topic_records` 로 재료를 읽고, 다듬은 글을 `save_draft` 로 덮어쓴다.
+  그 툴의 `missing_summary` 가 비어 있는 필드를 알려준다 — **되물어라.**
 
 ### 데몬이 꺼져 있어도 부른다
 
@@ -130,8 +141,7 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 
 기록 실패로 개발이 멈추는 일은 없다. 툴은 예외를 밖으로 던지지 않는다.
 
-`record_learning` · `get_topic_records` · `save_draft` 세 툴은
-마이그레이션 v2 와 함께 들어온다. 툴 목록에 아직 없으면 도착하지 않은 것이니,
+세 툴 모두 도착했다(2026-08-25). 툴 목록에 없으면 데몬이 구버전이니,
 없는 툴을 부른 척하지 말고 그 사실을 사용자에게 말한다.
 
 ---
@@ -186,11 +196,14 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 "문제 → 선택 → 구현 → 측정 → 결과 → 한계" 6단 마크다운 한 편이 되어
 저장소 **바깥**에 앉는 것까지 한 바퀴를 돌린다.
 
-- 마이그레이션 v2 — `learning_record` · `draft` 두 테이블만
-- MCP 툴 3개 추가(총 7개)
-- 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` 추가, 달력 `/c/{YYYY-MM}` 은 2주차
-- 결정적 6단 조립기 — **LLM 호출 0**
-- `PublishTarget` 인터페이스 + 어댑터 2개
+1주차 경로는 **닫혔다**(2026-08-25). 남은 것은 달력 `/c/{YYYY-MM}` 하나이고,
+기한은 '두 번째 글이 나온 직후' 다.
+
+- 마이그레이션 v2 — `learning_record` · `draft` ✅
+- MCP 툴 3개 추가(총 7개) ✅
+- 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` ✅ / 달력 `/c/{YYYY-MM}` 은 2주차
+- 결정적 6단 조립기 — **LLM 호출 0** ✅
+- `PublishTarget` 인터페이스 + 어댑터 2개 ✅
 
 착지점은 `~/.warruru/drafts/YYYY/MM/` 이고, 저장소 안 경로가 인자로
 들어오면 쓰기 어댑터가 **예외를 던진다.** origin 이 public 저장소이므로

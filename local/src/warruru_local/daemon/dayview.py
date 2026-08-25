@@ -74,6 +74,23 @@ def _group(views: list[tuple[str, dict]]) -> list[dict]:
     return [{"tool": tool, "works": groups[tool]} for tool in order]
 
 
+def _learning_views(ctx, start: str, end: str) -> list[dict]:
+    """그날의 학습 기록. 시간순으로 읽는다 — 하루를 되짚는 순서다."""
+    rows = ctx.records.list_records(since=start, until=end, limit=100)
+    rows = sorted(rows, key=lambda row: (row["occurred_at"], row["record_id"]))
+    return [
+        {
+            "record_id": row["record_id"],
+            "kind": row["kind"],
+            "topic": row["topic"],
+            "topic_slug": row["topic_slug"],
+            "title": row["title"],
+            "time": _local_time(row["occurred_at"]),
+        }
+        for row in rows
+    ]
+
+
 def build_day(ctx, date_str: str, include_deleted: bool = False) -> dict:
     start, end = local_day_bounds(date_str)
     rows = (
@@ -82,6 +99,11 @@ def build_day(ctx, date_str: str, include_deleted: bool = False) -> dict:
         else ctx.repo.list_works_between(start, end)
     )
     views = [(row["tool"], _work_view(ctx, row, include_deleted)) for row in rows]
+
+    # 학습 기록은 작업·체크포인트와 성격이 다르지만 같은 하루에 속한다.
+    # 날짜 화면은 '그날 무엇을 했나' 를 보는 자리라 둘 다 있어야 한다.
+    # 삭제 화면에는 넣지 않는다 — 그 화면은 되살릴 것을 고르는 자리다.
+    learnings = [] if include_deleted else _learning_views(ctx, start, end)
 
     day = datetime.strptime(date_str, DATE_FORMAT).date()
     hint = None
@@ -118,5 +140,6 @@ def build_day(ctx, date_str: str, include_deleted: bool = False) -> dict:
         "prev_date": (day - timedelta(days=1)).strftime(DATE_FORMAT),
         "next_date": (day + timedelta(days=1)).strftime(DATE_FORMAT),
         "groups": _group(views),
+        "learnings": learnings,
         "empty_hint": hint,
     }

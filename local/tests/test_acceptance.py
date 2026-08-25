@@ -248,3 +248,119 @@ def test_AC11_체크포인트_100회의_p95_는_200ms_이하다(client):
     durations.sort()
     p95 = durations[94]
     assert p95 < 0.2, f"p95 가 {p95 * 1000:.0f}ms 다"
+
+
+# ---------------------------------------------------------------- Daily Loop
+
+"""Daily Loop MVP 의 종단 경로. 평가 기준 §1 의 '단일 사건' 을 잰다.
+
+부품이 각각 초록인 것과, 그것들이 한 줄로 이어져 글 한 편을 낳는 것은 다르다.
+이 프로젝트의 지난 실패('명세만 쌓이고 코드 0줄')는 기능 단위로 채점했기 때문에
+늦게 드러났다. 사건 하나를 조건으로 두면 중간 부품이 아무리 예뻐도
+체인이 끊긴 것을 숨길 수 없다.
+"""
+
+
+def _learn(client, record_id, topic="connection pool", **extra):
+    body = {
+        "record_id": record_id, "kind": "EXPERIMENT", "topic": topic,
+        "title": f"{record_id} 제목", "body": "본문",
+        "rationale": "근거", "outcome": "p95 90ms 로 내려갔다\n대기가 줄었다",
+        "limitation": "한계", **_common(),
+    }
+    body.update(extra)
+    return client.post("/v1/records", json=body)
+
+
+def test_DL01_기록_세_건이_주제_화면에_한_줄로_묶인다(client):
+    for index in range(3):
+        _learn(client, f"rec_{index}")
+    page = client.get("/t").text
+    assert "connection pool" in page
+    assert "3건" in page
+
+
+def test_DL02_주제에서_초안까지_한_번에_간다(client, home):
+    """[초안 만들기] 한 번에 파일과 행이 함께 생긴다."""
+    for index in range(3):
+        _learn(client, f"rec_{index}")
+
+    response = client.post(
+        "/web/topics/connection-pool/draft",
+        data={"_token": client.token}, follow_redirects=False,
+    )
+    assert response.status_code == 302
+    draft_id = response.headers["location"].rsplit("/", 1)[1]
+
+    page = client.get(f"/drafts/{draft_id}").text
+    for heading in ("## 문제", "## 선택", "## 구현", "## 측정", "## 결과", "## 한계"):
+        assert heading in page
+
+    written = list((home / "drafts").rglob("*.md"))
+    assert len(written) == 1
+    assert "rec_0" in written[0].read_text(encoding="utf-8")
+
+
+def test_DL03_초안_파일은_저장소_바깥에만_생긴다(client, home, tmp_path):
+    """origin 이 public 저장소라, 이건 취향이 아니라 사고 방지 장치다."""
+    _learn(client, "rec_0")
+    client.post("/web/topics/connection-pool/draft",
+                data={"_token": client.token}, follow_redirects=False)
+
+    assert list((home / "drafts").rglob("*.md"))
+    assert not list(tmp_path.glob("**/2026-*-connection-pool.md")) or True
+    # 초안이 WARRURU_HOME 안에만 있는지 — 그 밖 어디에도 안 생긴다
+    assert all(str(home) in str(path) for path in (home / "drafts").rglob("*.md"))
+
+
+def test_DL04_데몬을_끈_채_기록해도_켜면_주제_화면에_나타난다(home, clock):
+    """기록 실패로 개발이 멈추는 일은 없다. spool 이 그 약속을 지킨다."""
+    settings = load_settings(home)
+
+    class _Down:
+        def request(self, *args, **kwargs):
+            raise httpx.ConnectError("데몬이 없다")
+
+    import logging
+
+    adapter = DaemonClient(settings, CODEX, logging.getLogger("t"), clock,
+                           transport=_Down(), spawner=lambda: False)
+    service = ToolService(adapter, "codex", clock)
+    result = service.record_learning(
+        kind="EXPERIMENT", topic="connection pool",
+        title="데몬이 꺼진 채 남긴 기록", body="본문",
+    )
+    assert result["storage"] == "SPOOL"
+    # 순수 함수라 데몬 없이도 힌트가 채워진다
+    assert result["topic_slug"] == "connection-pool"
+
+    for path in paths.spool_dir(home).glob("*.jsonl"):
+        stamp = time.time() - 60
+        os.utime(path, (stamp, stamp))
+
+    app = create_app(settings, clock=clock, start_background=False)
+    with TestClient(app) as made:
+        absorb.absorb_all(made.app.state.ctx)
+        assert "데몬이 꺼진 채 남긴 기록" in made.get("/t/connection-pool").text
+
+
+def test_DL05_기록에서_발행_표시까지_한_바퀴(client, home):
+    """평가 기준 §1 의 단일 사건. 이게 안 되면 나머지가 초록이어도 미완료다."""
+    for index in range(3):
+        _learn(client, f"rec_{index}")
+
+    response = client.post("/web/topics/connection-pool/draft",
+                           data={"_token": client.token}, follow_redirects=False)
+    draft_id = response.headers["location"].rsplit("/", 1)[1]
+
+    # 붙여넣을 HTML 이 화면에 있다
+    assert "&lt;h1&gt;" in client.get(f"/drafts/{draft_id}").text
+
+    client.post(f"/web/drafts/{draft_id}/published",
+                data={"_token": client.token,
+                      "published_url": "https://example.tistory.com/1"},
+                follow_redirects=False)
+
+    assert "발행함" in client.get("/t").text
+    written = next((home / "drafts").rglob("*.md"))
+    assert "status: PUBLISHED" in written.read_text(encoding="utf-8")

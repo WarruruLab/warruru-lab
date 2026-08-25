@@ -10,7 +10,25 @@
   </nav>
 </header>
 
-{% if not view.groups %}
+{% if view.learnings %}
+<section class="tool">
+  <h2>학습 기록</h2>
+  <ul class="checkpoints">
+    {% for item in view.learnings %}
+    <li>
+      <div class="work-head">
+        <span class="badge">{{ item.kind }}</span>
+        <strong>{{ item.title }}</strong>
+        <a class="meta" href="/t/{{ item.topic_slug }}">{{ item.topic }}</a>
+        <span class="meta">{{ item.time }}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if not view.groups and not view.learnings %}
   <p class="empty">이 날짜에는 기록이 없습니다.</p>
   {% if view.empty_hint %}
     <p class="empty">가장 최근 기록은

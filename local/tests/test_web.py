@@ -110,3 +110,54 @@ def test_화면은_외부_주소를_불러오지_않는다(client):
     body = client.get(f"/d/{TODAY}").text
     assert "http://" not in body.replace('http://127.0.0.1', '')
     assert "https://" not in body
+
+
+# ── 학습 기록 섹션 (Task 11) ───────────────────────────────────────
+
+def test_날짜_화면에_그날의_학습_기록이_보인다(client, home):
+    """작업·체크포인트와 학습 기록은 성격이 다르지만 같은 하루에 속한다.
+
+    날짜 화면은 '그날 무엇을 했나' 를 보는 자리라 둘 다 있어야 한다.
+    """
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "EXPERIMENT", "topic": "connection pool",
+        "title": "풀 크기 10→30", "body": "p95 320ms→90ms",
+        "occurred_at": "2026-07-22T09:00:00.000Z",
+    })
+    page = client.get("/d/2026-07-22").text
+    assert "학습 기록" in page
+    assert "풀 크기 10→30" in page
+    assert 'href="/t/connection-pool"' in page
+
+
+def test_학습_기록이_없는_날에는_그_섹션이_없다(client):
+    assert "학습 기록" not in client.get("/d/2026-07-22").text
+
+
+def test_다른_날_학습_기록은_안_보인다(client):
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "EXPERIMENT", "topic": "connection pool",
+        "title": "어제 것", "body": "본문",
+        "occurred_at": "2026-07-21T09:00:00.000Z",
+    })
+    assert "어제 것" not in client.get("/d/2026-07-22").text
+
+
+def test_학습_기록만_있는_날에_없다고_말하지_않는다(client):
+    """작업은 흡수한 날에 붙고 기록은 occurred_at 에 붙는다.
+
+    데몬이 꺼진 채 어제 남긴 기록이 오늘 흡수되면, 어제 화면에는 기록만
+    있고 작업은 없다(OUTSTANDING I4 — 받아들인 결함). 그때 '기록이
+    없습니다' 를 기록 바로 아래 띄우면 화면이 스스로 모순된다.
+    """
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "CONCEPT", "topic": "connection pool",
+        "title": "어제 남긴 기록", "body": "본문",
+        "occurred_at": "2026-07-21T09:00:00.000Z",
+    })
+    page = client.get("/d/2026-07-21").text
+    assert "어제 남긴 기록" in page
+    assert "이 날짜에는 기록이 없습니다" not in page
