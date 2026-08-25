@@ -111,3 +111,71 @@ def test_수치만_적으면_결과_절이_TODO_로_남는다(client):
                         json={"topic_slug": "connection-pool"}).json()
     page = client.get(f"/drafts/{draft['draft_id']}").text
     assert "남은 TODO 1개" in page
+
+
+# ── 붙여넣기 발행 ──────────────────────────────────────────────────
+
+def test_붙여넣기용_HTML_이_textarea_에_들어_있다(client):
+    draft = _draft(client)
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    assert "<textarea" in page
+    assert "&lt;h1&gt;" in page          # HTML 이 escape 되어 그대로 보인다
+
+
+def test_스크립트_없이도_전체_선택으로_복사할_수_있다(client):
+    """이 프로젝트의 유일한 JS 예외가 경로를 끊으면 안 된다."""
+    draft = _draft(client)
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    assert "readonly" in page
+    assert "전체 선택" in page
+
+
+def test_발행함_폼은_토큰이_없으면_401(client):
+    draft = _draft(client)
+    response = client.post(
+        f"/web/drafts/{draft['draft_id']}/published",
+        data={"published_url": "https://example.tistory.com/1"},
+    )
+    assert response.status_code == 401
+
+
+def test_URL_을_넣으면_status_가_PUBLISHED_가_된다(client):
+    draft = _draft(client)
+    token = client.app.state.ctx.settings.token
+    response = client.post(
+        f"/web/drafts/{draft['draft_id']}/published",
+        data={"_token": token, "published_url": "https://example.tistory.com/1"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    assert "PUBLISHED" in page
+    assert "example.tistory.com/1" in page
+
+
+def test_발행하면_초안_파일의_status_도_바뀐다(client, home):
+    """파일이 정본이다. DB 만 바꾸면 파일을 여는 사람이 옛 상태를 본다."""
+    draft = _draft(client)
+    token = client.app.state.ctx.settings.token
+    client.post(
+        f"/web/drafts/{draft['draft_id']}/published",
+        data={"_token": token, "published_url": "https://example.tistory.com/1"},
+        follow_redirects=False,
+    )
+    text = (home / "drafts" / "2026" / "08" / "2026-08-25-connection-pool.md").read_text(
+        encoding="utf-8"
+    )
+    assert "status: PUBLISHED" in text
+
+
+def test_발행해도_저장소_안에는_파일이_생기지_않는다(client, home):
+    draft = _draft(client)
+    token = client.app.state.ctx.settings.token
+    client.post(
+        f"/web/drafts/{draft['draft_id']}/published",
+        data={"_token": token, "published_url": "https://example.tistory.com/1"},
+        follow_redirects=False,
+    )
+    repo = client.app.state.ctx.settings.repo_root
+    assert repo is None or not list(repo.rglob("2026-08-25-connection-pool.md"))

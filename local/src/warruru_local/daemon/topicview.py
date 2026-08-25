@@ -8,6 +8,7 @@ from __future__ import annotations
 from warruru_local import topics
 from warruru_local.clock import local_day_bounds, parse_iso
 from warruru_local.daemon import draft as draft_builder
+from warruru_local.publish.tistory_clipboard import TistoryClipboardTarget
 
 # 1건뿐인 주제가 모이는 자리. 표기가 갈린 것을 눈에 띄게 하는 오타 교정 장치다.
 # 병합 UI 는 만들지 않는다 — 남는 소수는 SQL 한 줄이 화면보다 싸다.
@@ -100,6 +101,10 @@ def build_draft(ctx, draft_id: str) -> dict | None:
         "polish_prompt": (
             f"polish topic={row['topic_slug']} draft={row['draft_id']}"
         ),
+        # 붙여넣기용 HTML. 정본은 마크다운이고 이건 옮겨 담을 문자열일 뿐이다.
+        "paste_html": TistoryClipboardTarget().publish(
+            title=row["title"], markdown=markdown
+        ).body,
     }
 
 
@@ -111,8 +116,15 @@ def build_index(ctx, date: str) -> dict:
     start, end = local_day_bounds(date)
     rows = ctx.records.slug_summary(since=start, until=end)
 
-    groups = [_group(row) for row in rows if row["count"] > UNSORTED_MAX]
-    unsorted_rows = [_group(row) for row in rows if row["count"] <= UNSORTED_MAX]
+    published = ctx.records.published_slugs()
+
+    def _with_flag(row: dict) -> dict:
+        entry = _group(row)
+        entry["published"] = row["topic_slug"] in published
+        return entry
+
+    groups = [_with_flag(row) for row in rows if row["count"] > UNSORTED_MAX]
+    unsorted_rows = [_with_flag(row) for row in rows if row["count"] <= UNSORTED_MAX]
 
     return {
         "date": date,
