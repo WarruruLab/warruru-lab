@@ -48,7 +48,17 @@ spool된 `start_work`보다 HTTP 체크포인트가 먼저 도착해 `INFERRED` 
 lifespan을 뚫고 나가 데몬이 부팅 실패하고, 원인이 디스크 파일이라 매번 재발한다. 데몬 영구 정지.
 고칠 방향: sweeper처럼 감싸고, `errors="replace"`로 디코드.
 
-**I2. 잘못된 `occurred_at` 하나가 날짜 화면을 영구히 500으로 만든다** (`daemon/recording.py`, `daemon/dayview.py`)
+**I2. 잘못된 `occurred_at` 하나가 날짜 화면을 영구히 500으로 만든다** (`daemon/recording.py`, `daemon/dayview.py`) — ✅ **해결 (2026-08-25)**
+양쪽을 다 막았다. **들어오는 값** — `recording._normalized_time` 이 `started_at`
+과 `occurred_at` 을 정규화하고 실패하면 현재 시각으로 대체한다(거절하지 않기로
+했으므로 거절 대신 대체다). `learning` 에 있던 같은 함수를 여기로 옮겨 하나로 합쳤다.
+**이미 있는 값** — 정규화는 앞으로만 막고 기존 행은 그대로 남는다. 그래서
+`clock.local_time_or_none` · `local_date_or_none` 을 두고 저장된 값을 읽는 자리
+넷(`dayview` · `topicview` · `calendarview` · `finish_work`)이 전부 그것을 쓴다.
+엄격한 쪽을 관용적으로 바꾸지 않고 함수를 나눈 이유는, **방금 만든 값**이
+파싱되지 않는 것은 버그여서 조용히 넘기면 안 되기 때문이다.
+아래 원문은 그때의 진단으로 남겨 둔다.
+
 `occurred_at`은 에이전트에 노출되고 `str`로만 타입돼 그대로 저장된다. 삭제 폼이 그 화면 안에 있어 UI 복구 불가.
 고칠 방향: 기록 경계에서 정규화하고 실패 시 현재 시각으로. 화면도 기존 불량 행에 견디게.
 
@@ -146,8 +156,7 @@ K2 를 고치며 `_NO_SPOOL_STATUSES` 에서 404 를 뺐다. 구버전 데몬 �
 
 **이번에도 남은 것** — 셋 다 **알고 받는다**
 
-- **I2** — 새 경로(`learning.record`)에서는 막았다. 잘못된 `occurred_at` 은
-  현재 시각으로 대체하고 정규화까지 한다. 기존 `record_checkpoint` 는 그대로다
+- ~~**I2** — 새 경로에서만 막았다~~ → 전부 해결(2026-08-25). 위 항목 참조
 - **I4** — `attach` 가 귀속을 "지금" 기준으로 본다.
   데몬이 꺼진 채 월요일에 남긴 기록이 화요일에 흡수되면 화요일 작업에 붙는다.
   **기록 내용과 `occurred_at` 은 온전하고 모든 화면이 `occurred_at` 으로 묶으므로

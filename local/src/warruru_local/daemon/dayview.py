@@ -5,15 +5,13 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-from warruru_local.clock import local_date_of, local_day_bounds, parse_iso
+from warruru_local.clock import (
+    local_date_or_none,
+    local_day_bounds,
+    local_time_or_none,
+)
 
 DATE_FORMAT = "%Y-%m-%d"
-
-
-def _local_time(iso: str | None) -> str | None:
-    if iso is None:
-        return None
-    return parse_iso(iso).astimezone().strftime("%H:%M")
 
 
 def _loads(raw: str | None) -> list:
@@ -31,7 +29,7 @@ def _checkpoint_view(row: dict) -> dict:
         "type": row["type"],
         "title": row["title"],
         "body": row["body"],
-        "occurred_local": _local_time(row["occurred_at"]),
+        "occurred_local": local_time_or_none(row["occurred_at"]),
         "repo_name": row["repo_name"],
         "branch": row["branch"],
         "commit_short": (row["commit_sha"] or "")[:7] or None,
@@ -51,8 +49,8 @@ def _work_view(ctx, row: dict, include_deleted: bool) -> dict:
         "status": row["status"],
         "ended_reason": row["ended_reason"],
         "origin": row["origin"],
-        "started_local": _local_time(row["started_at"]),
-        "ended_local": _local_time(row["ended_at"]),
+        "started_local": local_time_or_none(row["started_at"]),
+        "ended_local": local_time_or_none(row["ended_at"]),
         "repo_name": row["start_repo_name"],
         "branch": row["start_branch"],
         "result": row["result"],
@@ -85,7 +83,7 @@ def _learning_views(ctx, start: str, end: str) -> list[dict]:
             "topic": row["topic"],
             "topic_slug": row["topic_slug"],
             "title": row["title"],
-            "time": _local_time(row["occurred_at"]),
+            "time": local_time_or_none(row["occurred_at"]),
         }
         for row in rows
     ]
@@ -109,7 +107,7 @@ def build_day(ctx, date_str: str, include_deleted: bool = False) -> dict:
     hint = None
     if not views and not include_deleted:
         latest = ctx.repo.latest_work_started_before(end)
-        hint = local_date_of(latest) if latest else None
+        hint = local_date_or_none(latest)
 
     if include_deleted:
         # 세션은 살아 있는데 체크포인트만 삭제된 경우, 그 체크포인트는

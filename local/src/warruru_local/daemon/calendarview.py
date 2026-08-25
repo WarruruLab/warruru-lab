@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import calendar
 
-from warruru_local.clock import local_date_of, local_month_bounds
+from warruru_local.clock import local_date_or_none, local_month_bounds
 
 # 월요일 시작. 주가 일요일에 시작하는지 월요일에 시작하는지는 취향이지만,
 # 개발 기록을 되짚는 화면이라 주중이 붙어 있는 쪽을 골랐다.
@@ -35,10 +35,19 @@ def build_month(ctx, year_month: str, today: str) -> dict:
     """
     start, end = local_month_bounds(year_month)
     marked: set[str] = set()
-    for iso in ctx.records.occurred_between(start, end):
-        marked.add(local_date_of(iso))
-    for iso in ctx.repo.works_started_between(start, end):
-        marked.add(local_date_of(iso))
+    # 읽지 못하는 값은 어느 날도 칠하지 않는다. 구간 질의는 문자열 비교라
+    # 불량 값도 사전순으로 구간 안에 들면 여기까지 온다 — 그 한 행에
+    # 달력 전체가 500 이 되면 날짜를 고를 방법이 없어진다.
+    marked.update(
+        day
+        for iso in ctx.records.occurred_between(start, end)
+        if (day := local_date_or_none(iso)) is not None
+    )
+    marked.update(
+        day
+        for iso in ctx.repo.works_started_between(start, end)
+        if (day := local_date_or_none(iso)) is not None
+    )
 
     year, month = (int(part) for part in year_month.split("-"))
     weeks = []
