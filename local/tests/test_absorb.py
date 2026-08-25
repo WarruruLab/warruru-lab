@@ -1,3 +1,6 @@
+import json
+import logging
+import os
 import sqlite3
 from datetime import datetime, timezone
 
@@ -35,6 +38,18 @@ def _age(home, seconds=60):
     for path in paths.spool_dir(home).glob("*.jsonl"):
         stamp = time.time() - seconds
         os.utime(path, (stamp, stamp))
+
+
+def _envelope(kind="start_work", **payload):
+    """디스크에 직접 쓸 봉투 한 벌. spool.append 를 못 쓰는 자리에서 쓴다."""
+    body = {"work_id": "wrk_SPOOL", "title": "제목", **COMMON, **payload}
+    return {
+        "envelope_version": spool.ENVELOPE_VERSION,
+        "event_id": "evt_직접쓴것",
+        "kind": kind,
+        "enqueued_at": "2026-07-22T09:00:00.000Z",
+        "payload": body,
+    }
 
 
 def test_조용해진_파일만_흡수한다(client, home):
@@ -391,3 +406,75 @@ def test_KINDS_와_HANDLERS_가_어긋나지_않는다():
     봉투 종류를 늘릴 때 한쪽만 고치면 그 봉투는 갈 곳이 없다.
     """
     assert spool.KINDS == set(absorb._HANDLERS)
+
+
+# ── 기동 안전 (OUTSTANDING I1 · I6) ────────────────────────────────
+
+def test_잘못된_바이트가_섞여도_데몬이_뜬다(home):
+    """디스크 파일 하나가 데몬을 영구 정지시키면 안 된다.
+
+    read_text(encoding="utf-8") 는 잘못된 바이트에서 UnicodeDecodeError 를
+    낸다. 그 예외가 lifespan 을 뚫으면 데몬이 부팅에 실패하고, 원인이
+    디스크에 남아 있으므로 **다시 켜도 같은 자리에서 죽는다.**
+    화면도 API 도 없으니 사용자는 고칠 방법이 없다(OUTSTANDING I1).
+    """
+    settings = load_settings(home)
+    spool_dir = paths.spool_dir(home)
+    spool_dir.mkdir(parents=True, exist_ok=True)
+    (spool_dir / f"{CLIENT}.jsonl").write_bytes(b"\xff\xfe\x00 not utf-8\n")
+    os.utime(spool_dir / f"{CLIENT}.jsonl", (0, 0))
+
+    app = create_app(settings, clock=FixedClock(START), start_background=False)
+    with TestClient(app) as client:          # lifespan 이 여기서 돈다
+        assert client.get("/v1/health").status_code == 200
+
+
+def test_깨진_파일_하나가_다른_파일을_막지_않는다(home):
+    """한 파일이 읽히지 않아도 나머지는 반영돼야 한다.
+
+    absorb_all 이 파일 단위로 감싸지 않으면 사전순으로 앞선 깨진 파일
+    하나가 그 뒤 전부를 인질로 잡는다.
+    """
+    settings = load_settings(home)
+    spool_dir = paths.spool_dir(home)
+    spool_dir.mkdir(parents=True, exist_ok=True)
+    (spool_dir / "cli_AAAA.jsonl").write_bytes(b"\xff\xfe\x00\n")
+    good = spool_dir / "cli_ZZZZ.jsonl"
+    good.write_text(json.dumps(_envelope()) + "\n", encoding="utf-8")
+    for path in (spool_dir / "cli_AAAA.jsonl", good):
+        os.utime(path, (0, 0))
+
+    app = create_app(settings, clock=FixedClock(START), start_background=False)
+    with TestClient(app) as client:
+        ctx = client.app.state.ctx
+        assert ctx.repo.get_work("wrk_SPOOL") is not None
+
+
+def test_깨진_줄은_로그를_남긴다(home, caplog):
+    """유실이 흔적조차 남기지 않으면 나중에 아무도 못 찾는다(OUTSTANDING I6)."""
+    path = spool.spool_path(home, CLIENT)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"이건": "json 이 아니다"\n', encoding="utf-8")
+    logger = logging.getLogger("warruru.test.spool")
+    with caplog.at_level(logging.WARNING, logger="warruru.test.spool"):
+        assert spool.read_envelopes(path, logger=logger) == []
+    assert any("깨진" in record.message for record in caplog.records)
+
+
+def test_흡수가_통째로_실패해도_데몬은_뜬다(home, monkeypatch):
+    """파일 단위 격리 뒤에 한 겹 더 둔다.
+
+    `_isolated` 는 파일 하나의 실패만 막는다. glob 자체나 그 앞뒤에서 난
+    예외는 여전히 lifespan 을 뚫는다. 기동이 spool 상태에 걸려 있으면
+    안 된다 — 기록을 못 읽는 것과 데몬이 안 뜨는 것은 심각도가 다르다.
+    앞은 다음 스윕이 만회하고, 뒤는 사용자가 손댈 수 없다.
+    """
+    from warruru_local.daemon import absorb as absorb_module
+
+    def 터진다(_ctx):
+        raise RuntimeError("흡수가 통째로 실패했다")
+
+    monkeypatch.setattr(absorb_module, "absorb_all", 터진다)
+    app = create_app(load_settings(home), clock=FixedClock(START), start_background=False)
+    with TestClient(app) as client:
+        assert client.get("/v1/health").status_code == 200
