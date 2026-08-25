@@ -207,6 +207,22 @@ class RecordRepository:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def occurred_between(self, start_iso: str, end_iso: str) -> list[str]:
+        """구간 안 기록의 `occurred_at` 목록. 끝은 배타적이다.
+
+        달력이 쓴다. 날짜로 자르는 일은 여기서 하지 않는다 —
+        UTC 문자열을 로컬 날짜로 되돌리는 것은 `clock.local_date_of` 의 일이고,
+        SQL 에서 `substr(occurred_at, 1, 10)` 로 자르면 KST 오전 9시 이전
+        기록이 통째로 앞날로 샌다. `LIMIT` 도 걸지 않는다 —
+        한 달치를 자르면 달력에 구멍이 뚫린다.
+        """
+        rows = self._conn.execute(
+            "SELECT occurred_at FROM learning_record"
+            " WHERE occurred_at >= ? AND occurred_at < ? AND deleted_at IS NULL",
+            (start_iso, end_iso),
+        ).fetchall()
+        return [row["occurred_at"] for row in rows]
+
     def slug_summary(
         self, *, since: str | None = None, until: str | None = None
     ) -> list[dict]:
