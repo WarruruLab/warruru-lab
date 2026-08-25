@@ -112,6 +112,34 @@ def slugify(topic: str) -> str:
 MATERIAL_FIELDS = ("rationale", "outcome", "limitation", "interview")
 
 
+def _has(row: dict, name: str) -> bool:
+    """공백만 있는 값은 비어 있는 것으로 본다.
+
+    `shortages` 와 `material_fill` 이 **이 함수 하나**를 쓴다. 두 곳이 다르게
+    세면 재료 막대와 '부족한 필드' 문장이 같은 주제를 두고 다른 말을 한다.
+    """
+    return bool((row.get(name) or "").strip())
+
+
+def material_fill(records: list[dict]) -> list[dict]:
+    """글 한 편에 필요한 네 필드가 얼마나 찼는가. `{field, filled, total}`.
+
+    `shortages` 는 **부족한 것만** 돌려주므로 화면에서 막대를 그릴 수 없다 —
+    다 찬 필드가 목록에서 빠져 칸 수가 주제마다 달라진다.
+    이 함수는 네 칸을 **항상 같은 순서로** 돌려준다. 그래야 주제 사이를
+    눈으로 비교할 수 있고, 그 비교가 이 화면이 존재하는 이유다.
+    """
+    total = len(records)
+    return [
+        {
+            "field": name,
+            "filled": sum(1 for row in records if _has(row, name)),
+            "total": total,
+        }
+        for name in MATERIAL_FIELDS
+    ]
+
+
 def shortages(records: list[dict]) -> list[dict]:
     """이 주제로 글을 쓰기에 부족한 필드. `{field, blank, total}` 목록.
 
@@ -122,7 +150,7 @@ def shortages(records: list[dict]) -> list[dict]:
     total = len(records)
     found = []
     for name in MATERIAL_FIELDS:
-        blank = sum(1 for row in records if not (row.get(name) or "").strip())
+        blank = sum(1 for row in records if not _has(row, name))
         if blank:
             found.append({"field": name, "blank": blank, "total": total})
     return found

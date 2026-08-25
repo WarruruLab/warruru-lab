@@ -239,3 +239,38 @@ def test_권장_판정은_슬러그를_다시_만들지_않는다():
     정규화를 두 곳에서 하면 한쪽만 바뀌었을 때 조용히 어긋난다.
     """
     assert topics.is_recommended("Net TCP") is False
+
+
+# ── material_fill — 재료 막대의 재료 ────────────────────────────────
+
+def test_재료_막대는_네_칸이_항상_같은_순서다():
+    """칸 순서가 주제마다 바뀌면 화면에서 비교가 안 된다.
+    글 한 편에 필요한 네 필드를 고정 순서로 돌려준다.
+    """
+    fill = topics.material_fill([{"rationale": "있다"}])
+    assert [item["field"] for item in fill] == list(topics.MATERIAL_FIELDS)
+
+
+def test_채워진_칸과_빈_칸을_센다():
+    records = [
+        {"rationale": "a", "outcome": "b", "limitation": None, "interview": ""},
+        {"rationale": "c", "outcome": None, "limitation": None, "interview": ""},
+    ]
+    by = {item["field"]: item for item in topics.material_fill(records)}
+    assert by["rationale"]["filled"] == 2
+    assert by["outcome"]["filled"] == 1
+    assert by["limitation"]["filled"] == 0
+    assert all(item["total"] == 2 for item in by.values())
+
+
+def test_공백만_있으면_비어_있는_것으로_본다():
+    """shortages 와 같은 규칙을 쓴다. 두 곳이 다르게 세면
+    막대와 '부족한 필드' 문장이 서로 다른 말을 한다.
+    """
+    fill = {i["field"]: i for i in topics.material_fill([{"rationale": "   "}])}
+    assert fill["rationale"]["filled"] == 0
+
+
+def test_기록이_없으면_전부_0이다():
+    fill = topics.material_fill([])
+    assert all(item["filled"] == 0 and item["total"] == 0 for item in fill)

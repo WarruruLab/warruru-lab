@@ -26,8 +26,11 @@
       <span class="badge">{{ kind }}{{ count }}</span>
     {% endfor %}
     <span class="meta">마지막 {{ group.last_time }}</span>
-    {% if group.published %}<span class="badge">발행함</span>{% endif %}
+    {% if group.published %}<span class="badge ok">발행함</span>{% endif %}
   </div>
+  {# 건수만으로는 '오늘 뭘 글로 쓸 수 있나' 에 답이 안 나온다.
+     3건이어도 재료가 비면 못 쓴다. #}
+  <div class="meta">{% with material = group.material %}{% include "_gauge.html" %}{% endwith %}</div>
 </article>
 {% endfor %}
 
