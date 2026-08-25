@@ -128,7 +128,11 @@ def test_날짜_화면에_그날의_학습_기록이_보인다(client, home):
     page = client.get("/d/2026-07-22").text
     assert "학습 기록" in page
     assert "풀 크기 10→30" in page
-    assert 'href="/t/connection-pool"' in page
+    # 주제로 가는 길은 **제목**이다. 종전에는 제목 아래 주제 이름이
+    # 링크였는데, 눈이 먼저 가는 것은 제목이고 보고 싶은 것은
+    # '그래서 무슨 이슈였나' 라 자리를 바꿨다(2026-08-25).
+    # 이제 주제 이름은 체크박스를 켜는 라벨이다.
+    assert 'href="/t/connection-pool#rec_A"' in page
 
 
 def test_학습_기록이_없는_날에는_그_섹션이_없다(client):
@@ -268,3 +272,70 @@ def test_불량_시각이_있어도_작업을_마감할_수_있다(client, home)
     done = client.post("/v1/works/wrk_A/finish", json={**COMMON})
     assert done.status_code == 200
     assert done.json()["duration_seconds"] == 0
+
+
+# ── 제목 링크 · 체크박스 (사용자 요청 2026-08-25) ────────────────────
+
+def _학습기록(client, record_id="rec_A", **extra):
+    body = {"record_id": record_id, "kind": "CONCEPT", "topic": "connection pool",
+            "title": "무엇을 알게 됐나", "body": "본문", **COMMON}
+    body.update(extra)
+    return client.post("/v1/records", json=body)
+
+
+def test_제목을_눌러_그_기록으로_간다(client):
+    """종전에는 아래 주제 이름만 눌렸다. 눈이 먼저 가는 것은 제목이고,
+    보고 싶은 것은 '그래서 무슨 이슈였나' 다.
+    """
+    _학습기록(client)
+    page = client.get(f"/d/{TODAY}").text
+    assert 'href="/t/connection-pool#rec_A"' in page
+
+
+def test_주제_상세에_기록마다_닻이_있다(client):
+    """제목 링크가 데려다 놓을 자리가 없으면 목록 맨 위로만 간다."""
+    _학습기록(client)
+    assert 'id="rec_A"' in client.get("/t/connection-pool").text
+
+
+def test_기록마다_체크박스가_있다(client):
+    _학습기록(client, "rec_A")
+    _학습기록(client, "rec_B", title="둘째")
+    page = client.get(f"/d/{TODAY}").text
+    assert page.count('name="record_id"') == 2
+    assert 'value="rec_A"' in page
+    assert 'value="rec_B"' in page
+
+
+def test_고른_기록으로_초안을_만든다(client):
+    _학습기록(client, "rec_A", title="첫째", body="첫째 본문")
+    _학습기록(client, "rec_B", title="둘째", body="둘째 본문")
+    made = client.post(
+        "/web/drafts/from-records",
+        data={"_token": client.app.state.ctx.settings.token, "record_id": ["rec_A"]},
+        follow_redirects=False,
+    )
+    assert made.status_code == 302
+    assert "/drafts/" in made.headers["location"]
+    draft_id = made.headers["location"].rsplit("/", 1)[-1]
+    page = client.get(f"/drafts/{draft_id}").text
+    assert "첫째 본문" in page
+    assert "둘째 본문" not in page
+
+
+def test_아무것도_안_고르면_날짜_화면으로_돌려보낸다(client):
+    """빈 초안을 만들지 않는다. 오류 화면 대신 하던 자리로 돌려보낸다."""
+    _학습기록(client)
+    back = client.post(
+        "/web/drafts/from-records",
+        data={"_token": client.app.state.ctx.settings.token, "date": TODAY},
+        follow_redirects=False,
+    )
+    assert back.status_code == 302
+    assert back.headers["location"] == f"/d/{TODAY}"
+
+
+def test_초안_만들기도_토큰을_요구한다(client):
+    _학습기록(client)
+    assert client.post("/web/drafts/from-records",
+                       data={"record_id": ["rec_A"]}).status_code == 401

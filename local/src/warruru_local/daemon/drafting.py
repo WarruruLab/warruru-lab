@@ -43,6 +43,42 @@ def create(
         records, key=lambda row: (row.get("occurred_at") or "", row["record_id"])
     )
 
+    return _write(ctx, records, topic_slug, markdown, title, source_record_ids)
+
+
+def create_from_records(ctx, record_ids: list[str]) -> dict:
+    """**사람이 고른 기록만**으로 초안을 만든다.
+
+    `create` 는 주제 전체를 재료로 쓴다. 이쪽은 화면에서 체크한 것만 쓴다 —
+    한 주제 안에서도 이번 글에 넣을 것과 뺄 것이 갈리기 때문이다.
+
+    **나중에 LLM 을 붙일 자리가 여기다.** `_write` 가 `draft_builder.build`
+    를 부르는 그 한 줄을 모델 호출로 바꾸면 되고, 재료를 고르는 방식은
+    그대로 둔다. 그래서 이 함수는 기록을 모아 주는 일까지만 한다.
+
+    없는 기록(체크한 뒤 다른 곳에서 지운 경우)은 건너뛴다. 그것 하나 때문에
+    나머지 선택이 통째로 실패하면 사람이 무엇을 잃었는지 알 수 없다.
+    """
+    records = [
+        row for row in (ctx.records.get_record(rid) for rid in record_ids)
+        if row is not None and not row.get("deleted_at")
+    ]
+    if not records:
+        raise NoRecordsError("(고른 기록 없음)")
+
+    records = sorted(
+        records, key=lambda row: (row.get("occurred_at") or "", row["record_id"])
+    )
+    # 주제가 섞여 있으면 **가장 최근 기록의 주제**로 묶는다. 조립기가 제목을
+    # 고르는 규칙과 같다 — 두 곳이 다른 것을 고르면 파일 제목과 색인이 어긋난다.
+    return _write(
+        ctx, records, records[-1]["topic_slug"], None, None,
+        [row["record_id"] for row in records],
+    )
+
+
+def _write(ctx, records, topic_slug, markdown, title, source_record_ids) -> dict:
+    """조립하고, 파일을 쓰고, 색인 행을 남긴다. 두 경로가 여기서 만난다."""
     body = markdown if markdown is not None else draft_builder.build(records)
     body, truncated = limits.clamp_text(body, limits.BODY_MAX)
 
