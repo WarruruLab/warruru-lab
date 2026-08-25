@@ -21,6 +21,11 @@
       <span class="when">{{ record.date or "" }} {{ record.time or "" }}</span>
     </div>
     {% if record.body %}<pre class="body">{{ record.body }}</pre>{% endif %}
+    {# 면접 문장은 여기서만 읽는다. 티스토리 본문에는 안 들어간다 —
+       독자가 '면접에서는 이렇게 말합니다' 를 읽을 이유가 없다. #}
+    {% if record.interview %}
+      <p class="say"><span class="say-tag">면접에서는</span>{{ record.interview }}</p>
+    {% endif %}
   </li>
 {% endfor %}
 </ul>
@@ -38,6 +43,12 @@
       {% if view.draft_status == "PUBLISHED" %}<span class="badge ok">발행함</span>{% endif %}
     {% endif %}
     {% with material = view.material %}{% include "_gauge.html" %}{% endwith %}
+    {# 막대만 보고 누르면 빈 절을 만난다. 그 사실을 옆에 붙인다. #}
+    {% if view.empty_sections %}
+      <span class="meta">이 재료로는
+        {% for name in view.empty_sections %}<code>{{ name }}</code>{% if not loop.last %} · {% endif %}{% endfor %}
+        절이 빈다</span>
+    {% endif %}
   </div>
   {#
     막대는 '얼마나 찼나' 를 한눈에, 이 줄은 '무엇이 몇 건 비었나' 를 말한다.

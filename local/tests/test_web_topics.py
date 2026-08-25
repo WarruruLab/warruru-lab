@@ -258,3 +258,51 @@ def test_막대는_주제마다_네_칸이다(client):
 def test_상세도_같은_막대를_쓴다(client):
     _record(client, "rec_A", rationale="골랐다")
     assert 'class="gauge"' in client.get("/t/connection-pool").text
+
+
+# ── 면접 문장은 학습 화면에만 (2026-08-25) ──────────────────────────
+
+def test_주제_화면이_면접_문장을_보여준다(client):
+    """읽는 사람이 둘이라 화면도 둘이다. 티스토리는 독자용,
+    /t/{slug} 는 되짚어 읽는 본인용이다.
+    """
+    _record(client, "rec_A", interview="이렇게 말합니다")
+    assert "이렇게 말합니다" in client.get("/t/connection-pool").text
+
+
+def test_면접_문장은_발행_본문에_안_들어간다(client):
+    """독자가 '면접에서는 이렇게 말합니다' 를 읽을 이유가 없다."""
+    _record(client, "rec_A", interview="이렇게 말합니다")
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    paste = page.split("<textarea", 1)[1].split("</textarea>")[0]
+    assert "이렇게 말합니다" not in paste
+
+
+def test_발행_본문에_내부_식별자가_없다(client):
+    """꼬리말은 정본 파일에 남고 붙여넣기용에서는 빠진다."""
+    _record(client, "rec_A")
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    paste = page.split("<textarea", 1)[1].split("</textarea>")[0]
+    assert "조립에 쓴 기록" not in paste
+    assert "rec_A" not in paste
+    assert "문제" in paste          # 본문은 그대로다
+
+
+def test_정본_파일에는_꼬리말이_남는다(client):
+    """파일만 열어도 재료를 되짚을 수 있어야 한다."""
+    import pathlib
+
+    _record(client, "rec_A")
+    made = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+    assert "조립에 쓴 기록" in pathlib.Path(made["file_path"]).read_text(encoding="utf-8")
+
+
+def test_채울_수_없는_절을_누르기_전에_알려준다(client):
+    """재료 막대가 4/4 여도 CONCEPT 한 건이면 '구현' 절은 빈다."""
+    _record(client, "rec_A", kind="CONCEPT", rationale="근거",
+            outcome="p95 90ms", limitation="한계", interview="문장")
+    page = client.get("/t/connection-pool").text
+    assert "재료 4/4" in page
+    assert "구현" in page

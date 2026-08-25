@@ -70,6 +70,8 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
                 # 기록이 전날로 적힌다 — 날짜 경계는 예외 없이 clock 을 거친다.
                 "date": local_date_or_none(row["occurred_at"]),
                 "project": row["project"],
+                # 되짚어 읽는 자리는 여기다. 발행 본문에는 안 들어간다.
+                "interview": row["interview"],
             }
             for row in rows
         ],
@@ -77,6 +79,9 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         # 목록과 **같은 함수**를 쓴다. 두 화면이 따로 계산하면
         # 같은 주제를 두고 다른 막대를 그린다.
         "material": topics.material_fill(rows),
+        # 막대가 4/4 여도 초안엔 빈 절이 남을 수 있다. 막대는 필드를,
+        # 조립기는 kind 도 본다 — 누르기 전에 알아야 다음 기록이 나아진다.
+        "empty_sections": draft_builder.empty_sections(rows),
         # 만들어 둔 초안이 있으면 돌아갈 길을 준다. 그 화면에 붙여넣기용
         # HTML 과 발행 폼이 있어서, 길이 없으면 다음 날 이어서 하려는
         # 사람은 다시 만들거나 포기한다.
@@ -113,7 +118,9 @@ def build_draft(ctx, draft_id: str) -> dict | None:
         ),
         # 붙여넣기용 HTML. 정본은 마크다운이고 이건 옮겨 담을 문자열일 뿐이다.
         "paste_html": TistoryClipboardTarget().publish(
-            title=row["title"], markdown=markdown
+            # 정본 파일에는 꼬리말이 남고 발행 본문에서는 빠진다.
+            # 독자에게 rec_01M0… 은 아무 뜻이 없다.
+            title=row["title"], markdown=draft_builder.body_only(markdown)
         ).body,
     }
 
