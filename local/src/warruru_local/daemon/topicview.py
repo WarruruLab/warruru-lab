@@ -6,7 +6,11 @@
 from __future__ import annotations
 
 from warruru_local import topics
-from warruru_local.clock import local_day_bounds, local_time_or_none
+from warruru_local.clock import (
+    local_date_or_none,
+    local_day_bounds,
+    local_time_or_none,
+)
 from warruru_local.daemon import draft as draft_builder
 from warruru_local.publish.tistory_clipboard import TistoryClipboardTarget
 
@@ -49,6 +53,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
 
     # 목록은 최신순이지만 상세는 시간순이다. 읽는 순서가 곧 서사 순서다.
     rows = sorted(rows, key=lambda row: (row["occurred_at"], row["record_id"]))
+    draft = ctx.records.latest_draft_of(topic_slug)
 
     return {
         "topic": rows[-1]["topic"],
@@ -61,12 +66,19 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
                 "title": row["title"],
                 "body": row["body"],
                 "time": local_time_or_none(row["occurred_at"]),
-                "date": row["occurred_at"][:10],
+                # 앞 10자를 자르면 그건 UTC 날짜다. KST 자정 직후 한 시간의
+                # 기록이 전날로 적힌다 — 날짜 경계는 예외 없이 clock 을 거친다.
+                "date": local_date_or_none(row["occurred_at"]),
                 "project": row["project"],
             }
             for row in rows
         ],
         "shortages": topics.shortages(rows),
+        # 만들어 둔 초안이 있으면 돌아갈 길을 준다. 그 화면에 붙여넣기용
+        # HTML 과 발행 폼이 있어서, 길이 없으면 다음 날 이어서 하려는
+        # 사람은 다시 만들거나 포기한다.
+        "draft_id": (draft or {}).get("draft_id"),
+        "draft_status": (draft or {}).get("status"),
     }
 
 
