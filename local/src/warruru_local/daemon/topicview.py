@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from warruru_local import topics
-from warruru_local.clock import local_day_bounds, parse_iso
+from warruru_local.clock import local_day_bounds, local_time_or_none
 from warruru_local.daemon import draft as draft_builder
 from warruru_local.publish.tistory_clipboard import TistoryClipboardTarget
 
@@ -22,11 +22,6 @@ KIND_LABELS = {
 }
 
 
-def _local_time(iso: str) -> str:
-    """`16:40` 처럼 사람이 읽는 시각. 화면은 로컬 시간대로 보여준다."""
-    return parse_iso(iso).astimezone().strftime("%H:%M")
-
-
 def _group(row: dict) -> dict:
     return {
         "topic": row["topic"],
@@ -38,7 +33,7 @@ def _group(row: dict) -> dict:
             (KIND_LABELS.get(kind, kind or "미상"), count)
             for kind, count in sorted(row["kinds"].items())
         ],
-        "last_time": _local_time(row["last_occurred_at"]),
+        "last_time": local_time_or_none(row["last_occurred_at"]),
     }
 
 
@@ -65,7 +60,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
                 "kind": KIND_LABELS.get(row["kind"], row["kind"] or "미상"),
                 "title": row["title"],
                 "body": row["body"],
-                "time": _local_time(row["occurred_at"]),
+                "time": local_time_or_none(row["occurred_at"]),
                 "date": row["occurred_at"][:10],
                 "project": row["project"],
             }

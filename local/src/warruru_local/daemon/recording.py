@@ -26,6 +26,27 @@ def _snapshot(ctx, payload: dict):
     return ctx.git.collect(payload.get("repo_path") or payload.get("cwd"))
 
 
+def _normalized_time(raw, fallback: str) -> str:
+    """잘못된 시각은 현재 시각으로 대체한다.
+
+    시각 필드는 전부 에이전트에게 노출되고 문자열로만 타입돼 있다. 검증 없이
+    저장하면 잘못된 값 하나가 그 날짜 화면을 영구히 500 으로 만든다
+    (OUTSTANDING I2). 삭제 폼이 그 화면 안에 있으므로 UI 로는 복구할 수 없고,
+    `finish_work` 는 `started_at` 을 다시 파싱하므로 그 작업은 영영 못 닫는다.
+    기록을 거절하지 않기로 했으므로, 거절 대신 대체한다.
+
+    통과만 시키지 않고 **다시 써서** 돌려준다. `%f` 는 1~6자리를 다 받으므로
+    `.1Z` 와 `.150Z` 가 그대로 저장되면 사전순 정렬이 시간순과 어긋난다.
+    목록과 집계가 그 정렬에 기대고 있다.
+    """
+    if not raw:
+        return fallback
+    try:
+        return to_iso(parse_iso(raw))
+    except (ValueError, TypeError):
+        return fallback
+
+
 def start_work(ctx, payload: dict) -> dict:
     now = to_iso(ctx.clock.now())
     _register_client(ctx, payload, now)
@@ -42,7 +63,7 @@ def start_work(ctx, payload: dict) -> dict:
         title=title,
         goal=goal,
         snapshot=snapshot,
-        started_at=payload.get("started_at") or now,
+        started_at=_normalized_time(payload.get("started_at"), now),
     )
     return {
         "work_id": work["work_id"],
@@ -89,7 +110,7 @@ def record_checkpoint(ctx, payload: dict, source: str = "MCP") -> dict:
         title=title,
         body=body,
         body_truncated=body_truncated,
-        occurred_at=payload.get("occurred_at") or now,
+        occurred_at=_normalized_time(payload.get("occurred_at"), now),
         recorded_at=now,
         source=source,
         repo_path=snapshot.repo_path,
@@ -116,6 +137,21 @@ def record_checkpoint(ctx, payload: dict, source: str = "MCP") -> dict:
         "git": snapshot.as_dict(),
         "duplicate": duplicate,
     }
+
+
+def _duration(work: dict) -> int:
+    """마감이 저장된 `started_at` 에 걸려 있으면 안 된다.
+
+    정규화 이전에 들어간 불량 값이 남아 있고, 여기서 예외가 나면 그 작업은
+    **영영 못 닫는다** — 열린 채로 매일 화면에 남는다. 소요 시간 하나를
+    포기하는 쪽이 싸다(OUTSTANDING I2).
+    """
+    try:
+        started = parse_iso(work["started_at"])
+        ended = parse_iso(work["ended_at"])
+    except (ValueError, TypeError):
+        return 0
+    return int((ended - started).total_seconds())
 
 
 def finish_work(ctx, work_id: str | None, payload: dict) -> dict:
@@ -145,13 +181,11 @@ def finish_work(ctx, work_id: str | None, payload: dict) -> dict:
             "git": snapshot.as_dict(),
         }
 
-    started = parse_iso(work["started_at"])
-    ended = parse_iso(work["ended_at"])
     return {
         "work_id": work["work_id"],
         "reason": None,
         "ended_at": work["ended_at"],
         "checkpoint_count": ctx.repo.count_checkpoints(work["work_id"]),
-        "duration_seconds": int((ended - started).total_seconds()),
+        "duration_seconds": _duration(work),
         "git": snapshot.as_dict(),
     }

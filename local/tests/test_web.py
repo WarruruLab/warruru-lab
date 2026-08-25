@@ -161,3 +161,110 @@ def test_학습_기록만_있는_날에_없다고_말하지_않는다(client):
     page = client.get("/d/2026-07-21").text
     assert "어제 남긴 기록" in page
     assert "이 날짜에는 기록이 없습니다" not in page
+
+
+# ── 불량 시각에 대한 내성 (OUTSTANDING I2) ─────────────────────────
+
+def test_잘못된_occurred_at_은_현재_시각으로_대체된다(client):
+    """`occurred_at` 은 에이전트에 노출되고 문자열로만 타입돼 있다.
+
+    검증 없이 저장하면 잘못된 값 하나가 그 날짜 화면을 영구히 500 으로
+    만든다. 삭제 폼이 그 화면 안에 있으므로 UI 로는 복구할 수 없다.
+    기록을 거절하지 않기로 했으므로, 거절 대신 대체한다.
+    """
+    _seed(client)
+    client.post("/v1/checkpoints", json={
+        "checkpoint_id": "ckp_BAD", "work_id": "wrk_A", "type": "NOTE",
+        "title": "시각이 이상한 기록", "occurred_at": "어제 오후",
+        **COMMON,
+    })
+    page = client.get(f"/d/{TODAY}")
+    assert page.status_code == 200
+    assert "시각이 이상한 기록" in page.text
+
+
+def test_잘못된_started_at_도_대체된다(client):
+    """`finish_work` 가 started_at 을 parse_iso 로 다시 읽는다.
+    여기서 통과시키면 마감이 500 이 되고 그 작업은 영영 못 닫는다.
+    """
+    client.post("/v1/works", json={
+        "work_id": "wrk_BAD", "title": "시작이 이상한 작업",
+        "started_at": "언젠가", **COMMON,
+    })
+    assert client.get(f"/d/{TODAY}").status_code == 200
+    done = client.post("/v1/works/wrk_BAD/finish", json={**COMMON})
+    assert done.status_code == 200
+    assert done.json()["duration_seconds"] >= 0
+
+
+def test_이미_저장된_불량_시각이_있어도_화면이_뜬다(client, home):
+    """대체는 앞으로 들어올 값만 막는다. 이미 들어간 행은 그대로 있다.
+
+    그 행 하나 때문에 화면 전체가 500 이면 지울 수도 없다 —
+    삭제 폼이 그 화면 안에 있다.
+    """
+    import sqlite3
+
+    _seed(client)
+    conn = sqlite3.connect(home / "warruru.db")
+    conn.execute(
+        "UPDATE checkpoint SET occurred_at = ? WHERE checkpoint_id = ?",
+        ("망가진값", "ckp_wrk_A"),
+    )
+    conn.commit()
+    conn.close()
+
+    page = client.get(f"/d/{TODAY}")
+    assert page.status_code == 200
+    assert "체크포인트 제목" in page.text
+
+
+def _망가뜨린다(home, table, column, key_column, key):
+    import sqlite3
+
+    conn = sqlite3.connect(home / "warruru.db")
+    conn.execute(
+        f"UPDATE {table} SET {column} = ? WHERE {key_column} = ?", ("망가진값", key)
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_불량_시각이_주제_화면을_무너뜨리지_않는다(client, home):
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "kind": "CONCEPT", "topic": "connection pool",
+        "title": "기록 제목", "body": "본문", **COMMON,
+    })
+    _망가뜨린다(home, "learning_record", "occurred_at", "record_id", "rec_A")
+    assert client.get("/t").status_code == 200
+    assert client.get("/t/connection-pool").status_code == 200
+
+
+def test_불량_시각이_달력을_무너뜨리지_않는다(client, home):
+    """구간 **안**에 드는 불량 값이어야 실제로 읽힌다.
+
+    한글 값은 사전순으로 ISO 문자열 뒤라 구간 질의에 아예 안 잡힌다 —
+    그걸로는 통과해도 아무것도 증명하지 못한다.
+    """
+    import sqlite3
+
+    _seed(client)
+    conn = sqlite3.connect(home / "warruru.db")
+    conn.execute(
+        "UPDATE work_session SET started_at = ? WHERE work_id = ?",
+        (f"{TODAY}T99:99:99.999Z", "wrk_A"),
+    )
+    conn.commit()
+    conn.close()
+    assert client.get(f"/c/{TODAY[:7]}").status_code == 200
+
+
+def test_불량_시각이_있어도_작업을_마감할_수_있다(client, home):
+    """`finish_work` 가 started_at 을 다시 파싱한다.
+    여기서 터지면 그 작업은 영영 못 닫고, 열린 채로 매일 화면에 남는다.
+    """
+    _seed(client)
+    _망가뜨린다(home, "work_session", "started_at", "work_id", "wrk_A")
+    done = client.post("/v1/works/wrk_A/finish", json={**COMMON})
+    assert done.status_code == 200
+    assert done.json()["duration_seconds"] == 0

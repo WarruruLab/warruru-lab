@@ -12,26 +12,12 @@
 from __future__ import annotations
 
 from warruru_local import limits, topics
-from warruru_local.clock import parse_iso, to_iso
-from warruru_local.daemon.recording import _register_client, _snapshot
-
-
-def _normalized_time(raw, fallback: str) -> str:
-    """잘못된 시각은 현재 시각으로 대체한다.
-
-    `occurred_at` 은 에이전트에게 노출되고 문자열로만 타입돼 있다. 검증 없이
-    저장하면 잘못된 값 하나가 날짜 화면을 영구히 500 으로 만든다(OUTSTANDING I2).
-    기록을 거절하지 않기로 했으므로, 거절 대신 대체한다.
-    """
-    if not raw:
-        return fallback
-    try:
-        # 통과만 시키지 않고 **다시 써서** 돌려준다. `%f` 는 1~6자리를 다 받으므로
-        # `.1Z` 와 `.150Z` 가 그대로 저장되면 사전순 정렬이 시간순과 어긋난다.
-        # 목록과 집계가 그 정렬에 기대고 있다.
-        return to_iso(parse_iso(raw))
-    except (ValueError, TypeError):
-        return fallback
+from warruru_local.clock import to_iso
+from warruru_local.daemon.recording import (
+    _normalized_time,
+    _register_client,
+    _snapshot,
+)
 
 
 def record(ctx, payload: dict, source: str = "MCP") -> dict:
