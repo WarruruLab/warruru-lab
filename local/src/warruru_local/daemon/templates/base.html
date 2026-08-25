@@ -84,7 +84,13 @@
     overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
   }
-  body > * { max-width: 58rem; margin-inline: auto; }
+  /* 읽는 폭. **컨테이너 하나에 담는다.**
+     종전에는 `body > *` 에 걸었는데, 직계 자식이 `margin` 단축을 쓰는 순간
+     `margin-inline: auto` 가 0 으로 덮여 그 요소만 왼쪽에 붙었다.
+     `/t/{slug}` 의 기록 목록(`margin: .7rem 0 0`)이 실제로 그랬다 —
+     위아래는 가운데인데 목록만 왼쪽이고, 폭은 그대로라 눈치채기도 어려웠다.
+     안쪽에서 무슨 margin 을 쓰든 이 자리는 안 흔들린다. */
+  main { max-width: 58rem; margin-inline: auto; }
 
   /* ── 표제 ─────────────────────────────────────────────
      모노로 세운다. 이 도구의 세계가 터미널이라 글꼴 자체가 성격이다. */
@@ -345,6 +351,8 @@
 </style>
 </head>
 <body>
+<main>
 {% block content %}{% endblock %}
+</main>
 </body>
 </html>

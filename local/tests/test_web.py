@@ -339,3 +339,28 @@ def test_초안_만들기도_토큰을_요구한다(client):
     _학습기록(client)
     assert client.post("/web/drafts/from-records",
                        data={"record_id": ["rec_A"]}).status_code == 401
+
+
+def test_모든_화면이_내용을_한_컨테이너에_담는다(client, home):
+    """가운데 정렬을 `body > *` 에 걸면 조용히 깨진다.
+
+    직계 자식이 `margin` **단축**을 쓰는 순간 `margin-inline: auto` 가 0 으로
+    덮여 그 요소만 왼쪽에 붙는다. 실제로 `/t/{slug}` 의 기록 목록이
+    그렇게 됐다 — 위아래는 가운데인데 목록만 왼쪽이었다(2026-08-25 실측).
+    폭은 그대로라 눈치채기도 어렵다.
+
+    그래서 컨테이너 하나에 담는다. 안쪽에서 무슨 margin 을 쓰든 상관없다.
+    """
+    _seed(client)
+    client.post("/v1/records", json={
+        "record_id": "rec_M", "kind": "CONCEPT", "topic": "connection pool",
+        "title": "제목", "body": "본문", **COMMON,
+    })
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+
+    for path in (f"/d/{TODAY}", f"/d/{TODAY}?deleted=1", "/t",
+                 "/t/connection-pool", f"/c/{TODAY[:7]}",
+                 f"/drafts/{draft['draft_id']}"):
+        page = client.get(path).text
+        assert "<main>" in page, path
+        assert "</main>" in page, path
