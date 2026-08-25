@@ -91,12 +91,19 @@ def create_app(
     @contextlib.asynccontextmanager
     async def lifespan(instance: FastAPI):
         instance.state.ctx = _build_context(settings, resolved_clock)
-        # 데몬이 몇 시간 꺼져 있었다면 그 사이 방치된 세션이 있다.
-        instance.state.ctx.sessions.sweep_idle()
 
         from warruru_local.daemon import absorb
 
-        absorb.absorb_all(instance.state.ctx)
+        # 기동이 spool 상태에 걸려 있으면 안 된다. 기록을 못 읽는 것과
+        # 데몬이 안 뜨는 것은 심각도가 다르다 — 앞은 다음 스윕이 만회하고,
+        # 뒤는 사용자가 손댈 수 없다(화면도 API 도 그 데몬 안에 있다).
+        # absorb 안에도 파일 단위 격리가 있지만 그것은 파일 하나만 막는다.
+        try:
+            # 데몬이 몇 시간 꺼져 있었다면 그 사이 방치된 세션이 있다.
+            instance.state.ctx.sessions.sweep_idle()
+            absorb.absorb_all(instance.state.ctx)
+        except Exception:
+            instance.state.ctx.logger.exception("기동 시 흡수가 실패했다")
         stop = None
         if start_background:
             from warruru_local.daemon.sweeper import start_sweeper

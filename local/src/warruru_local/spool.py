@@ -70,17 +70,33 @@ def append(
         handle.write(json.dumps(envelope, ensure_ascii=False) + "\n")
 
 
-def read_envelopes(path: Path) -> list[dict]:
-    """깨진 줄은 건너뛴다. 한 줄이 깨졌다고 파일 전체를 버리지 않는다."""
+def read_envelopes(path: Path, logger=None) -> list[dict]:
+    """깨진 줄은 건너뛴다. 한 줄이 깨졌다고 파일 전체를 버리지 않는다.
+
+    **디코드도 건너뛰기로 처리한다.** `encoding="utf-8"` 만 주면 잘못된
+    바이트 하나에 `UnicodeDecodeError` 가 나고, 그 예외가 기동 경로를 뚫으면
+    데몬이 부팅에 실패한다. 원인이 디스크 파일이므로 다시 켜도 같은 자리에서
+    죽는다 — 화면도 API 도 없으니 사용자는 고칠 방법이 없다(OUTSTANDING I1).
+    `errors="replace"` 로 읽으면 그 바이트는 U+FFFD 가 되고, 그 줄은
+    JSON 이 아니게 되어 아래 건너뛰기 규칙에 그대로 걸린다.
+
+    `logger` 를 주면 버린 줄을 남긴다. 유실이 흔적조차 없으면 나중에
+    아무도 찾지 못한다(OUTSTANDING I6). 어댑터 쪽 호출자는 주지 않아도 된다 —
+    이 모듈은 `mcp/` 도 임포트하므로 로거를 필수로 만들지 않는다.
+    """
     if not path.exists():
         return []
     envelopes = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    dropped = 0
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         stripped = line.strip()
         if not stripped:
             continue
         try:
             envelopes.append(json.loads(stripped))
         except json.JSONDecodeError:
+            dropped += 1
             continue
+    if dropped and logger is not None:
+        logger.warning("깨진 spool 줄 %d개를 버렸다: %s", dropped, path.name)
     return envelopes

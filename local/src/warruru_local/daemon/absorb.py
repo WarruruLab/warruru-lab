@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from pathlib import Path
@@ -47,21 +48,43 @@ def absorb_all(ctx) -> int:
     # 지난 스윕이 붙잡아 두고 끝내지 못한 파일이 먼저다. 시간 순서를 지킨다.
     # 붙잡은 파일에는 아무도 덧붙이지 않으므로 조용해질 때까지 기다리지 않는다.
     for path in sorted(spool_dir.glob(f"*{CLAIM_SUFFIX}")):
-        applied += _apply_file(ctx, path, spool.read_envelopes(path))
+        with _isolated(ctx, path):
+            applied += _apply_file(ctx, path, spool.read_envelopes(path, ctx.logger))
 
     for path in sorted(spool_dir.glob("*.jsonl")):
-        if path.stat().st_mtime > quiet_before:
-            continue
-        if _has_unknown_version(path):
-            ctx.logger.warning("모르는 봉투 버전이 있어 남겨 둔다: %s", path.name)
-            continue
+        with _isolated(ctx, path):
+            if path.stat().st_mtime > quiet_before:
+                continue
+            if _has_unknown_version(path):
+                ctx.logger.warning("모르는 봉투 버전이 있어 남겨 둔다: %s", path.name)
+                continue
 
-        claimed = _claim(ctx, path)
-        if claimed is None:
-            continue
-        applied += _apply_file(ctx, claimed, spool.read_envelopes(claimed))
+            claimed = _claim(ctx, path)
+            if claimed is None:
+                continue
+            applied += _apply_file(
+                ctx, claimed, spool.read_envelopes(claimed, ctx.logger)
+            )
 
     return applied
+
+
+@contextlib.contextmanager
+def _isolated(ctx, path: Path):
+    """파일 하나의 실패가 나머지를 인질로 잡지 않게 한다.
+
+    `stat` · 읽기 · `rename` 은 봉투별 try 밖에 있어서, 여기서 난 예외는
+    `absorb_all` 을 통째로 끝낸다. 기동 경로가 이 함수를 부르므로 그 예외
+    하나가 데몬을 영구 정지시킨다(OUTSTANDING I1). 사전순으로 앞선 파일이
+    깨졌으면 그 뒤 전부가 함께 묻힌다.
+
+    삼키기만 하고 파일은 손대지 않는다. 옮기거나 지우면 원인을 볼 수 없고,
+    남겨 두면 로그에 이름이 매번 찍혀 사람이 찾아갈 수 있다.
+    """
+    try:
+        yield
+    except Exception:
+        ctx.logger.exception("spool 파일을 처리하지 못해 건너뛴다: %s", path.name)
 
 
 def _has_unknown_version(path: Path) -> bool:
