@@ -18,6 +18,10 @@ from __future__ import annotations
 
 TODO = "TODO: 여기서 무엇을 판단했는가?"
 
+# 꼬리말을 만드는 쪽과 떼는 쪽이 **같은 문자열**을 본다.
+# 각자 적으면 한쪽만 바뀌었을 때 발행 본문에 내부 식별자가 새어 나간다.
+FOOTER_MARKER = "조립에 쓴 기록"
+
 # 필드 5개를 절 6개에 어떻게 붙일 것인가 (2026-08-24 확정.
 # 평가 기준이 '확인 필요' 로 남겨 둔 항목이다).
 #
@@ -129,4 +133,40 @@ def _footer(records: list[dict]) -> list[str]:
     DB 는 그 정본을 찾아가는 색인이라는 순서와 같은 이유다.
     """
     ids = ", ".join(f"`{row['record_id']}`" for row in records)
-    return ["---", "", f"조립에 쓴 기록 {len(records)}건: {ids}"]
+    return ["---", "", f"{FOOTER_MARKER} {len(records)}건: {ids}"]
+
+
+def body_only(markdown: str) -> str:
+    """발행 본문. **꼬리말을 뗀다.**
+
+    꼬리말은 정본 파일에 남는다 — 파일만 열어도 재료를 되짚을 수 있어야
+    한다는 이유로 넣은 줄이다. 하지만 티스토리 독자에게 `rec_01M0…` 은
+    아무 뜻이 없다. 읽는 사람이 둘이라 본문도 둘이다.
+
+    마지막 `---` 뒤에 표식이 있을 때만 뗀다. 다듬은 글이 가로줄을 쓸 수
+    있으므로 '마지막 ---' 라고 다 꼬리말은 아니다.
+    """
+    head, sep, tail = markdown.rpartition("\n---\n")
+    if sep and FOOTER_MARKER in tail:
+        return head.rstrip()
+    return markdown
+
+
+def empty_sections(records: list[dict]) -> list[str]:
+    """이 재료로 조립하면 **어느 절이 TODO 로 남는가.**
+
+    재료 막대가 4/4 여도 초안에 빈 절이 남을 수 있다. 막대는 필드를 보고
+    조립기는 kind 도 보기 때문이다 — CONCEPT 한 건짜리 주제는 '구현' 절을
+    영원히 못 채운다. 누르기 전에 알아야 다음 기록이 나아진다.
+
+    **`build` 와 같은 함수(`_materials`)로 판단한다.** 따로 세면 화면과
+    파일이 같은 주제를 두고 다른 말을 한다.
+    """
+    ordered = sorted(
+        records, key=lambda row: (row.get("occurred_at") or "", row["record_id"])
+    )
+    return [
+        heading
+        for heading, field, kinds in SECTIONS
+        if not _materials(ordered, field, kinds)
+    ]
