@@ -16,6 +16,8 @@ class PublishResult:
     target: str
     path: str | None = None
     url: str | None = None
+    # 화면에 띄울 문자열. 파일도 원격도 아닌 어댑터(붙여넣기)가 쓴다.
+    body: str | None = None
 
 
 class PublishTarget:

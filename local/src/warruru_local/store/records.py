@@ -310,6 +310,25 @@ class RecordRepository:
         )
         return self.get_draft(draft_id), False
 
+    def mark_published(self, draft_id: str, url: str, now_iso: str) -> dict | None:
+        """발행 사실을 남긴다. 본문은 건드리지 않는다 —
+        원격에 올라간 글과 로컬 정본이 어긋나면 어느 쪽이 맞는지 알 수 없다.
+        """
+        self._conn.execute(
+            "UPDATE draft SET status = 'PUBLISHED', published_url = ?,"
+            " published_at = ?, updated_at = ? WHERE draft_id = ?",
+            (url, now_iso, now_iso, draft_id),
+        )
+        return self.get_draft(draft_id)
+
+    def published_slugs(self) -> set[str]:
+        """이미 글로 낸 주제. 목록 화면이 체크 표시를 붙이는 데 쓴다."""
+        rows = self._conn.execute(
+            "SELECT DISTINCT topic_slug FROM draft"
+            " WHERE status = 'PUBLISHED' AND deleted_at IS NULL"
+        ).fetchall()
+        return {row["topic_slug"] for row in rows}
+
     def get_draft(self, draft_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT * FROM draft WHERE draft_id = ?", (draft_id,)

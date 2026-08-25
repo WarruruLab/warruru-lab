@@ -29,6 +29,44 @@
 </section>
 
 <section class="tool">
+  <h2>발행</h2>
+  {% if view.status == "PUBLISHED" %}
+    <p class="meta">
+      발행함 · <a href="{{ view.published_url }}">{{ view.published_url }}</a>
+    </p>
+  {% else %}
+    <p class="meta">
+      아래를 복사해 티스토리 에디터에 붙여넣고 <strong>비공개</strong>로 저장한다.
+      티스토리 공식 API 는 2024년 2월에 종료됐다 — 마지막 10초만 사람이 한다.
+    </p>
+    <p class="meta">
+      복사 버튼이 동작하지 않으면 상자를 클릭하고 <strong>전체 선택</strong>(⌘A)해도 된다.
+    </p>
+    <textarea id="paste" class="body" rows="10" readonly>{{ view.paste_html }}</textarea>
+    <p>
+      <button type="button" onclick="copyPaste()">복사</button>
+      <span id="copied" class="meta"></span>
+    </p>
+    <form method="post" action="/web/drafts/{{ view.draft_id }}/published">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <input type="url" name="published_url" required
+             placeholder="붙여넣고 저장한 글의 주소">
+      <button type="submit">발행함</button>
+    </form>
+    {# 이 프로젝트의 유일한 JavaScript 다. 매일 쓰는 동작이라 예외를 두되,
+       실패해도 경로가 끊기지 않게 위의 전체 선택이 같은 일을 한다. #}
+    <script>
+      function copyPaste() {
+        var box = document.getElementById("paste");
+        box.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.getElementById("copied").textContent = "복사했습니다";
+      }
+    </script>
+  {% endif %}
+</section>
+
+<section class="tool">
   <h2>본문</h2>
   <p class="meta">정본은 이 파일이다: <code>{{ view.file_path }}</code></p>
   <pre class="body">{{ view.markdown }}</pre>

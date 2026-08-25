@@ -183,3 +183,17 @@ def test_nav_로_날짜_화면과_오갈_수_있다(client):
         assert "<nav>" in page
         assert 'href="/d/2026-08-24"' in page
         assert 'href="/t"' in page
+
+
+def test_발행한_주제에는_체크_표시가_붙는다(client):
+    """무엇을 이미 글로 냈는지 목록에서 한눈에 보여야 한다."""
+    _record(client, "rec_A")
+    _record(client, "rec_B")
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+    token = client.app.state.ctx.settings.token
+    client.post(
+        f"/web/drafts/{draft['draft_id']}/published",
+        data={"_token": token, "published_url": "https://example.tistory.com/1"},
+        follow_redirects=False,
+    )
+    assert "발행함" in client.get("/t").text

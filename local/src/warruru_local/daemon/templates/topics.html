@@ -26,6 +26,7 @@
       <span class="badge">{{ kind }}{{ count }}</span>
     {% endfor %}
     <span class="meta">마지막 {{ group.last_time }}</span>
+    {% if group.published %}<span class="badge">발행함</span>{% endif %}
   </div>
 </article>
 {% endfor %}

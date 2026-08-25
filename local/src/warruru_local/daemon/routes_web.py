@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
-from warruru_local.daemon import dayview, drafting, topicview
+from warruru_local.daemon import dayview, drafting, publishing, topicview
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 
 router = APIRouter()
@@ -91,6 +91,26 @@ def _check_token(request: Request, token: str | None) -> None:
 
 def _back(date: str) -> RedirectResponse:
     return RedirectResponse(f"/d/{date}", status_code=302)
+
+
+@router.post("/web/drafts/{draft_id}/published")
+async def mark_published_form(
+    request: Request,
+    draft_id: str,
+    form_token: str | None = Form(None, alias="_token"),
+    published_url: str = Form(...),
+) -> RedirectResponse:
+    """붙여넣고 돌아와 URL 을 적는 자리. 상태를 바꾸므로 토큰을 요구한다."""
+    ctx = request.app.state.ctx
+    _check_token(request, form_token)
+    try:
+        publishing.mark_published(ctx, draft_id, published_url)
+    except publishing.DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
+        ) from None
+    return RedirectResponse(f"/drafts/{draft_id}", status_code=302)
 
 
 @router.post("/web/topics/{topic_slug}/draft")
