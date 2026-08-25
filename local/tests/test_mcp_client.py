@@ -203,3 +203,47 @@ def test_404_는_무엇을_해야_하는지_알려_준다(home):
     )
     assert outcome.storage == "SPOOL"
     assert "데몬" in outcome.message and "다시 시작" in outcome.message
+
+
+# ── 쌓이는 spool 을 보이게 한다 (OUTSTANDING K9) ────────────────────
+
+class _Down:
+    """언제나 연결에 실패한다. 데몬이 꺼진 상태를 흉내낸다."""
+
+    def request(self, method, url, json=None, params=None, headers=None, timeout=None):
+        raise httpx.ConnectError("연결 실패")
+
+
+def test_보관한_건수를_함께_돌려준다(home):
+    """`ok: True` 와 "나중에 반영됩니다" 만으로는 영영 안 반영되는 경우와
+    잠깐 데몬이 꺼진 경우가 구분되지 않는다.
+    """
+    client = _client(home, _Down())
+    outcome = client.send("record_checkpoint", "/v1/checkpoints", {"a": 1})
+    assert outcome.storage == "SPOOL"
+    assert outcome.spool_backlog == 1
+
+
+def test_쌓이면_메시지가_달라진다(home):
+    """산문이 아니라 값으로도 알려야 읽는 쪽이 분기할 수 있지만,
+    사람이 보는 자리에도 한 줄 남긴다 — 이 도구의 독자는 에이전트다.
+    """
+    client = _client(home, _Down())
+    for index in range(spool.BACKLOG_WARN_AT):
+        client.send("record_checkpoint", "/v1/checkpoints", {"a": index})
+    outcome = client.send("record_checkpoint", "/v1/checkpoints", {"a": "마지막"})
+    assert outcome.ok_backlog_warning
+    assert "쌓여" in outcome.message
+
+
+def test_쌓여도_버리지_않는다(home):
+    """상한을 넘겨도 기록은 남긴다.
+
+    버리는 것은 '성공을 반환한 기록은 잃지 않는다'는 약속을 정면으로 깬다.
+    쌓이는 것의 실제 피해는 디스크가 아니라 **툴이 매번 거짓말을 한다**는
+    것이고, 그건 경고로 고쳐진다. 한 줄에 수백 바이트라 만 건이 몇 MB 다.
+    """
+    client = _client(home, _Down())
+    for index in range(spool.BACKLOG_WARN_AT + 5):
+        client.send("record_checkpoint", "/v1/checkpoints", {"a": index})
+    assert spool.backlog_count(home) == spool.BACKLOG_WARN_AT + 5
