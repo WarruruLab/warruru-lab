@@ -170,6 +170,9 @@ def finish_work(ctx, work_id: str | None, payload: dict) -> dict:
         limitations=limitations,
         next_steps=next_steps,
         snapshot=snapshot,
+        # 다른 두 경로와 같은 정규화를 태운다. 잘못된 값이면 지금으로 대체된다 —
+        # 여기만 예외를 두면 마감 시각으로 화면이 다시 500 이 될 수 있다.
+        ended_at=_normalized_time(payload.get("ended_at"), now),
     )
     if work is None:
         return {

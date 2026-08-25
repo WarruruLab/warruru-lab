@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from warruru_local import paths, spool
-from warruru_local.clock import FixedClock
+from warruru_local.clock import FixedClock, to_iso
 from warruru_local.config import load_settings
 from warruru_local.daemon import absorb
 from warruru_local.daemon.app import create_app
@@ -478,3 +478,48 @@ def test_흡수가_통째로_실패해도_데몬은_뜬다(home, monkeypatch):
     app = create_app(load_settings(home), clock=FixedClock(START), start_background=False)
     with TestClient(app) as client:
         assert client.get("/v1/health").status_code == 200
+
+
+def test_오프라인_마감은_봉투에_적힌_시각으로_닫는다(client, home):
+    """`start_work` 는 started_at 을, `record_checkpoint` 는 occurred_at 을
+    존중하는데 마감만 예외였다(OUTSTANDING I3).
+
+    데몬이 꺼진 채 밤 10시에 닫은 작업이 다음 날 아침에 흡수되면 소요
+    시간이 열몇 시간으로 찍힌다. 그 숫자는 그대로 화면에 남고, 나중에
+    "이 작업에 얼마나 걸렸나" 를 되짚을 때 쓸 수 없는 값이 된다.
+    """
+    client.post("/v1/works", json={
+        "work_id": WORK, "title": "제목",
+        "started_at": "2026-07-21T12:00:00.000Z", **COMMON,
+    })
+    spool.append(
+        home, CLIENT, "finish_work",
+        {"work_id": WORK, "result": "끝냈다",
+         "ended_at": "2026-07-21T13:00:00.000Z", **COMMON},
+        "2026-07-21T13:00:00.000Z", "evt_A",
+    )
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+
+    work = client.app.state.ctx.repo.get_work(WORK)
+    assert work["ended_at"] == "2026-07-21T13:00:00.000Z"
+
+
+def test_봉투에_시각이_없으면_지금으로_닫는다(client, home):
+    """구버전 어댑터의 봉투에는 ended_at 이 없다. 그때는 종전대로 간다."""
+    client.post("/v1/works", json={"work_id": WORK, "title": "제목", **COMMON})
+    spool.append(
+        home, CLIENT, "finish_work",
+        {"work_id": WORK, "result": "끝냈다", **COMMON},
+        "2026-07-22T09:00:00.000Z", "evt_A",
+    )
+    _age(home)
+    absorb.absorb_all(client.app.state.ctx)
+    assert client.app.state.ctx.repo.get_work(WORK)["ended_at"] == to_iso(START)
+
+
+def test_잘못된_ended_at_은_지금으로_대체된다(client, home):
+    """시각 필드는 전부 에이전트에 노출된다. 여기만 예외를 둘 이유가 없다."""
+    client.post("/v1/works", json={"work_id": WORK, "title": "제목", **COMMON})
+    client.post(f"/v1/works/{WORK}/finish", json={"ended_at": "어제 밤", **COMMON})
+    assert client.app.state.ctx.repo.get_work(WORK)["ended_at"] == to_iso(START)

@@ -176,8 +176,19 @@ class SessionService:
         limitations: str | None,
         next_steps: str | None,
         snapshot: GitSnapshot,
+        ended_at: str | None = None,
     ) -> dict | None:
-        """대상이 없으면 None 이다. 오류가 아니다."""
+        """대상이 없으면 None 이다. 오류가 아니다.
+
+        `ended_at` 은 호출자가 적은 마감 시각이다. `start_work` 는
+        `started_at` 을, `record_checkpoint` 는 `occurred_at` 을 이미
+        존중하는데 마감만 예외였다(OUTSTANDING I3). 데몬이 꺼진 채 밤 10시에
+        닫은 작업이 다음 날 아침에 흡수되면 소요 시간이 열몇 시간으로 찍히고,
+        그 숫자는 그대로 화면에 남는다.
+
+        `recorded_at`(`now_iso`)은 여전히 지금이다. **일어난 시각과 기록된
+        시각은 다른 것**이고, 흡수 경로가 그 둘이 갈리는 유일한 자리다.
+        """
         target = work_id
         if target is None and client_instance_id:
             found = self.repo.find_active_by_client(client_instance_id)
@@ -191,7 +202,7 @@ class SessionService:
             result=result,
             limitations=limitations,
             next_steps=next_steps,
-            ended_at=now,
+            ended_at=ended_at or now,
             repo_path=snapshot.repo_path,
             branch=snapshot.branch,
             commit_sha=snapshot.commit_sha,
