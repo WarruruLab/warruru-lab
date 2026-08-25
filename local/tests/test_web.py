@@ -143,3 +143,21 @@ def test_다른_날_학습_기록은_안_보인다(client):
         "occurred_at": "2026-07-21T09:00:00.000Z",
     })
     assert "어제 것" not in client.get("/d/2026-07-22").text
+
+
+def test_학습_기록만_있는_날에_없다고_말하지_않는다(client):
+    """작업은 흡수한 날에 붙고 기록은 occurred_at 에 붙는다.
+
+    데몬이 꺼진 채 어제 남긴 기록이 오늘 흡수되면, 어제 화면에는 기록만
+    있고 작업은 없다(OUTSTANDING I4 — 받아들인 결함). 그때 '기록이
+    없습니다' 를 기록 바로 아래 띄우면 화면이 스스로 모순된다.
+    """
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "CONCEPT", "topic": "connection pool",
+        "title": "어제 남긴 기록", "body": "본문",
+        "occurred_at": "2026-07-21T09:00:00.000Z",
+    })
+    page = client.get("/d/2026-07-21").text
+    assert "어제 남긴 기록" in page
+    assert "이 날짜에는 기록이 없습니다" not in page

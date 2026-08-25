@@ -28,7 +28,7 @@
 </section>
 {% endif %}
 
-{% if not view.groups %}
+{% if not view.groups and not view.learnings %}
   <p class="empty">이 날짜에는 기록이 없습니다.</p>
   {% if view.empty_hint %}
     <p class="empty">가장 최근 기록은
