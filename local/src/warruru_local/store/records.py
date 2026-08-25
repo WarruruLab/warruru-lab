@@ -345,6 +345,22 @@ class RecordRepository:
         ).fetchall()
         return {row["topic_slug"] for row in rows}
 
+    def latest_draft_of(self, topic_slug: str) -> dict | None:
+        """그 주제의 가장 최근 초안. 발행된 것도 포함한다.
+
+        `upsert_draft` 는 **미발행**만 찾아 덮어쓰지만 이쪽은 다르다.
+        화면이 답해야 하는 질문이 "덮어쓸 것이 있나" 가 아니라
+        "돌아갈 곳이 있나" 이기 때문이다. 발행한 글도 다시 열어
+        붙여넣기용 HTML 을 볼 일이 있다.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM draft"
+            " WHERE topic_slug = ? AND deleted_at IS NULL"
+            " ORDER BY updated_at DESC, draft_id DESC LIMIT 1",
+            (topic_slug,),
+        ).fetchone()
+        return dict(row) if row else None
+
     def get_draft(self, draft_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT * FROM draft WHERE draft_id = ?", (draft_id,)

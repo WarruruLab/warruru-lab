@@ -197,3 +197,38 @@ def test_발행한_주제에는_체크_표시가_붙는다(client):
         follow_redirects=False,
     )
     assert "발행함" in client.get("/t").text
+
+
+# ── 초안으로 돌아가는 길 ────────────────────────────────────────────
+
+def test_이미_만든_초안으로_돌아갈_수_있다(client):
+    """초안 화면에는 붙여넣기용 HTML 과 발행 폼이 있다 — 한 바퀴의 마지막
+    두 걸음이다. 만든 뒤 그 화면을 떠나면 돌아갈 길이 주소 기억뿐이라면,
+    다음 날 이어서 하려는 사람은 다시 만들거나 포기한다.
+    """
+    _record(client, "rec_A")
+    made = client.post(
+        "/web/topics/connection-pool/draft",
+        data={"_token": client.app.state.ctx.settings.token},
+        follow_redirects=False,
+    )
+    draft_id = made.headers["location"].rsplit("/", 1)[-1]
+
+    page = client.get("/t/connection-pool").text
+    assert f'href="/drafts/{draft_id}"' in page
+
+
+def test_초안이_없으면_그_링크도_없다(client):
+    _record(client, "rec_A")
+    assert "/drafts/" not in client.get("/t/connection-pool").text
+
+
+def test_주제_상세의_날짜는_로컬_기준이다(client):
+    """UTC 문자열 앞 10자를 자르면 KST 오전 9시 이전 기록이 앞날로 적힌다.
+    날짜 경계는 예외 없이 clock 을 거친다.
+    """
+    # KST 2026-08-25 09:30. UTC 로는 00:30 이라 앞 10자를 자르면 같은 날이지만,
+    # 자정 직후 한 시간은 UTC 로 전날이 된다 — 그 자리를 시험한다.
+    _record(client, "rec_A", occurred_at="2026-08-24T16:30:00.000Z")
+    page = client.get("/t/connection-pool").text
+    assert "2026-08-25" in page      # KST 25일 01:30

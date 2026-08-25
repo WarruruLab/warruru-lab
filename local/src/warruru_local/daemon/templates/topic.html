@@ -26,8 +26,14 @@
   <div class="work-head">
     <form class="inline" method="post" action="/web/topics/{{ view.topic_slug }}/draft">
       <input type="hidden" name="_token" value="{{ token }}">
-      <button type="submit">초안 만들기</button>
+      <button type="submit">{{ "초안 다시 만들기" if view.draft_id else "초안 만들기" }}</button>
     </form>
+    {# 만들어 둔 초안으로 돌아가는 유일한 길. 그 화면에 붙여넣기용 HTML 과
+       발행 폼이 있어서, 길이 없으면 주소를 기억하는 수밖에 없다. #}
+    {% if view.draft_id %}
+      <a href="/drafts/{{ view.draft_id }}">만들어 둔 초안 보기</a>
+      {% if view.draft_status == "PUBLISHED" %}<span class="badge">발행함</span>{% endif %}
+    {% endif %}
     {% if view.shortages %}
       <span class="meta">
         이 주제로 글을 쓰기에 부족한 필드:
