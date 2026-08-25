@@ -210,6 +210,51 @@ class ToolService:
             **common,
         }
 
+    def get_topic_records(
+        self, topic_slug: str, since: str | None = None
+    ) -> dict:
+        params = {"topic_slug": topic_slug}
+        if since:
+            params["since"] = since
+        outcome = self._client.query("/v1/records", params)
+        body = outcome.body or {}
+        records = body.get("records", [])
+        return {
+            "topic_slug": topic_slug,
+            "topic": body.get("topic"),
+            "records": records,
+            # 무엇이 비었는지 함께 준다. 다듬는 에이전트가 빈 '한계' 를
+            # 지어내지 않고 **되묻게** 하는 것이 이 툴의 목적이다.
+            # 계산은 화면과 같은 함수(topics.shortages)를 쓴다.
+            "missing_summary": topics.shortages(records),
+            **_common(outcome),
+        }
+
+    def save_draft(
+        self,
+        topic_slug: str,
+        title: str,
+        markdown: str,
+        source_record_ids: list[str] | None = None,
+    ) -> dict:
+        payload = {
+            "topic_slug": topic_slug,
+            "title": title,
+            "markdown": markdown,
+            "source_record_ids": source_record_ids,
+        }
+        # 새 초안을 하나 더 만들지 않는다. POST /v1/drafts 가 upsert 다 —
+        # 조립기와 이 툴이 같은 행을 덮어쓴다.
+        outcome = self._client.send("save_draft", "/v1/drafts", payload)
+        body = outcome.body or {}
+        return {
+            "draft_id": body.get("draft_id"),
+            "topic_slug": topic_slug,
+            "status": body.get("status"),
+            "file_path": body.get("file_path"),
+            **_common(outcome),
+        }
+
     def finish_work(
         self,
         work_id: str | None = None,
@@ -361,6 +406,34 @@ def build_server(service: ToolService | None = None) -> FastMCP:
             rationale=rationale, outcome=outcome, limitation=limitation,
             interview=interview, occurred_at=occurred_at,
             repo_path=repo_path, record_id=record_id,
+        )
+
+    @server.tool()
+    @_never_raises("조회 실패")
+    def get_topic_records(topic_slug: str, since: str | None = None) -> dict:
+        """한 주제의 기록을 시간순으로 읽는다. 초안을 다듬기 전에 재료를 확인한다.
+
+        since 는 로컬 날짜(YYYY-MM-DD). 생략하면 그 주제의 전체 기록.
+        응답의 missing_summary 가 비어 있는 필드를 알려준다 —
+        **그 자리를 지어내지 말고 사용자에게 되물어라.**
+        """
+        return resolved.get_topic_records(topic_slug=topic_slug, since=since)
+
+    @server.tool()
+    @_never_raises("저장 실패")
+    def save_draft(
+        topic_slug: str,
+        title: str,
+        markdown: str,
+        source_record_ids: list[str] | None = None,
+    ) -> dict:
+        """다듬은 초안으로 덮어쓴다. 그 주제의 미발행 초안이 대상이다.
+
+        새 글을 하나 더 만들지 않는다. 없으면 그때 만든다.
+        """
+        return resolved.save_draft(
+            topic_slug=topic_slug, title=title, markdown=markdown,
+            source_record_ids=source_record_ids,
         )
 
     @server.tool()

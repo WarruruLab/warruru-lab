@@ -66,7 +66,13 @@ async def list_records(
 async def create_draft(request: Request, payload: DraftRequest) -> dict:
     """그 주제의 기록으로 초안을 조립한다. 같은 주제면 덮어쓴다(upsert)."""
     try:
-        return drafting.create(request.app.state.ctx, payload.topic_slug)
+        return drafting.create(
+            request.app.state.ctx,
+            payload.topic_slug,
+            markdown=payload.markdown,
+            title=payload.title,
+            source_record_ids=payload.source_record_ids,
+        )
     except drafting.NoRecordsError:
         raise HTTPException(
             status_code=404,

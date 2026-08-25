@@ -160,16 +160,15 @@ def test_전송하는_payload_에_client_instance_id_가_담긴다():
         assert payload["client_instance_id"] == client._client_instance_id
 
 
-def test_서버는_툴_다섯_개를_등록한다():
+def test_서버는_툴_일곱_개를_등록한다():
     import anyio
 
     from warruru_local.mcp.server import build_server
 
     server = build_server()
     names = {tool.name for tool in anyio.run(server.list_tools)}
-    # 기존 4개 + record_learning. get_topic_records · save_draft 는
-    # 계획 Task 9(다듬기 툴)에서 들어와 7개가 된다.
+    # 기존 4개 + 학습 기록 3개(기록 1 · 다듬기 2). MVP 범위에서는 여기까지다.
     assert names == {
         "start_work", "record_checkpoint", "finish_work", "get_today_context",
-        "record_learning",
+        "record_learning", "get_topic_records", "save_draft",
     }
