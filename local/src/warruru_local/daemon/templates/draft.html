@@ -66,6 +66,29 @@
   {% endif %}
 </section>
 
+{% if view.push_repo %}
+<section class="tool">
+  <h2>비공개 저장소</h2>
+  {# 티스토리와 달리 마크다운이 원본 그대로 남는다. 캡차도 없다.
+     설정(WARRURU_PUBLISH_REPO)이 있을 때만 이 자리가 생긴다. #}
+  {% if push == "pushed" %}
+    <p class="meta"><span class="badge ok">밀어 넣음</span> 커밋하고 푸시했습니다.</p>
+  {% elif push == "committed" %}
+    <p class="meta"><span class="badge warn">커밋만</span>
+      커밋은 남았지만 푸시하지 못했습니다. 네트워크를 확인하고 다시 누르세요.</p>
+  {% elif push_error %}
+    <p class="meta"><span class="badge warn">밀어 넣지 못함</span> {{ push_error }}</p>
+  {% endif %}
+  <p class="meta">
+    마크다운이 원본 그대로 갑니다. <code>{{ view.push_repo }}</code>
+  </p>
+  <form method="post" action="/web/drafts/{{ view.draft_id }}/push">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <button class="primary" type="submit">비공개 저장소에 밀어 넣기</button>
+  </form>
+</section>
+{% endif %}
+
 <section class="tool">
   <h2>본문</h2>
   <p class="meta">정본은 이 파일이다: <code>{{ view.file_path }}</code></p>

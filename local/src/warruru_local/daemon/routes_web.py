@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -76,7 +77,12 @@ async def topic_detail(request: Request, topic_slug: str):
 
 
 @router.get("/drafts/{draft_id}")
-async def draft_detail(request: Request, draft_id: str):
+async def draft_detail(
+    request: Request,
+    draft_id: str,
+    push: str | None = None,
+    push_error: str | None = None,
+):
     ctx = request.app.state.ctx
     view = topicview.build_draft(ctx, draft_id)
     if view is None:
@@ -87,7 +93,11 @@ async def draft_detail(request: Request, draft_id: str):
     today = local_date_of(to_iso(ctx.clock.now()))
     return templates.TemplateResponse(
         request, "draft.html",
-        {"view": view, "today": today, "token": ctx.settings.token},
+        {
+            "view": view, "today": today, "token": ctx.settings.token,
+            # 밀어 넣기 결과. 리다이렉트로 돌아오므로 쿼리로 실어 온다.
+            "push": push, "push_error": push_error,
+        },
     )
 
 
@@ -126,6 +136,35 @@ async def mark_published_form(
             detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
         ) from None
     return RedirectResponse(f"/drafts/{draft_id}", status_code=302)
+
+
+@router.post("/web/drafts/{draft_id}/push")
+async def push_draft_form(
+    request: Request,
+    draft_id: str,
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """초안을 비공개 git 저장소에 밀어 넣는다. 상태를 바꾸므로 토큰을 요구한다.
+
+    **비공개 확인에 실패하면 예외가 아니라 화면 메시지로 돌려보낸다.**
+    이 실패는 사람이 고칠 수 있는 실패다 — 500 으로 새어 나가면
+    무엇을 고쳐야 하는지 알 수 없다.
+    """
+    ctx = request.app.state.ctx
+    _check_token(request, form_token)
+    try:
+        result = publishing.push_to_repo(ctx, draft_id)
+    except publishing.DraftNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
+        ) from None
+    except publishing.PushUnavailableError as error:
+        return RedirectResponse(
+            f"/drafts/{draft_id}?push_error={quote(str(error))}", status_code=302
+        )
+    state = "pushed" if result.pushed else "committed"
+    return RedirectResponse(f"/drafts/{draft_id}?push={state}", status_code=302)
 
 
 @router.post("/web/drafts/from-records")

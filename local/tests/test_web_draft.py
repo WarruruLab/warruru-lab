@@ -179,3 +179,54 @@ def test_발행해도_저장소_안에는_파일이_생기지_않는다(client, 
     )
     repo = client.app.state.ctx.settings.repo_root
     assert repo is None or not list(repo.rglob("2026-08-25-connection-pool.md"))
+
+
+# ── 비공개 저장소로 밀어 넣기 (2026-08-28) ──────────────────────────
+
+def _with_repo(client, path):
+    """frozen dataclass 라 갈아 끼운다. 설정이 바뀐 데몬을 흉내낸다."""
+    import dataclasses
+
+    ctx = client.app.state.ctx
+    ctx.settings = dataclasses.replace(ctx.settings, publish_repo=path)
+    return ctx
+
+
+def test_설정이_없으면_밀어넣기_버튼이_없다(client):
+    """WARRURU_PUBLISH_REPO 를 정하지 않으면 이 기능은 아예 없다.
+    데몬이 어느 저장소가 비공개인지 짐작하지 않는다.
+    """
+    draft = _draft(client)
+    assert "비공개 저장소" not in client.get(f"/drafts/{draft['draft_id']}").text
+
+
+def test_설정하면_버튼이_생긴다(client, tmp_path):
+    draft = _draft(client)
+    _with_repo(client, tmp_path / "notes")
+    page = client.get(f"/drafts/{draft['draft_id']}").text
+    assert "비공개 저장소" in page
+    assert f"/web/drafts/{draft['draft_id']}/push" in page
+
+
+def test_밀어넣기도_토큰을_요구한다(client, tmp_path):
+    draft = _draft(client)
+    _with_repo(client, tmp_path / "notes")
+    assert client.post(
+        f"/web/drafts/{draft['draft_id']}/push", data={}
+    ).status_code == 401
+
+
+def test_비공개가_아니면_화면이_그렇게_말한다(client, tmp_path):
+    """예외가 500 으로 새어 나가면 사용자는 무엇이 문제인지 모른다.
+    이 실패는 고칠 수 있는 실패다 — 무엇을 고쳐야 하는지 말해야 한다.
+    """
+    draft = _draft(client)
+    _with_repo(client, tmp_path / "notes")
+    posted = client.post(
+        f"/web/drafts/{draft['draft_id']}/push",
+        data={"_token": client.app.state.ctx.settings.token},
+        follow_redirects=False,
+    )
+    assert posted.status_code == 302
+    page = client.get(posted.headers["location"]).text
+    assert "비공개" in page

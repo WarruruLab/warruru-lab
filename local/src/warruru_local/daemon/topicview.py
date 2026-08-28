@@ -117,6 +117,9 @@ def build_draft(ctx, draft_id: str) -> dict | None:
             f"polish topic={row['topic_slug']} draft={row['draft_id']}"
         ),
         # 붙여넣기용 HTML. 정본은 마크다운이고 이건 옮겨 담을 문자열일 뿐이다.
+        # 설정이 없으면 이 기능은 아예 없다. 데몬이 어느 저장소가 비공개인지
+        # 짐작하지 않는다 — 틀리게 짐작하면 초안이 공개 저장소로 간다.
+        "push_repo": str(ctx.settings.publish_repo) if ctx.settings.publish_repo else None,
         "paste_html": TistoryClipboardTarget().publish(
             # 정본 파일에는 꼬리말이 남고 발행 본문에서는 빠진다.
             # 독자에게 rec_01M0… 은 아무 뜻이 없다.
