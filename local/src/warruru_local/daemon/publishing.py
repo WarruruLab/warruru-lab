@@ -6,11 +6,16 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 from pathlib import Path
 
-from warruru_local.clock import to_iso
+from warruru_local.clock import local_date_of, to_iso
+from warruru_local.publish.git_private_repo import (
+    GitPrivateRepoTarget,
+    NotPrivateError,
+)
 
 # front matter 의 status 한 줄만 바꾼다. 본문은 그대로 둔다.
 _STATUS_LINE = re.compile(r"^status: .*$", re.MULTILINE)
@@ -46,3 +51,43 @@ def _rewrite_status(row: dict) -> None:
     text = target.read_text(encoding="utf-8")
     target.write_text(_STATUS_LINE.sub("status: PUBLISHED", text, count=1),
                       encoding="utf-8")
+
+
+class PushUnavailableError(RuntimeError):
+    """비공개 저장소로 밀어 넣을 수 없다. **사람이 고칠 수 있는 실패다.**
+
+    설정이 없거나, 저장소가 비공개가 아니거나, 확인하지 못했을 때다.
+    셋 다 무엇을 고쳐야 하는지 말해 줄 수 있으므로 500 으로 새어 나가면 안 된다.
+    """
+
+
+def push_to_repo(ctx, draft_id: str):
+    """초안 파일을 비공개 git 저장소에 그대로 옮겨 커밋·푸시한다.
+
+    **마크다운이 원본 그대로 간다.** 티스토리는 붙여넣는 순간 HTML 로
+    정규화되어 복원되지 않는다 — 이쪽을 고른 이유가 그것이다(ADR 2026-08-28).
+    """
+    row = ctx.records.get_draft(draft_id)
+    if row is None or row.get("deleted_at"):
+        raise DraftNotFoundError(draft_id)
+
+    root = ctx.settings.publish_repo
+    if root is None:
+        raise PushUnavailableError(
+            "WARRURU_PUBLISH_REPO 가 설정되지 않았다"
+        )
+
+    target = GitPrivateRepoTarget(root, repo_root=ctx.settings.repo_root)
+    try:
+        return target.publish(
+            title=row["title"],
+            markdown=row["markdown"],
+            date=local_date_of(to_iso(ctx.clock.now())),
+            slug=row["topic_slug"],
+            topic=row["topic"],
+            kinds=json.loads(row["kind_json"] or "[]"),
+            source_record_ids=json.loads(row["source_record_ids_json"] or "[]"),
+            status=row["status"],
+        )
+    except NotPrivateError as error:
+        raise PushUnavailableError(str(error)) from None

@@ -42,6 +42,10 @@ class Settings:
     # 이 경로 안에는 초안을 쓰지 않는다. 저장소가 public 이라 사고 방지 장치다.
     # `None` 이면 검사하지 않는다 — 저장소 밖에서 데몬을 돌리는 경우다.
     repo_root: Path | None = None
+    # 초안을 밀어 넣을 **비공개** git 저장소의 로컬 클론. `None` 이면 그 기능이 없다.
+    # **기본값을 두지 않는다.** 어느 저장소가 비공개인지 데몬이 알 수 없고,
+    # 틀리게 짐작하면 초안이 공개 저장소로 간다. 사람이 명시해야만 켜진다.
+    publish_repo: Path | None = None
 
 
 def _env_int(key: str, fallback: int) -> int:
@@ -125,6 +129,11 @@ def load_settings(home: Path | None = None) -> Settings:
             else None
         ),
         repo_root=_repo_root(),
+        publish_repo=(
+            Path(os.environ["WARRURU_PUBLISH_REPO"]).expanduser()
+            if os.environ.get("WARRURU_PUBLISH_REPO")
+            else None
+        ),
     )
 
 

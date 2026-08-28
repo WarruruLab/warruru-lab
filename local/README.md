@@ -104,7 +104,8 @@ Codex / Claude Code / Antigravity
 - `/d/{date}?deleted=1` — 삭제한 기록 (되살릴 것을 고르는 자리라 학습 기록은 안 나온다)
 - `/t` — 오늘 기록을 주제로 묶은 목록. 건수 1건 이하는 '미분류' 로 모인다
 - `/t/{slug}` — 한 주제의 전체 기록과 부족한 재료. [초안 만들기] 가 여기 있다
-- `/drafts/{id}` — 6단 초안, 남은 TODO 수, 붙여넣기용 HTML, [발행함] 표시
+- `/drafts/{id}` — 6단 초안, 남은 TODO 수, 붙여넣기용 HTML, [발행함] 표시.
+  `WARRURU_PUBLISH_REPO` 를 정하면 [비공개 저장소에 밀어 넣기] 가 함께 생긴다
 - `/c/{YYYY-MM}` — 달력. 날짜 화면에 무언가 있는 날만 링크가 된다
 
 전부 Jinja2 서버 렌더링이다. JS 는 초안 화면의 복사 버튼 하나뿐이고(인라인 8줄),
@@ -171,7 +172,7 @@ Codex / Claude Code / Antigravity
 ```
 
 `WARRURU_HOME` 으로 위치를 통째로 바꿀 수 있다. 전체 목록은
-`src/warruru_local/config.py` 의 `load_settings()` 가 정본이고, 지금은 17개다.
+`src/warruru_local/config.py` 의 `load_settings()` 가 정본이고, 지금은 18개다.
 
 ```text
 WARRURU_HOME  TOKEN  TOOL  DAEMON_HOST  DAEMON_PORT  LOG_LEVEL
@@ -180,6 +181,7 @@ WARRURU_SWEEP_INTERVAL_SECONDS  SPOOL_QUIET_SECONDS
 WARRURU_HTTP_TIMEOUT_SECONDS    AUTOSTART_DAEMON
 WARRURU_GIT_TIMEOUT_SECONDS     GIT_CACHE_TTL_SECONDS
 WARRURU_GIT_DIRTY_FILE_CAP      DRAFTS_ROOT  REPO_ROOT
+WARRURU_PUBLISH_REPO
 ```
 
 (전부 `WARRURU_` 접두사를 공유한다. 우선순위는
