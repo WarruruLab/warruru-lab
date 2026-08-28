@@ -1,10 +1,10 @@
-"""주기 작업. 유휴 세션을 마감하고 spool 을 흡수한다."""
+"""주기 작업. 유휴 세션을 마감하고, spool 을 흡수하고, 어제를 마감한다."""
 
 from __future__ import annotations
 
 import asyncio
 
-from warruru_local.daemon import absorb
+from warruru_local.daemon import absorb, nightly
 
 
 def start_sweeper(ctx):
@@ -18,6 +18,15 @@ def start_sweeper(ctx):
                 applied = absorb.absorb_all(ctx)
                 if closed or applied:
                     ctx.logger.info("자동 마감 %d건, spool 반영 %d건", len(closed), applied)
+                # 날짜가 바뀐 뒤 첫 스위프에서만 실제로 일한다.
+                # 나머지 호출은 표식을 보고 바로 돌아간다.
+                made = nightly.run(ctx)
+                if made["drafted"] or made["failed"]:
+                    ctx.logger.info(
+                        "밤 초안 %d건(실패 %d건), 밀어넣음 %d건",
+                        len(made["drafted"]), len(made["failed"]),
+                        len(made.get("pushed", [])),
+                    )
             except Exception:
                 ctx.logger.exception("주기 작업이 실패했다")
 
