@@ -18,6 +18,10 @@ class PublishResult:
     url: str | None = None
     # 화면에 띄울 문자열. 파일도 원격도 아닌 어댑터(붙여넣기)가 쓴다.
     body: str | None = None
+    # 원격까지 갔는가. 원격이 있는 어댑터만 채운다(없으면 None).
+    # 산문이 아니라 값으로 알려야 읽는 쪽이 분기할 수 있다 —
+    # "밀어 넣었다" 고 말해 놓고 원격에 없는 것이 가장 나쁘다.
+    pushed: bool | None = None
 
 
 class PublishTarget:
