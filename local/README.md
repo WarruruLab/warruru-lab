@@ -159,6 +159,24 @@ Codex / Claude Code / Antigravity
   응답에 오는 유사 슬러그 힌트('connection-pool 과 유사합니다')를 보면 그쪽을 따른다.
 - **기록 실패로 작업을 멈추지 않는다.** 데몬이 꺼져 있어도 봉투는 spool 에 떨어진다.
 
+## 하루가 끝나면 자동으로
+
+날짜가 바뀐 뒤 첫 스위프에서 **어제 주제로 초안을 만들어 둔다.**
+`WARRURU_PUBLISH_REPO` 가 설정돼 있으면 비공개 저장소로 밀어 넣기까지 한다.
+
+새 프로세스도 새 포트도 만들지 않는다 — 이미 도는 스위퍼 안의 함수다.
+cron 을 쓰지 않는 것도 같은 이유다. 데몬은 화면 때문에 어차피 떠 있다.
+
+**어제를 마감한다. 오늘이 아니다.** 오늘은 아직 기록이 더 들어올 수 있고
+어제는 확정된 하루다. 그래서 '몇 시에 돌 것인가' 를 설정으로 받지 않는다.
+머신이 자고 있었어도 깨어난 뒤 첫 스위프에서 처리된다.
+
+**이미 초안이 있는 주제는 건드리지 않는다.** `upsert_draft` 가 미발행 초안을
+덮어쓰므로, `save_draft` 로 다듬어 둔 글이 다음 날 밤 조립기 출력으로 덮이면
+그 문장은 복원되지 않는다. 자동화가 사람의 작업을 지우는 것은 사고다.
+
+끄려면 `WARRURU_NIGHTLY_DRAFT=0`.
+
 ## 저장 위치
 
 ```text
@@ -172,7 +190,7 @@ Codex / Claude Code / Antigravity
 ```
 
 `WARRURU_HOME` 으로 위치를 통째로 바꿀 수 있다. 전체 목록은
-`src/warruru_local/config.py` 의 `load_settings()` 가 정본이고, 지금은 18개다.
+`src/warruru_local/config.py` 의 `load_settings()` 가 정본이고, 지금은 19개다.
 
 ```text
 WARRURU_HOME  TOKEN  TOOL  DAEMON_HOST  DAEMON_PORT  LOG_LEVEL
@@ -181,7 +199,7 @@ WARRURU_SWEEP_INTERVAL_SECONDS  SPOOL_QUIET_SECONDS
 WARRURU_HTTP_TIMEOUT_SECONDS    AUTOSTART_DAEMON
 WARRURU_GIT_TIMEOUT_SECONDS     GIT_CACHE_TTL_SECONDS
 WARRURU_GIT_DIRTY_FILE_CAP      DRAFTS_ROOT  REPO_ROOT
-WARRURU_PUBLISH_REPO
+WARRURU_PUBLISH_REPO            NIGHTLY_DRAFT
 ```
 
 (전부 `WARRURU_` 접두사를 공유한다. 우선순위는

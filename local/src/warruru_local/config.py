@@ -46,6 +46,9 @@ class Settings:
     # **기본값을 두지 않는다.** 어느 저장소가 비공개인지 데몬이 알 수 없고,
     # 틀리게 짐작하면 초안이 공개 저장소로 간다. 사람이 명시해야만 켜진다.
     publish_repo: Path | None = None
+    # 하루가 끝나면 어제 주제로 초안을 만들어 둘 것인가. 기본은 켬.
+    # 끄는 자리를 두는 이유는, 파일을 스스로 만드는 기능이라 놀랄 수 있어서다.
+    nightly_draft: bool = True
 
 
 def _env_int(key: str, fallback: int) -> int:
@@ -129,6 +132,7 @@ def load_settings(home: Path | None = None) -> Settings:
             else None
         ),
         repo_root=_repo_root(),
+        nightly_draft=os.environ.get("WARRURU_NIGHTLY_DRAFT", "1") != "0",
         publish_repo=(
             Path(os.environ["WARRURU_PUBLISH_REPO"]).expanduser()
             if os.environ.get("WARRURU_PUBLISH_REPO")
