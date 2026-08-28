@@ -212,7 +212,8 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 - MCP 툴 3개 추가(총 7개) ✅
 - 웹 라우트 `/t` · `/t/{slug}` · `/drafts/{id}` · 달력 `/c/{YYYY-MM}` ✅
 - 결정적 6단 조립기 — **LLM 호출 0** ✅
-- `PublishTarget` 인터페이스 + 어댑터 2개 ✅
+- `PublishTarget` 인터페이스 + 어댑터 3개 ✅
+  (`MarkdownFileTarget` · `TistoryClipboardTarget` · `GitPrivateRepoTarget`)
 
 착지점은 `~/.warruru/drafts/YYYY/MM/` 이고, 저장소 안 경로가 인자로
 들어오면 쓰기 어댑터가 **예외를 던진다.** origin 이 public 저장소이므로
@@ -225,8 +226,12 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 그 과정에서 `mcp` 2.0.0 이 `mcp.server.fastmcp` 경로를 없앤 것을 발견해
 `pyproject.toml` 을 `mcp>=1.16.0,<2` 로 고정했다. 이 상한을 풀지 마라.
 
-**이번에 하지 않는 것** — 티스토리 자동 발행(공식 API 는 2024년 2월 종료,
-2026-08-18 확인 기준 관련 경로 전부 404) · 데몬 안의 LLM 호출 ·
+**티스토리 자동 발행은 접었다(2026-08-28).** 약관 때문이 아니라 캡차 때문이다 —
+약관에는 자동화 금지 조항이 없고 대법원 2021도1533 이 그 질문을 무력화하는데,
+`DKAPTCHA` 가 발행마다 떠서 사람이 풀면 붙여넣기보다 느리다. 우회는 하지 않는다.
+대신 `GitPrivateRepoTarget` 으로 간다. 근거는 발행 경로 ADR 에 있다.
+
+**이번에 하지 않는 것** — 티스토리 자동 발행(위 참조) · 데몬 안의 LLM 호출 ·
 RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_option`
 정규화 테이블 · 기록 거절 규칙. 각각의 이유는 이번 MVP 명세에 있다.
 
