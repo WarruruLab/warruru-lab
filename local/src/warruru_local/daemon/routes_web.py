@@ -82,9 +82,11 @@ async def draft_detail(
     draft_id: str,
     push: str | None = None,
     push_error: str | None = None,
+    ask: str | None = None,
+    saved: str | None = None,
 ):
     ctx = request.app.state.ctx
-    view = topicview.build_draft(ctx, draft_id)
+    view = topicview.build_draft(ctx, draft_id, ask=ask)
     if view is None:
         raise HTTPException(
             status_code=404,
@@ -96,7 +98,7 @@ async def draft_detail(
         {
             "view": view, "today": today, "token": ctx.settings.token,
             # 밀어 넣기 결과. 리다이렉트로 돌아오므로 쿼리로 실어 온다.
-            "push": push, "push_error": push_error,
+            "push": push, "push_error": push_error, "saved": saved,
         },
     )
 
@@ -136,6 +138,30 @@ async def mark_published_form(
             detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
         ) from None
     return RedirectResponse(f"/drafts/{draft_id}", status_code=302)
+
+
+@router.post("/web/drafts/{draft_id}/edit")
+async def edit_draft_form(
+    request: Request,
+    draft_id: str,
+    markdown: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """화면에서 고친 본문을 그대로 저장한다.
+
+    `save_draft` 툴과 **같은 함수**로 간다. 두 경로가 갈리면 에이전트가 다듬은
+    글과 사람이 다듬은 글이 다른 규칙으로 저장된다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    view = topicview.build_draft(ctx, draft_id)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
+        )
+    made = drafting.create(ctx, view["topic_slug"], markdown=markdown)
+    return RedirectResponse(f"/drafts/{made['draft_id']}?saved=1", status_code=302)
 
 
 @router.post("/web/drafts/{draft_id}/push")
