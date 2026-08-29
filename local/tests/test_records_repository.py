@@ -233,3 +233,34 @@ def test_짧은_슬러그가_아무_주제에나_달라붙지_않는다(repo):
     _record(repo, "rec_A", topic="C++", slug="c")
     assert "c" not in repo.similar_slugs("connection-pool")
     assert "c" not in repo.similar_slugs("misc")
+
+
+# ── material_rows — 재료 막대의 재료 ──────────────────────────────────
+
+
+def test_material_rows_는_상한에_걸리지_않는다(repo):
+    """`list_records` 는 100건에서 잘린다. 그것으로 막대를 세면 기록이
+    쌓일수록 막대가 실제보다 비어 보이는데, 화면은 그 사실을 말해 주지 않는다.
+    """
+    for i in range(120):
+        _record(repo, f"rec_{i:03d}", rationale="골랐다")
+
+    assert len(repo.list_records(limit=1000)) == 100      # 상한이 살아 있다
+    assert len(repo.material_rows()) == 120               # 여기는 안 걸린다
+
+
+def test_material_rows_는_본문을_읽지_않는다(repo):
+    """`body` 는 64KB 까지 커진다. 목록 화면 한 번에 수십 MB 를 읽을 이유가 없다."""
+    _record(repo, "rec_A", body="본" * 1000, rationale="골랐다")
+
+    row = repo.material_rows()[0]
+
+    assert set(row) == {"topic_slug", "rationale", "outcome", "limitation", "interview"}
+
+
+def test_material_rows_는_지운_기록을_빼고_준다(repo):
+    _record(repo, "rec_A")
+    _record(repo, "rec_B")
+    repo.soft_delete("rec_B", NOW)
+
+    assert len(repo.material_rows()) == 1

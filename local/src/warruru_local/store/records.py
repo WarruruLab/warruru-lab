@@ -207,6 +207,26 @@ class RecordRepository:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def material_rows(self) -> list[dict]:
+        """재료 막대용 최소 컬럼. 슬러그와 네 필드뿐이다.
+
+        **`LIMIT` 을 걸지 않는다.** 자르면 막대가 조용히 틀린다 —
+        `occurred_between` 이 달력을 위해 자르지 않는 것과 같은 이유다.
+        `list_records` 로는 이 답을 낼 수 없다. 거기 상한이 100건이라
+        기록이 그보다 쌓이면 막대가 실제보다 비어 보인다.
+
+        **본문은 읽지 않는다.** `body` 는 64KB 까지 커질 수 있어서 목록 화면
+        한 번에 수십 MB 를 읽게 된다. 막대가 보는 것은 네 필드의 빈칸 여부뿐이다.
+
+        슬러그마다 따로 물으면 주제 수만큼 질의가 나간다. 한 번 읽어 화면에서
+        접는다 — 그래야 '비어 있음' 의 정의가 `topics._has` 한 곳에 남는다.
+        """
+        columns = ", ".join(("topic_slug", *topics.MATERIAL_FIELDS))
+        rows = self._conn.execute(
+            f"SELECT {columns} FROM learning_record WHERE deleted_at IS NULL"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def occurred_between(self, start_iso: str, end_iso: str) -> list[str]:
         """구간 안 기록의 `occurred_at` 목록. 끝은 배타적이다.
 
