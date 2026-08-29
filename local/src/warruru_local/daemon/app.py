@@ -92,7 +92,7 @@ def create_app(
     async def lifespan(instance: FastAPI):
         instance.state.ctx = _build_context(settings, resolved_clock)
 
-        from warruru_local.daemon import absorb
+        from warruru_local.daemon import absorb, nightly
 
         # 기동이 spool 상태에 걸려 있으면 안 된다. 기록을 못 읽는 것과
         # 데몬이 안 뜨는 것은 심각도가 다르다 — 앞은 다음 스윕이 만회하고,
@@ -106,6 +106,19 @@ def create_app(
             instance.state.ctx.logger.exception("기동 시 흡수가 실패했다")
         stop = None
         if start_background:
+            # 밤 초안도 기동 때 한 번 돈다. 스위퍼에만 맡기면 데몬을 켜고
+            # 나서 초안이 나오기까지 한 바퀴(기본 300초)를 기다리게 되는데,
+            # 켜는 행위 자체가 '지금 해달라' 는 뜻이다.
+            #
+            # 위의 둘과 달리 이쪽은 background 스위치를 탄다. sweep_idle 과
+            # absorb 는 DB 를 제자리로 돌리는 일이라 언제 돌아도 같지만,
+            # 이것은 **파일을 만든다.** 배경 작업을 끈 채 띄운 쪽에 초안이
+            # 생기면 그것은 부른 적 없는 부작용이다.
+            try:
+                nightly.run(instance.state.ctx)
+            except Exception:
+                instance.state.ctx.logger.exception("기동 시 밤 초안이 실패했다")
+
             from warruru_local.daemon.sweeper import start_sweeper
 
             stop = start_sweeper(instance.state.ctx)

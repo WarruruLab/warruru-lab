@@ -236,3 +236,37 @@ def test_밀린_날에도_사람_글은_보존된다(client, home):
 
     row = client.app.state.ctx.records.latest_draft_of("connection-pool")
     assert "손으로 쓴 문장" in row["markdown"]
+
+
+def test_기동만_해도_밀린_날이_마감된다(home, monkeypatch):
+    """데몬을 켜는 행위 자체가 '지금 해달라' 는 뜻이다.
+
+    스위퍼에만 맡기면 켜고 나서 한 바퀴(기본 300초)를 기다리게 된다.
+    바탕화면 실행 파일로 켜는 경우 그 5분이 곧 '버튼이 안 먹는다' 다.
+    """
+    monkeypatch.setenv("TZ", "Asia/Seoul")
+    import time
+
+    time.tzset()
+    settings = load_settings(home)
+
+    # 1차 — 기록만 남기고 닫는다. 배경 작업이 꺼져 있으니 초안은 안 생긴다.
+    first = create_app(settings, clock=FixedClock(START), start_background=False)
+    with TestClient(first) as made:
+        made.headers.update({"X-Warruru-Token": settings.token})
+        _record(made, "rec_A")
+        assert made.app.state.ctx.records.latest_draft_of("connection-pool") is None
+
+    # 2차 — 배경 작업을 켜고 다시 띄운다. 스위프를 기다리지 않는다.
+    again = create_app(settings, clock=FixedClock(START), start_background=True)
+    with TestClient(again):
+        assert again.state.ctx.records.latest_draft_of("connection-pool") is not None
+        assert nightly._last_run(again.state.ctx) == "2026-08-28"
+
+
+def test_배경_작업을_끈_채_띄우면_초안을_만들지_않는다(client):
+    """`client` 픽스처가 `start_background=False` 다. 기동만으로 초안이
+    생긴다면 이 단언이 깨진다 — 부른 적 없는 부작용이라는 뜻이다.
+    """
+    assert client.app.state.ctx.records.latest_draft_of("connection-pool") is None
+    assert nightly._last_run(client.app.state.ctx) is None
