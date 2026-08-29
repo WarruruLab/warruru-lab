@@ -53,4 +53,26 @@
   {% endfor %}
 </section>
 {% endif %}
+
+{% if view.past %}
+<section class="tool">
+  <h2>지난 주제</h2>
+  <p class="meta">
+    오늘 만지지 않은 주제다. 최근순이며, 재료 막대는 눌러 들어가면 있다.
+  </p>
+  {% for group in view.past %}
+  <article class="work">
+    <div class="work-head">
+      <strong><a href="/t/{{ group.topic_slug }}">{{ group.topic }}</a></strong>
+      <span class="badge">{{ group.count }}건</span>
+      {% for kind, count in group.kinds %}
+        <span class="badge">{{ kind }}{{ count }}</span>
+      {% endfor %}
+      <span class="meta">마지막 {{ group.last_date }}</span>
+      {% if group.published %}<span class="badge ok">발행함</span>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
 {% endblock %}

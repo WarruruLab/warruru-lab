@@ -97,15 +97,69 @@ def test_1건짜리_슬러그는_미분류_구획에_모인다(client):
 
 
 def test_오늘_경계는_로컬_자정_기준이다(client):
-    """UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다."""
+    """UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다.
+
+    어제 것이 화면에서 사라지지는 않는다(명세 §2.2 개정). 확인할 것은
+    **어느 구획에 앉느냐**다 — 새벽 기록이 '지난 주제' 로 밀리면 경계가 UTC 로
+    잘린 것이다.
+    """
     # KST 2026-08-24 00:30 = UTC 2026-08-23 15:30
     _record(client, "rec_오늘새벽", occurred_at="2026-08-23T15:30:00.000Z")
     # KST 2026-08-23 23:30 = UTC 2026-08-23 14:30
     _record(client, "rec_어제밤", topic="jvm gc",
             occurred_at="2026-08-23T14:30:00.000Z")
     page = client.get("/t").text
-    assert "connection pool" in page
-    assert "jvm gc" not in page
+    오늘, 지난 = page.split("지난 주제")
+    assert "connection pool" in 오늘
+    assert "jvm gc" not in 오늘
+    assert "jvm gc" in 지난
+
+
+# ── 지난 주제 ────────────────────────────────────────────────────────────
+#
+# 처음 이 화면을 오늘로 자른 전제는 "하루가 끝나는 시점에 열어본다" 였다.
+# 바탕화면 실행 파일이 생기면서 그 전제가 깨졌다 — 기록하지 않은 날에도 이
+# 화면을 연다. 그때 화면이 비어 있으면 **들어가는 문이 가진 것을 숨기는 것**이다.
+
+
+def test_오늘_기록이_없어도_지난_주제가_보인다(client):
+    """실제로 부딪힌 결함이다. DB 에 주제가 셋 있는데 화면은 비어 있었다."""
+    _record(client, "rec_A", occurred_at="2026-08-20T09:00:00.000Z")
+    page = client.get("/t").text
+    assert "오늘 기록 0건" in page      # 오늘 신호는 그대로 남는다
+    assert "connection pool" in page    # 그러나 가진 것을 숨기지 않는다
+
+
+def test_지난_주제는_최근순이다(client):
+    """오늘 만지지 않은 주제라면 '얼마나 많이' 보다 '언제가 마지막이었나' 다."""
+    _record(client, "rec_옛날_1", topic="jvm gc", occurred_at="2026-08-10T09:00:00.000Z")
+    _record(client, "rec_옛날_2", topic="jvm gc", occurred_at="2026-08-10T10:00:00.000Z")
+    _record(client, "rec_최근", topic="net tcp", occurred_at="2026-08-22T09:00:00.000Z")
+    지난 = client.get("/t").text.split("지난 주제")[1]
+    # 건수는 jvm gc 가 많지만(2건) 최근인 net tcp 가 앞이다.
+    assert 지난.index("net tcp") < 지난.index("jvm gc")
+
+
+def test_오늘_주제는_지난_주제에_다시_나오지_않는다(client):
+    """같은 주제가 두 구획에 겹쳐 보이면 건수가 두 배로 읽힌다."""
+    _record(client, "rec_어제", occurred_at="2026-08-23T09:00:00.000Z")
+    _record(client, "rec_오늘", occurred_at="2026-08-24T09:00:00.000Z")
+    page = client.get("/t").text
+    assert "connection pool" in page.split("지난 주제")[0]
+    assert "지난 주제" not in page      # 겹치는 주제뿐이면 구획 자체가 없다
+
+
+def test_지난_주제의_건수는_전체다(client):
+    """구획은 '오늘이 아닌 주제' 로 가르지만, 건수까지 자르지는 않는다.
+
+    `/t/{slug}` 가 보여주는 것도 그 주제의 전체 기록이다. 두 화면이 다른
+    숫자를 말하면 어느 쪽을 믿을지 모르게 된다.
+    """
+    for i in range(3):
+        _record(client, f"rec_{i}", topic="jvm gc",
+                occurred_at=f"2026-08-2{i}T09:00:00.000Z")
+    지난 = client.get("/t").text.split("지난 주제")[1]
+    assert "3건" in 지난
 
 
 def test_주제_한_줄에서_상세로_간다(client):

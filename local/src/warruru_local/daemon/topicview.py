@@ -38,6 +38,8 @@ def _group(row: dict) -> dict:
             for kind, count in sorted(row["kinds"].items())
         ],
         "last_time": local_time_or_none(row["last_occurred_at"]),
+        # 오늘 구획은 시각이면 충분하지만 '지난 주제' 는 날짜가 있어야 읽힌다.
+        "last_date": local_date_or_none(row["last_occurred_at"]),
     }
 
 
@@ -129,9 +131,13 @@ def build_draft(ctx, draft_id: str) -> dict | None:
 
 
 def build_index(ctx, date: str) -> dict:
-    """그 날짜의 주제별 요약. 경계는 예외 없이 `local_day_bounds` 로 만든다.
+    """오늘의 주제 + **그 밖의 주제 전체**. 경계는 예외 없이 `local_day_bounds` 로.
 
     UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다.
+
+    오늘로만 자르지 않는 이유는 명세 §2.2 개정에 있다 — 들어가는 문이 가진
+    것을 숨기면 안 된다. 날짜 축은 `/d` 와 `/c` 가 이미 둘이나 맡고 있고,
+    여기까지 날짜로 자르면 주제 축을 보는 화면이 하나도 남지 않는다.
     """
     start, end = local_day_bounds(date)
     rows = ctx.records.slug_summary(since=start, until=end)
@@ -153,9 +159,29 @@ def build_index(ctx, date: str) -> dict:
     groups = [_with_flag(row) for row in rows if row["count"] > UNSORTED_MAX]
     unsorted_rows = [_with_flag(row) for row in rows if row["count"] <= UNSORTED_MAX]
 
+    # 오늘 것을 뺀 나머지 전체. **최근순이다** — 오늘 만지지 않은 주제라면
+    # '얼마나 많이' 보다 '언제가 마지막이었나' 가 먼저 궁금하다.
+    # (`slug_summary` 의 기본 정렬은 건수순이라 여기서 다시 세운다.)
+    #
+    # 재료 막대는 여기에 붙이지 않는다. 슬러그마다 기록을 읽어야 하는데
+    # 지난 주제는 수가 늘기만 하므로 그대로 두면 주제 수만큼 질의가 나간다.
+    # 막대는 한 번 눌러 `/t/{slug}` 에 들어가면 있고, 그 화면이 원래 그
+    # 판단을 하는 자리다.
+    today_slugs = {row["topic_slug"] for row in rows}
+    past = [
+        _group(row) | {"published": row["topic_slug"] in published}
+        for row in sorted(
+            ctx.records.slug_summary(),
+            key=lambda row: row["last_occurred_at"],
+            reverse=True,
+        )
+        if row["topic_slug"] not in today_slugs
+    ]
+
     return {
         "date": date,
         "today_count": sum(row["count"] for row in rows),
         "groups": groups,
         "unsorted": unsorted_rows,
+        "past": past,
     }
