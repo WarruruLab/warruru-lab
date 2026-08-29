@@ -22,10 +22,13 @@ def start_sweeper(ctx):
                 # 나머지 호출은 표식을 보고 바로 돌아간다.
                 made = nightly.run(ctx)
                 if made["drafted"] or made["failed"]:
+                    # 구간을 함께 남긴다. 며칠치를 한꺼번에 마감했는지가
+                    # 로그에 없으면 '왜 오늘 다섯 편이 생겼지' 를 되짚을 수 없다.
                     ctx.logger.info(
-                        "밤 초안 %d건(실패 %d건), 밀어넣음 %d건",
+                        "밤 초안 %d건(실패 %d건), 밀어넣음 %d건 — %s~%s 마감",
                         len(made["drafted"]), len(made["failed"]),
                         len(made.get("pushed", [])),
+                        made.get("from"), made.get("to"),
                     )
             except Exception:
                 ctx.logger.exception("주기 작업이 실패했다")
