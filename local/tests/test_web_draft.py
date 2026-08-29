@@ -230,3 +230,98 @@ def test_비공개가_아니면_화면이_그렇게_말한다(client, tmp_path):
     assert posted.status_code == 302
     page = client.get(posted.headers["location"]).text
     assert "비공개" in page
+
+
+# ── 미리보기 · 고치기 · 붙여넣기 (2026-08-29) ────────────────────────────
+#
+# 다듬는 루프가 두 창을 오갔다. 화면에서 보고 고치고 복사하는 데까지를
+# 한 자리에 모은다. **모델을 부르는 일은 여전히 에이전트가 한다** —
+# MCP 는 에이전트가 데몬을 부르는 단방향이라 데몬이 반대로 갈 길이 없다.
+
+
+def test_미리보기가_구조를_그린다(client):
+    made = _draft(client)
+    page = client.get(f"/drafts/{made['draft_id']}").text
+    assert 'class="preview"' in page
+    assert "<h2>문제</h2>" in page          # 6단 제목이 제목으로 그려진다
+
+
+def test_미리보기는_꼬리말을_빼고_그린다(client):
+    """꼬리말은 정본 파일에만 남는다. 독자에게 `rec_01M0…` 은 아무 뜻이 없다."""
+    made = _draft(client)
+    page = client.get(f"/drafts/{made['draft_id']}").text
+    preview = page.split('class="preview"')[1].split("</article>")[0]
+    assert "조립에 쓴 기록" not in preview
+
+
+def test_못_그리는_문법을_숨기지_않는다(client):
+    """조용히 문단으로 눕히면 '여기서 이렇게 보였는데' 가 생긴다."""
+    made = _draft(client)
+    client.post("/v1/drafts", json={
+        "topic_slug": "connection-pool",
+        "markdown": "# 제목\n\n| a | b |\n|---|---|\n\n> 인용\n",
+    })
+    page = client.get(f"/drafts/{made['draft_id']}").text
+    assert "표" in page and "인용문" in page
+
+
+def test_붙여넣기는_마크다운이다(client):
+    """티스토리는 2019년부터 마크다운 모드를 지원한다.
+    HTML 로 바꿔 넣으면 원본이 그 자리에서 사라진다.
+    """
+    made = _draft(client)
+    page = client.get(f"/drafts/{made['draft_id']}").text
+    붙여넣기 = page.split('id="paste"')[1].split("</textarea>")[0]
+    assert "## 문제" in 붙여넣기
+    assert "<h2>" not in 붙여넣기
+
+
+def test_화면에서_고친_본문이_저장된다(client):
+    made = _draft(client)
+    token = client.app.state.ctx.settings.token
+
+    saved = client.post(
+        f"/web/drafts/{made['draft_id']}/edit",
+        data={"_token": token, "markdown": "# 손으로 고친 제목\n\n손으로 쓴 문장\n"},
+        follow_redirects=False,
+    )
+
+    assert saved.status_code == 302
+    row = client.app.state.ctx.records.latest_draft_of("connection-pool")
+    assert "손으로 쓴 문장" in row["markdown"]
+
+
+def test_토큰_없이는_고치지_못한다(client):
+    """`/web/*` 는 인증 미들웨어 바깥이라 폼 토큰이 유일한 방어선이다."""
+    made = _draft(client)
+    거절 = client.post(
+        f"/web/drafts/{made['draft_id']}/edit",
+        data={"markdown": "몰래 고친다"}, follow_redirects=False,
+    )
+    assert 거절.status_code == 401
+
+
+def test_요청을_적으면_붙여넣을_한_줄에_얹힌다(client):
+    """데몬은 모델을 부르지 않는다. 옮겨 적는 수고를 줄이는 데까지다."""
+    made = _draft(client)
+    page = client.get(
+        f"/drafts/{made['draft_id']}", params={"ask": "측정 절에 수치를 앞뒤로"}
+    ).text
+    assert "측정 절에 수치를 앞뒤로" in page
+    assert f"draft={made['draft_id']}" in page
+
+
+def test_블로그를_모르면_링크를_만들지_않는다(client):
+    """데몬이 어느 블로그인지 짐작하지 않는다. `publish_repo` 와 같은 규칙이다."""
+    made = _draft(client)
+    assert "manage/newpost" not in client.get(f"/drafts/{made['draft_id']}").text
+
+
+def test_블로그를_설정하면_글쓰기_링크가_생긴다(client):
+    import dataclasses
+
+    ctx = client.app.state.ctx
+    ctx.settings = dataclasses.replace(ctx.settings, tistory_blog="myblog.tistory.com")
+    made = _draft(client)
+    page = client.get(f"/drafts/{made['draft_id']}").text
+    assert "https://myblog.tistory.com/manage/newpost/" in page

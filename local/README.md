@@ -104,12 +104,18 @@ Codex / Claude Code / Antigravity
 - `/d/{date}?deleted=1` — 삭제한 기록 (되살릴 것을 고르는 자리라 학습 기록은 안 나온다)
 - `/t` — 오늘 기록을 주제로 묶은 목록. 건수 1건 이하는 '미분류' 로 모인다
 - `/t/{slug}` — 한 주제의 전체 기록과 부족한 재료. [초안 만들기] 가 여기 있다
-- `/drafts/{id}` — 6단 초안, 남은 TODO 수, 붙여넣기용 HTML, [발행함] 표시.
-  `WARRURU_PUBLISH_REPO` 를 정하면 [비공개 저장소에 밀어 넣기] 가 함께 생긴다
+- `/drafts/{id}` — 6단 초안. 미리보기 · 본문 고치기 · 붙여넣기용 **마크다운** ·
+  [발행함] 표시. `WARRURU_PUBLISH_REPO` 를 정하면 [비공개 저장소에 밀어 넣기] 가,
+  `WARRURU_TISTORY_BLOG` 을 정하면 [글쓰기 화면 열기] 가 함께 생긴다
 - `/c/{YYYY-MM}` — 달력. 날짜 화면에 무언가 있는 날만 링크가 된다
 
 전부 Jinja2 서버 렌더링이다. JS 는 초안 화면의 복사 버튼 하나뿐이고(인라인 8줄),
 그 스크립트가 죽어도 textarea 전체 선택으로 대체된다.
+
+초안 화면의 [다듬기] 칸에 요청을 적으면 **붙여넣을 한 줄에 얹힌다.**
+데몬이 모델을 부르지는 않는다 — MCP 는 에이전트가 데몬을 부르는 단방향이라
+반대로 갈 길이 없고, 그 길을 내면 기록이 이 머신을 떠난다. 여기서 줄이는 것은
+옮겨 적는 수고까지다.
 조회는 토큰이 필요 없고, 상태를 바꾸는 폼만 토큰을 요구한다.
 
 ## 에이전트 기록 규칙
@@ -243,6 +249,7 @@ WARRURU_HTTP_TIMEOUT_SECONDS    AUTOSTART_DAEMON
 WARRURU_GIT_TIMEOUT_SECONDS     GIT_CACHE_TTL_SECONDS
 WARRURU_GIT_DIRTY_FILE_CAP      DRAFTS_ROOT  REPO_ROOT
 WARRURU_PUBLISH_REPO            NIGHTLY_DRAFT
+WARRURU_TISTORY_BLOG
 ```
 
 (전부 `WARRURU_` 접두사를 공유한다. 우선순위는

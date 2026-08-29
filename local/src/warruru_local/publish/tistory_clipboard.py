@@ -100,6 +100,43 @@ def to_html(markdown: str) -> str:
     return "\n".join(out)
 
 
+# 이 변환기가 **다루지 않는** 문법. 미리보기가 조용히 문단으로 눕히는 것들이다.
+#
+# 범위를 넓히는 대신 알려 주기로 했다. 조립기가 만드는 문법은 위 다섯 개
+# (제목 · 불릿 · 코드펜스 · 굵게 · 인라인코드) 안에 있고, 사람이 손으로 더한
+# 문법까지 그리려면 완전한 마크다운 처리기를 유지해야 한다.
+# **모르는 것을 그리지 않는 것보다, 모른다고 말하지 않는 것이 나쁘다.**
+UNSUPPORTED = (
+    (re.compile(r"^\s*\|.*\|"), "표"),
+    (re.compile(r"^\s*>\s"), "인용문"),
+    (re.compile(r"^\s*\d+\.\s"), "번호 목록"),
+    (re.compile(r"^\s*(---|\*\*\*|___)\s*$"), "가로줄"),
+    (re.compile(r"!\[[^\]]*\]\("), "이미지"),
+    (re.compile(r"(?<!!)\[[^\]]+\]\("), "링크"),
+)
+
+
+def unsupported_syntax(markdown: str) -> list[str]:
+    """미리보기가 못 그리는 문법의 이름들. 코드블록 안은 세지 않는다.
+
+    미리보기는 티스토리를 **재현하지 않는다.** 구조가 맞는지 보는 자리다.
+    여기서 걸린 문법은 붙여넣은 뒤 티스토리에서 확인해야 한다 —
+    티스토리는 GFM 을 지원하므로 대개 잘 나오지만, **이 화면이 보장하지 않는다.**
+    """
+    found: list[str] = []
+    fenced = False
+    for line in markdown.splitlines():
+        if line.strip().startswith(_FENCE):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        for pattern, name in UNSUPPORTED:
+            if name not in found and pattern.search(line):
+                found.append(name)
+    return found
+
+
 class TistoryClipboardTarget(PublishTarget):
     name = "tistory_clipboard"
 

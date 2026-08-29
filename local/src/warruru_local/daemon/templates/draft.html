@@ -25,7 +25,16 @@
     아래 한 줄을 에이전트에게 붙여넣는다. 붙여넣지 않아도 초안 파일은 이미 있다 —
     다듬기는 관문이 아니라 선택지다.
   </p>
-  <pre class="body">{{ view.polish_prompt }}</pre>
+  <pre class="body">{{ view.ask_line or view.polish_prompt }}</pre>
+
+  {# 요청을 여기 적으면 위 한 줄에 얹힌다. **데몬이 모델을 부르지는 않는다** —
+     MCP 는 에이전트가 데몬을 부르는 단방향이라 반대로 갈 길이 없다.
+     여기서 줄일 수 있는 것은 옮겨 적는 수고까지다. #}
+  <form method="get" action="/drafts/{{ view.draft_id }}">
+    <input type="text" name="ask" value="{{ view.ask or '' }}"
+           placeholder="무엇을 고칠까 — 예: 측정 절에 수치를 앞뒤로 나눠 적어라">
+    <button type="submit">한 줄에 얹기</button>
+  </form>
 </section>
 
 <section class="tool">
@@ -36,17 +45,27 @@
     </p>
   {% else %}
     <p class="meta">
-      아래를 복사해 티스토리 에디터에 붙여넣고 <strong>비공개</strong>로 저장한다.
+      아래 <strong>마크다운</strong>을 복사해 티스토리 에디터의
+      <strong>마크다운 모드</strong>에 붙여넣고 <strong>비공개</strong>로 저장한다.
       티스토리 공식 API 는 2024년 2월에 종료됐다 — 마지막 10초만 사람이 한다.
     </p>
     <p class="meta">
       복사 버튼이 동작하지 않으면 상자를 클릭하고 <strong>전체 선택</strong>(⌘A)해도 된다.
     </p>
-    <textarea id="paste" class="body" rows="10" readonly>{{ view.paste_html }}</textarea>
+    <textarea id="paste" class="body" rows="10" readonly>{{ view.paste_markdown }}</textarea>
     <p>
       <button type="button" onclick="copyPaste()">복사</button>
+      {% if view.tistory_url %}
+        <a href="{{ view.tistory_url }}" target="_blank" rel="noopener">글쓰기 화면 열기 ↗</a>
+      {% endif %}
       <span id="copied" class="meta"></span>
     </p>
+    {# 기본 모드로 쓰는 경우를 위해 HTML 도 남긴다. 접어 두는 이유는
+       마크다운으로 넣는 편이 원본을 지키기 때문이다. #}
+    <details>
+      <summary class="meta">기본 모드용 HTML</summary>
+      <textarea class="body" rows="8" readonly>{{ view.paste_html }}</textarea>
+    </details>
     <form method="post" action="/web/drafts/{{ view.draft_id }}/published">
       <input type="hidden" name="_token" value="{{ token }}">
       <input type="url" name="published_url" required
@@ -90,8 +109,40 @@
 {% endif %}
 
 <section class="tool">
-  <h2>본문</h2>
-  <p class="meta">정본은 이 파일이다: <code>{{ view.file_path }}</code></p>
-  <pre class="body">{{ view.markdown }}</pre>
+  <h2>미리보기</h2>
+  <p class="meta">
+    <strong>티스토리를 재현하지 않는다.</strong> 구조가 맞는지 보는 자리다 —
+    실제 모양은 붙여넣은 뒤 티스토리에서 확인한다.
+  </p>
+  {% if view.unsupported %}
+  <p class="empty">
+    이 미리보기가 못 그리는 문법이 있다:
+    <strong>{{ view.unsupported | join(' · ') }}</strong>.
+    아래에서는 그냥 문단으로 보이지만 티스토리는 대개 잘 그린다 —
+    <strong>이 화면이 보장하지 않을 뿐이다.</strong>
+  </p>
+  {% endif %}
+  <article class="preview">{{ view.preview_html | safe }}</article>
+</section>
+
+<section class="tool">
+  <h2>본문 고치기</h2>
+  {% if saved %}
+  <p class="meta"><span class="badge ok">저장함</span> 파일과 행을 함께 고쳤습니다.</p>
+  {% endif %}
+  <p class="meta">
+    정본은 이 파일이다: <code>{{ view.file_path }}</code>
+  </p>
+  {% if view.status == "PUBLISHED" %}
+    <pre class="body">{{ view.markdown }}</pre>
+  {% else %}
+  <form method="post" action="/web/drafts/{{ view.draft_id }}/edit">
+    <input type="hidden" name="_token" value="{{ token }}">
+    {# 꼬리말째로 보여 주고 그대로 받는다. 발행 본문만 보여 주면
+       저장할 때 꼬리말이 사라져 재료를 되짚을 길이 끊긴다. #}
+    <textarea name="markdown" class="body" rows="24">{{ view.markdown }}</textarea>
+    <p><button class="primary" type="submit">저장</button></p>
+  </form>
+  {% endif %}
 </section>
 {% endblock %}

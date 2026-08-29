@@ -299,6 +299,31 @@
     line-height: 1.55; overflow-x: auto;
   }
 
+  /* ── 미리보기 ───────────────────────────────────────────
+     티스토리를 흉내내지 않는다. 흉내내면 '여기서 이렇게 보였는데' 가
+     생기고, 그 순간 이 화면이 못 지킬 약속을 한 것이 된다.
+     여기서 하는 일은 **구조가 맞는지** 보이는 것까지다. */
+  .preview {
+    margin: .7rem 0 0; padding: .9rem 1.1rem;
+    background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px;
+  }
+  .preview > :first-child { margin-top: 0; }
+  .preview > :last-child { margin-bottom: 0; }
+  .preview h1 { font-size: 1.25rem; margin: 1.1rem 0 .4rem; }
+  .preview h2 { font-size: 1.08rem; margin: 1.1rem 0 .4rem; }
+  .preview h3 { font-size: 1rem; margin: .9rem 0 .35rem; }
+  .preview p { margin: .5rem 0; line-height: 1.7; }
+  .preview ul { margin: .5rem 0; padding-left: 1.2rem; }
+  .preview li { margin: .2rem 0; line-height: 1.65; }
+  .preview pre {
+    font-family: var(--mono); font-size: var(--t-md);
+    background: var(--ground); border: 1px solid var(--rule); border-radius: 4px;
+    margin: .6rem 0; padding: .6rem .7rem; overflow-x: auto;
+  }
+  .preview pre code { background: none; padding: 0; }
+
+  details > summary { cursor: pointer; margin-top: .5rem; }
+
   /* ── 조작 ───────────────────────────────────────────── */
   form.inline { display: inline; }
   button {

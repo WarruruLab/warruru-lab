@@ -50,6 +50,11 @@ class Settings:
     # 끄는 자리를 두는 이유는, 파일을 스스로 만드는 기능이라 놀랄 수 있어서다.
     nightly_draft: bool = True
 
+    # 티스토리 블로그 호스트(`myblog.tistory.com`). 있으면 초안 화면이
+    # 글쓰기 화면으로 가는 링크를 준다. 기본값을 두지 않는 이유는
+    # `publish_repo` 와 같다 — 데몬이 어느 블로그인지 짐작하지 않는다.
+    tistory_blog: str | None = None
+
 
 def _env_int(key: str, fallback: int) -> int:
     raw = os.environ.get(key)
@@ -105,6 +110,19 @@ def load_or_create_machine(home: Path) -> dict:
     return record
 
 
+def _tistory_host(value: str | None) -> str | None:
+    """`https://myblog.tistory.com/` 를 붙여 넣어도 호스트만 남긴다.
+
+    설정값 하나 때문에 링크가 `https://https://…` 가 되는 일은
+    사람이 잘못 적어서가 아니라 받는 쪽이 좁아서 생긴다.
+    """
+    if not value:
+        return None
+    host = value.strip().removeprefix("https://").removeprefix("http://")
+    host = host.split("/")[0].strip()
+    return host or None
+
+
 def load_settings(home: Path | None = None) -> Settings:
     resolved = home if home is not None else paths.warruru_home()
     paths.ensure_layout(resolved)
@@ -133,6 +151,7 @@ def load_settings(home: Path | None = None) -> Settings:
         ),
         repo_root=_repo_root(),
         nightly_draft=os.environ.get("WARRURU_NIGHTLY_DRAFT", "1") != "0",
+        tistory_blog=_tistory_host(os.environ.get("WARRURU_TISTORY_BLOG")),
         publish_repo=(
             Path(os.environ["WARRURU_PUBLISH_REPO"]).expanduser()
             if os.environ.get("WARRURU_PUBLISH_REPO")

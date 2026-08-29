@@ -12,6 +12,7 @@ from warruru_local.clock import (
     local_time_or_none,
 )
 from warruru_local.daemon import draft as draft_builder
+from warruru_local.publish import tistory_clipboard
 from warruru_local.publish.tistory_clipboard import TistoryClipboardTarget
 
 # 1건뿐인 주제가 모이는 자리. 표기가 갈린 것을 눈에 띄게 하는 오타 교정 장치다.
@@ -92,7 +93,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
     }
 
 
-def build_draft(ctx, draft_id: str) -> dict | None:
+def build_draft(ctx, draft_id: str, ask: str | None = None) -> dict | None:
     """초안 한 편. 남은 TODO 와 다듬기 프롬프트를 함께 준다.
 
     다듬기는 관문이 아니라 선택지다 — 붙여넣지 않고 자도 파일은 이미 있다.
@@ -103,6 +104,9 @@ def build_draft(ctx, draft_id: str) -> dict | None:
         return None
 
     markdown = row["markdown"] or ""
+    # 꼬리말(`조립에 쓴 기록 …`)은 정본 파일에만 남는다. 미리보기와 붙여넣기는
+    # 둘 다 발행 본문을 본다 — 독자에게 `rec_01M0…` 은 아무 뜻이 없다.
+    body = draft_builder.body_only(markdown)
     return {
         "draft_id": row["draft_id"],
         "topic": row["topic"],
@@ -122,6 +126,26 @@ def build_draft(ctx, draft_id: str) -> dict | None:
         # 설정이 없으면 이 기능은 아예 없다. 데몬이 어느 저장소가 비공개인지
         # 짐작하지 않는다 — 틀리게 짐작하면 초안이 공개 저장소로 간다.
         "push_repo": str(ctx.settings.publish_repo) if ctx.settings.publish_repo else None,
+        # 미리보기. **티스토리를 재현하지 않는다** — 구조가 맞는지 보는 자리다.
+        # 못 그리는 문법은 아래에서 이름으로 알려 준다.
+        "preview_html": tistory_clipboard.to_html(body),
+        "unsupported": tistory_clipboard.unsupported_syntax(body),
+        # 붙여넣을 마크다운. 티스토리는 2019년부터 마크다운 모드를 지원하므로
+        # HTML 로 바꿔 넣을 이유가 없다 — 바꾸면 원본이 그 자리에서 사라진다.
+        "paste_markdown": body,
+        "tistory_url": (
+            f"https://{ctx.settings.tistory_blog}/manage/newpost/"
+            if ctx.settings.tistory_blog else None
+        ),
+        # 사람이 적은 요청을 붙여넣을 한 줄에 얹는다. 데몬은 에이전트를
+        # 부를 수 없으므로(MCP 는 단방향이다) 여기서 할 수 있는 일은
+        # **옮겨 적는 수고를 줄이는 것**까지다.
+        "ask": ask,
+        "ask_line": (
+            f"{row['topic_slug']} 초안을 다듬어라."
+            f" draft={row['draft_id']} 요청=\"{ask.strip()}\""
+            if ask and ask.strip() else None
+        ),
         "paste_html": TistoryClipboardTarget().publish(
             # 정본 파일에는 꼬리말이 남고 발행 본문에서는 빠진다.
             # 독자에게 rec_01M0… 은 아무 뜻이 없다.
