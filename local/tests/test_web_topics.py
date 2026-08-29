@@ -314,6 +314,40 @@ def test_상세도_같은_막대를_쓴다(client):
     assert 'class="gauge"' in client.get("/t/connection-pool").text
 
 
+def test_지난_주제도_막대를_가진다(client):
+    """지난 주제야말로 '이걸 글로 쓸 수 있나' 를 묻는 자리다.
+    막대가 없으면 건수만 보고 눌러야 한다.
+    """
+    _record(client, "rec_A", occurred_at="2026-08-20T09:00:00.000Z",
+            rationale="골랐다")
+    지난 = client.get("/t").text.split("지난 주제")[1]
+    assert 'class="gauge"' in 지난
+    assert 지난.count('class="seg') == 4
+
+
+def test_막대는_하루치가_아니라_주제_전체를_센다(client):
+    """초안 조립기는 그 주제의 기록을 **전부** 재료로 쓴다.
+
+    하루로 자르면 어제 채운 rationale 이 오늘 빈칸으로 보이고, 같은 주제인데
+    `/t` 와 `/t/{slug}` 가 다른 막대를 그린다.
+    """
+    _record(client, "rec_어제", occurred_at="2026-08-23T09:00:00.000Z",
+            rationale="골랐다")
+    # 오늘 2건이어야 '미분류' 가 아니라 본 구획에 앉아 막대가 그려진다.
+    _record(client, "rec_오늘_1", occurred_at="2026-08-24T09:00:00.000Z")
+    _record(client, "rec_오늘_2", occurred_at="2026-08-24T10:00:00.000Z")
+
+    오늘 = client.get("/t").text.split("지난 주제")[0]
+    상세 = client.get("/t/connection-pool").text
+
+    # 오늘치만 세면 rationale 이 빈칸이라 '재료 0/4' 가 된다.
+    assert "재료 1/4" in 오늘
+    # 두 화면이 같은 막대를 그린다. 이 둘이 갈리는 것이 원래 문제였다.
+    assert "재료 1/4" in 상세
+    # 채움 너비도 3건 중 1건이다 — 분모가 하루치(2건)면 0% 로 보인다.
+    assert "width: 33%" in 오늘
+
+
 # ── 면접 문장은 학습 화면에만 (2026-08-25) ──────────────────────────
 
 def test_주제_화면이_면접_문장을_보여준다(client):

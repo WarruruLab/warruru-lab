@@ -144,10 +144,14 @@ def build_index(ctx, date: str) -> dict:
 
     published = ctx.records.published_slugs()
 
-    # 재료 막대의 재료. 슬러그마다 따로 물으면 주제 수만큼 질의가 나가므로
-    # 하루치를 **한 번** 읽어 파이썬에서 접는다. 하루 기록은 많아야 수십 건이다.
+    # 재료 막대의 재료. 질의 **한 번**으로 전부 읽어 슬러그별로 접는다.
+    #
+    # 하루치가 아니라 전체를 센다. 막대가 답하는 질문은 '이 주제가 글이 될
+    # 준비가 되었는가' 이고, 초안 조립기는 그 주제의 기록을 **전부** 재료로
+    # 쓰기 때문이다. 하루로 자르면 어제 채운 rationale 이 오늘 빈칸으로
+    # 보이고, 같은 주제인데 `/t` 와 `/t/{slug}` 가 다른 막대를 그린다.
     by_slug: dict[str, list[dict]] = {}
-    for record in ctx.records.list_records(since=start, until=end, limit=100):
+    for record in ctx.records.material_rows():
         by_slug.setdefault(record["topic_slug"], []).append(record)
 
     def _with_flag(row: dict) -> dict:
@@ -163,13 +167,11 @@ def build_index(ctx, date: str) -> dict:
     # '얼마나 많이' 보다 '언제가 마지막이었나' 가 먼저 궁금하다.
     # (`slug_summary` 의 기본 정렬은 건수순이라 여기서 다시 세운다.)
     #
-    # 재료 막대는 여기에 붙이지 않는다. 슬러그마다 기록을 읽어야 하는데
-    # 지난 주제는 수가 늘기만 하므로 그대로 두면 주제 수만큼 질의가 나간다.
-    # 막대는 한 번 눌러 `/t/{slug}` 에 들어가면 있고, 그 화면이 원래 그
-    # 판단을 하는 자리다.
+    # 막대는 오늘 구획과 **같은 접기**를 쓴다. 지난 주제야말로 '이걸 글로
+    # 쓸 수 있나' 를 묻는 자리인데 거기에 막대가 없으면 건수만 보고 눌러야 한다.
     today_slugs = {row["topic_slug"] for row in rows}
     past = [
-        _group(row) | {"published": row["topic_slug"] in published}
+        _with_flag(row)
         for row in sorted(
             ctx.records.slug_summary(),
             key=lambda row: row["last_occurred_at"],

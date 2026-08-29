@@ -58,7 +58,7 @@
 <section class="tool">
   <h2>지난 주제</h2>
   <p class="meta">
-    오늘 만지지 않은 주제다. 최근순이며, 재료 막대는 눌러 들어가면 있다.
+    오늘 만지지 않은 주제다. 최근순으로 놓았다.
   </p>
   {% for group in view.past %}
   <article class="work">
@@ -71,6 +71,9 @@
       <span class="meta">마지막 {{ group.last_date }}</span>
       {% if group.published %}<span class="badge ok">발행함</span>{% endif %}
     </div>
+    {# 오늘 구획과 같은 막대다. 지난 주제야말로 '이걸 글로 쓸 수 있나' 를
+       묻는 자리라, 여기에 막대가 없으면 건수만 보고 눌러야 한다. #}
+    <div class="meta">{% with material = group.material %}{% include "_gauge.html" %}{% endwith %}</div>
   </article>
   {% endfor %}
 </section>
