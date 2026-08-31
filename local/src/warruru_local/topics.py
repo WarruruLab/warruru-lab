@@ -304,6 +304,60 @@ SLUG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 
 
+# 로드맵 100개에 **없는** CS 기초. 출처는 아래 둘이다(2026-08-31 확인).
+#
+#   TeachYourselfCS-KR      https://github.com/minnsane/TeachYourselfCS-KR
+#   tech-interview-for-developer
+#                           https://github.com/gyoogle/tech-interview-for-developer
+#
+# 31주 로드맵은 **직접 만들어 보는 것**을 다룬다. 그래서 운영체제·네트워크·
+# 데이터베이스는 이미 있는데, 면접에서 실제로 묻는 자료구조·알고리즘·
+# 컴퓨터구조·디자인패턴·웹 기초가 통째로 비어 있었다.
+#
+# **`RECOMMENDED_SLUGS` 에 합치지 않는다.** 그쪽은 로드맵 부록 A 가 원본이고
+# 문서가 곧 데이터다. 여기 것을 섞으면 "로드맵 위인가" 라는 질문에 답할 수
+# 없게 된다 — 기록의 `recommended` 플래그가 뜻을 잃는다.
+CS_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("ds", "자료구조", (
+        "ds-array-linkedlist", "ds-stack-queue", "ds-hash", "ds-tree-bst",
+        "ds-heap", "ds-graph", "ds-btree", "ds-trie",
+    )),
+    ("algo", "알고리즘", (
+        "algo-complexity", "algo-sorting", "algo-binary-search", "algo-dfs-bfs",
+        "algo-dp", "algo-greedy", "algo-shortest-path",
+    )),
+    ("cpu", "컴퓨터구조", (
+        "arch-cpu", "arch-cache-memory", "arch-memory-hierarchy",
+        "arch-floating-point", "arch-von-neumann",
+    )),
+    ("lang", "자바 · 런타임", (
+        "lang-compile-process", "lang-jvm-memory", "lang-call-by-value",
+        "lang-string-pool", "lang-collection", "lang-exception",
+        "lang-serialization",
+    )),
+    ("oop", "객체지향", (
+        "oop-solid", "oop-polymorphism", "oop-inheritance-composition",
+        "oop-immutable",
+    )),
+    ("pattern", "디자인패턴", (
+        "pattern-singleton", "pattern-factory", "pattern-strategy",
+        "pattern-observer", "pattern-template-method", "pattern-proxy",
+    )),
+    ("web", "웹 기초", (
+        "web-cookie-session", "web-http-method", "web-http-status", "web-rest",
+        "web-jwt", "web-oauth", "web-csrf-xss", "web-was-vs-webserver",
+    )),
+    ("dist", "분산시스템", (
+        "dist-cap", "dist-replication", "dist-sharding",
+        "dist-consistent-hashing",
+    )),
+)
+
+CS_SLUGS: tuple[str, ...] = tuple(
+    slug for _, _, slugs in CS_GROUPS for slug in slugs
+)
+
+
 # 자격증마다 **로드맵 주제와 겹치는 부분**. 시험 범위 자체가 아니다.
 #
 # 이 목록은 "이 자격증을 딸 때 공부하는 것 중, 이 프로젝트에 기록으로 남길

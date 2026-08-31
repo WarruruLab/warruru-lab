@@ -449,3 +449,37 @@ def test_수상한_링크는_걸지_않는다(client, home):
     page = client.get("/career/cert/network-2").text
     assert "javascript:alert" not in page
     assert "나쁜 링크" not in page
+
+
+# ── CS 지식 (2026-08-31) ─────────────────────────────────────────────
+
+def test_허브에_CS_묶음이_선다(client):
+    page = client.get("/career").text
+    assert 'href="/career/stack/ds"' in page
+    assert "자료구조" in page and "디자인패턴" in page
+
+
+def test_CS_묶음_화면이_열린다(client):
+    page = client.get("/career/stack/algo").text
+    assert "algo-dfs-bfs" in page
+    assert "db-index" not in page
+
+
+def test_두_축을_한_막대로_합치지_않는다(ctx):
+    """로드맵은 만들어 보는 것, CS 는 묻는 것이다. 합치면 어느 쪽이 비었는지 모른다."""
+    view = careerview.build_stack(ctx)
+    assert view["coverage"]["total"] == 100
+    assert view["cs_coverage"]["total"] == 49
+
+
+def test_CS_기록도_그_자리에서_센다(client):
+    assert "0 / 49 슬러그" in client.get("/career/stack").text
+    _record(client, "ds-hash")
+    assert "1 / 49 슬러그" in client.get("/career/stack").text
+
+
+def test_CS_슬러그는_로드맵_밖_구획에_안_간다(client):
+    """어느 목록에도 없는 것만 '로드맵 밖' 이다."""
+    _record(client, "ds-hash")
+    page = client.get("/career/stack").text
+    assert "로드맵 밖" not in page

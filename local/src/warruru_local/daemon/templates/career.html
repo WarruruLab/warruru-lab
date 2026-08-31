@@ -12,7 +12,6 @@
 
 <section class="tool">
   <h2><a href="/career/stack">나의 기술스택</a></h2>
-  <div class="meta">{% with coverage = stack.coverage %}{% include "_coverage.html" %}{% endwith %}</div>
   <h3 class="sub">자격증</h3>
   <ul class="picks">
     {% for cert in certs %}
@@ -28,7 +27,17 @@
     {% endfor %}
   </ul>
 
-  <h3 class="sub">주제</h3>
+  <h3 class="sub">CS 지식 <span class="quiet">{{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
+  <ul class="picks">
+    {% for group in stack.cs_groups %}
+    <li>
+      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
+      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="sub">로드맵 주제 <span class="quiet">{{ stack.coverage.covered }}/{{ stack.coverage.total }}</span></h3>
   <ul class="picks">
     {% for group in stack.groups %}
     <li>

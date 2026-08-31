@@ -92,6 +92,29 @@ description: Record development learnings into the local Warruru daemon through 
 `github-actions-pipeline` · `k8s-pod-deployment` · `k8s-service-ingress` · `k8s-configmap-secret`
 `k8s-probe` · `k8s-hpa` · `prometheus-grafana` · `k8s-necessity`
 
+## CS 기초는 이쪽 목록에서 고른다
+
+로드맵 100개에는 자료구조·알고리즘·컴퓨터구조·디자인패턴·웹 기초가 없다.
+로드맵이 **직접 만들어 보는 것**을 다루기 때문인데, 면접에서는 이쪽을 묻는다.
+그래서 목록을 하나 더 둔다.
+
+| 묶음 | 슬러그 |
+|---|---|
+| 자료구조 | `ds-array-linkedlist` `ds-stack-queue` `ds-hash` `ds-tree-bst` `ds-heap` `ds-graph` `ds-btree` `ds-trie` |
+| 알고리즘 | `algo-complexity` `algo-sorting` `algo-binary-search` `algo-dfs-bfs` `algo-dp` `algo-greedy` `algo-shortest-path` |
+| 컴퓨터구조 | `arch-cpu` `arch-cache-memory` `arch-memory-hierarchy` `arch-floating-point` `arch-von-neumann` |
+| 자바 · 런타임 | `lang-compile-process` `lang-jvm-memory` `lang-call-by-value` `lang-string-pool` `lang-collection` `lang-exception` `lang-serialization` |
+| 객체지향 | `oop-solid` `oop-polymorphism` `oop-inheritance-composition` `oop-immutable` |
+| 디자인패턴 | `pattern-singleton` `pattern-factory` `pattern-strategy` `pattern-observer` `pattern-template-method` `pattern-proxy` |
+| 웹 기초 | `web-cookie-session` `web-http-method` `web-http-status` `web-rest` `web-jwt` `web-oauth` `web-csrf-xss` `web-was-vs-webserver` |
+| 분산시스템 | `dist-cap` `dist-replication` `dist-sharding` `dist-consistent-hashing` |
+
+**여기 것은 `recommended: true` 가 아니다.** 그 플래그는 "31주 로드맵 위인가"
+를 뜻하고 이쪽은 로드맵 밖이라서다. 잘못 적은 것이 아니니 신경 쓰지 마라.
+
+출처는 [TeachYourselfCS-KR](https://github.com/minnsane/TeachYourselfCS-KR) 과
+[tech-interview-for-developer](https://github.com/gyoogle/tech-interview-for-developer) 다.
+
 ## 글로 만들 때
 
 - 하루 끝에 `http://127.0.0.1:8787/t` 를 열면 그날 기록이 주제로 묶여 있다.
