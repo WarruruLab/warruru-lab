@@ -12,30 +12,32 @@
   구글 폰트 한 줄이면 비행기 안에서 이 화면이 무너진다. 대신 표제를
   **모노로 세운다** — 이건 터미널에서 사는 도구이고, 그 성격이 곧 글꼴이다.
 
-  **색은 축 하나만 뜻한다: 이 주제가 글이 될 준비가 되었는가.**
-  이끼색은 재료가 있다(끝점은 '발행함'), 흙색은 비었다.
-  그 축 밖의 것 — 미커밋 변경, 작업 상태, kind — 은 색을 쓰지 않는다.
-  링크도 색이 아니라 밑줄로 알린다. 색이 두 가지를 뜻하기 시작하면
-  이 화면이 답해야 하는 질문("오늘 뭘 글로 쓸 수 있나")이 흐려진다.
+  DevTalk 의 색과 표면을 이어 쓴다. 파랑은 탐색과 조작, 초록과 주황은
+  글의 재료 상태에만 쓴다. 같은 제품군의 화면이 서로 다른 서비스처럼
+  보이지 않게 하되, 상태의 의미는 장식과 섞지 않는다.
 #}
 <style>
   :root {
-    color-scheme: light dark;
+    color-scheme: light;
 
-    --ground:    #eef0ea;
-    --panel:     #f9faf6;
-    --panel-2:   #e4e7dd;
-    --ink:       #1b201c;
-    --ink-soft:  #4f5a51;
-    --ink-faint: #7e8a7f;
-    --rule:      #d5dacc;
-    --rule-soft: #e3e7db;
+    /* WarruruLab/DevTalk frontend/src/App.css 의 실제 토큰 */
+    --ground:    #f4f7f9;
+    --panel:     #ffffff;
+    --panel-2:   #f8f9fa;
+    --ink:       #2d3436;
+    --ink-soft:  #636e72;
+    --ink-faint: #8b949e;
+    --rule:      #e1e4e8;
+    --rule-soft: #edf0f2;
+    --primary:   #4a90e2;
+    --primary-hover: #357abd;
+    --primary-soft: #e3f2fd;
 
     /* 유일한 의미색 */
-    --full:      #4d6b23;   /* 재료가 있다 */
-    --full-soft: #dde6c9;
-    --gap:       #8c4f35;   /* 재료가 비었다 */
-    --gap-soft:  #eedfd6;
+    --full:      #28a745;   /* 재료가 있다 */
+    --full-soft: #d4edda;
+    --gap:       #b06b00;   /* 재료가 비었다 */
+    --gap-soft:  #fff3cd;
 
     --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
             "Malgun Gothic", sans-serif;
@@ -49,25 +51,7 @@
     --t-lg: 1.05rem;
     --t-xl: 1.45rem;
 
-    --radius: 6px;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground:    #141814;
-      --panel:     #1b211c;
-      --panel-2:   #242b24;
-      --ink:       #e6eae2;
-      --ink-soft:  #a3ada2;
-      --ink-faint: #74806f;
-      --rule:      #2d352d;
-      --rule-soft: #232a23;
-
-      --full:      #9dbf5f;
-      --full-soft: #24301a;
-      --gap:       #d09068;
-      --gap-soft:  #33241c;
-    }
+    --radius: 12px;
   }
 
   * { box-sizing: border-box; }
@@ -99,9 +83,11 @@
     gap: .5rem 1.1rem;
     align-items: baseline;
     flex-wrap: wrap;
-    padding-bottom: .75rem;
+    padding: 1rem 1.15rem;
     margin-bottom: 1.4rem;
-    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
   }
   h1 {
     font-family: var(--mono);
@@ -115,11 +101,20 @@
 
   nav { display: flex; gap: .9rem; flex-wrap: wrap; font-size: var(--t-md); }
 
-  /* 링크는 색이 아니라 밑줄로 알린다. 색은 재료 상태만 뜻한다. */
+  /* 본문 링크는 밑줄, 탐색과 조작은 DevTalk 파랑으로 알린다. */
   a { color: inherit; text-decoration: underline; text-underline-offset: .18em;
       text-decoration-color: var(--ink-faint); }
-  a:hover { text-decoration-color: var(--ink); }
-  nav a { text-decoration-thickness: 1px; }
+  a:hover { color: var(--primary); text-decoration-color: var(--primary); }
+  nav a {
+    color: var(--ink-soft); text-decoration: none; font-weight: 500;
+    padding: .35rem .5rem; border-radius: 6px;
+  }
+  nav a:hover { color: var(--primary); background: var(--primary-soft); }
+  nav .home-link {
+    color: #fff; background: var(--primary); font-weight: 700;
+    padding-inline: .7rem;
+  }
+  nav .home-link:hover { color: #fff; background: var(--primary-hover); }
 
   /* ── 카드 ───────────────────────────────────────────── */
   .tool {
@@ -129,6 +124,10 @@
     padding: 1rem 1.1rem;
     margin-bottom: 1rem;
   }
+  .tool {
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .tool:hover { border-color: #c9d9ea; }
   .tool > h2 {
     font-family: var(--mono);
     margin: 0 0 .85rem;
@@ -329,17 +328,17 @@
   button {
     font: inherit; font-size: var(--t-sm); line-height: 1.4;
     cursor: pointer; padding: .2rem .6rem;
-    border-radius: 5px;
+    border-radius: 8px;
     border: 1px solid var(--rule);
     background: transparent;
     color: var(--ink-soft);
   }
-  button:hover { border-color: var(--ink-faint); color: var(--ink); }
+  button:hover { border-color: var(--primary); color: var(--primary); }
   button.primary {
-    border-color: var(--ink); background: var(--ink);
-    color: var(--ground); font-weight: 600;
+    border-color: var(--primary); background: var(--primary);
+    color: #fff; font-weight: 600;
   }
-  button.primary:hover { opacity: .86; color: var(--ground); }
+  button.primary:hover { background: var(--primary-hover); color: #fff; }
   button.danger { color: var(--gap); border-color: var(--gap-soft); }
   button.danger:hover { border-color: var(--gap); color: var(--gap); }
 
@@ -354,7 +353,7 @@
     display: block; width: 100%;
     font-family: var(--mono); line-height: 1.55; resize: vertical;
   }
-  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
   /* ── 달력 ───────────────────────────────────────────────
      칠해진 날은 '기록이 있다' 는 뜻이라 재료색과 같은 계열을 쓴다. */

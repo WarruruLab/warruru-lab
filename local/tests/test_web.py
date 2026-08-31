@@ -364,3 +364,20 @@ def test_모든_화면이_내용을_한_컨테이너에_담는다(client, home):
         page = client.get(path).text
         assert "<main>" in page, path
         assert "</main>" in page, path
+
+
+def test_모든_화면에서_주제_홈으로_돌아갈_수_있다(client, home):
+    """세부 화면에 들어가도 주소를 고치지 않고 시작 화면으로 돌아간다."""
+    _seed(client)
+    client.post("/v1/records", json={
+        "record_id": "rec_H", "kind": "CONCEPT", "topic": "connection pool",
+        "title": "홈 버튼", "body": "본문", **COMMON,
+    })
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+
+    for path in (f"/d/{TODAY}", f"/d/{TODAY}?deleted=1", "/t",
+                 "/t/connection-pool", f"/c/{TODAY[:7]}",
+                 f"/drafts/{draft['draft_id']}"):
+        page = client.get(path).text
+        assert 'class="home-link" href="/t"' in page, path
+        assert 'aria-label="홈으로"' in page, path
