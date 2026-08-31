@@ -694,3 +694,56 @@ def test_다음에_할_것이_로드맵_순서에서_나온다(ctx, client):
     assert ahead[0]["slug"] == "net-tcp"
     _record(client, "net-tcp")
     assert careerview.build_stack(ctx)["ahead"][0]["slug"] == "net-udp"
+
+
+# ── 공고는 '요구 + 자소서' 다 (2026-09-01 확정) ───────────────────────
+
+ESSAY_NOTE = """---
+company: 현대오토에버
+required:
+  - RDBMS | db-index, db-transaction
+essays:
+  - 문제를 해결한 경험 | 1000자 | db-index
+  - 지원 동기 | 700자
+---
+
+# 메모
+"""
+
+
+def test_자소서_문항마다_붙일_기록을_센다(client, home):
+    """지원서 쓸 때 기록을 다시 뒤지지 않게, 무엇을 붙일지가 문항 옆에 있어야 한다."""
+    _write(home, "hyundai-autoever.md", ESSAY_NOTE)
+    _record(client, "db-index", interview="인덱스를 이렇게 잡았습니다")
+    page = client.get("/career/c/hyundai-autoever").text
+    assert "문제를 해결한 경험" in page
+    assert "1000자" in page
+    assert "붙일 기록 1건" in page
+    assert "인덱스를 이렇게 잡았습니다" in page
+
+
+def test_붙일_기록이_없으면_없다고_말한다(client, home):
+    """비슷한 것으로 채우면 지원서에 그대로 나가고 면접에서 답이 없다."""
+    _write(home, "hyundai-autoever.md", ESSAY_NOTE)
+    page = client.get("/career/c/hyundai-autoever").text
+    assert "붙일 기록 0건" in page
+    assert "붙일 기록이 없다" in page
+
+
+def test_슬러그를_안_적은_문항도_보인다(client, home):
+    _write(home, "hyundai-autoever.md", ESSAY_NOTE)
+    assert "지원 동기" in client.get("/career/c/hyundai-autoever").text
+
+
+def test_문항이_없으면_적는_법을_알려준다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/c/hyundai-autoever").text
+    assert "아직 문항이 없다" in page
+    assert "essays" in page
+
+
+def test_자소서가_요구_기술_뒤에_온다(client, home):
+    """이 화면이 답할 것은 '무엇을 요구하나' 와 '자소서를 어떻게 준비하나' 둘이다."""
+    _write(home, "hyundai-autoever.md", ESSAY_NOTE)
+    page = client.get("/career/c/hyundai-autoever").text
+    assert page.index("<h2>준비도</h2>") < page.index("<h2>자소서</h2>")
