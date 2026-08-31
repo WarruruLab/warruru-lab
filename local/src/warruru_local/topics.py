@@ -466,6 +466,19 @@ def label_of(slug: str) -> str:
     return SLUG_LABELS.get(slug, slug)
 
 
+def roadmap_index(slug: str) -> int:
+    """31주 로드맵에서 몇 번째인가. 목록 밖이면 맨 뒤다.
+
+    `RECOMMENDED_SLUGS` 의 순서가 곧 주차 순서다. **주차 번호는 세지 않는다**
+    — 밀리면 "늦었다" 가 매일 보이고, 그건 로드맵 문서가 하지 않기로 한 일이다.
+    순서만 안다.
+    """
+    try:
+        return RECOMMENDED_SLUGS.index(slug)
+    except ValueError:
+        return len(RECOMMENDED_SLUGS)
+
+
 def is_known(slug: str) -> bool:
     """이 슬러그가 **앞으로 기록이 쌓일 자리**인가.
 

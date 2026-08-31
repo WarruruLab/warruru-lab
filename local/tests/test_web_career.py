@@ -656,3 +656,41 @@ def test_묶음_머리말이_있으면_맨_위에_온다(client, home):
 def test_머리말이_없어도_묶음_화면은_열린다(client):
     """있으면 좋은 것이지 관문이 아니다."""
     assert client.get("/career/stack/algo").status_code == 200
+
+
+# ── 로드맵은 진도다 — 순서를 본다 (2026-09-01 확정) ──────────────────
+
+def test_로드맵_묶음이_로드맵_순서로_선다(ctx):
+    """공고에 나오는 말로 묶은 순서로는 다음에 뭘 할지가 안 나온다."""
+    labels = [g["label"] for g in careerview.build_stack(ctx)["groups"]]
+    assert labels[0] == "네트워크"          # `net-tcp` 가 로드맵 첫 주제다
+    assert labels.index("네트워크") < labels.index("Kubernetes")
+
+
+def test_묶음_안_슬러그도_로드맵_순서다(ctx):
+    from warruru_local.topics import roadmap_index
+
+    slugs = [row["slug"] for row in careerview.build_group(ctx, "db")["slugs"]]
+    assert slugs == sorted(slugs, key=roadmap_index)
+
+
+def test_로드맵_묶음은_진도가_맨_위다(client):
+    """'어디까지 왔는가' 를 물으러 오는 화면이다."""
+    page = client.get("/career/stack/db").text
+    assert "어디까지 왔나" in page
+    assert page.index("어디까지 왔나") < page.index("면접에서 묻는 것")
+
+
+def test_CS_묶음은_질문이_맨_위다(client):
+    """같은 템플릿이지만 축이 다르면 순서가 다르다."""
+    page = client.get("/career/stack/ds").text
+    assert "어디까지 왔나" not in page
+    assert page.index("면접에서 묻는 것") < page.index("내 기록")
+
+
+def test_다음에_할_것이_로드맵_순서에서_나온다(ctx, client):
+    """'먼저 할 것'(회사가 많이 요구) 과 다른 값이다 — 이쪽은 순서를 본다."""
+    ahead = careerview.build_stack(ctx)["ahead"]
+    assert ahead[0]["slug"] == "net-tcp"
+    _record(client, "net-tcp")
+    assert careerview.build_stack(ctx)["ahead"][0]["slug"] == "net-udp"
