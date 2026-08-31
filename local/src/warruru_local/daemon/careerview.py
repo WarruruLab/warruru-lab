@@ -98,6 +98,20 @@ def _quad(item: str) -> tuple[str, str, str, str]:
     return parts[0], parts[1], parts[2], parts[3]
 
 
+def parse_links(items) -> list[dict]:
+    """`라벨 | URL` 목록. **`http(s)` 가 아니면 걸지 않는다.**
+
+    자격증 노트와 주제 노트가 같은 모양을 쓴다. 각자 파싱하면 한쪽만
+    검사가 빠지고, 빠진 쪽은 아무도 눈치채지 못한다.
+    """
+    made = []
+    for item in items or []:
+        label, url = _pair(item)
+        if url and _SAFE_LINK.match(url):
+            made.append({"label": label or url, "url": url})
+    return made
+
+
 def _many(value) -> list[str]:
     """`a, b` 한 줄로 적든 목록으로 적든 같은 리스트가 나온다.
 
@@ -333,11 +347,7 @@ def _cert_note(ctx, key: str, today: str) -> dict:
         })
     exams.sort(key=lambda row: row["date"])
 
-    links = []
-    for item in meta.get("links") or []:
-        label, url = _pair(item)
-        if url and _SAFE_LINK.match(url):
-            links.append({"label": label or url, "url": url})
+    links = parse_links(meta.get("links"))
     return {
         "meta": meta,
         "issuer": meta.get("issuer") or "",

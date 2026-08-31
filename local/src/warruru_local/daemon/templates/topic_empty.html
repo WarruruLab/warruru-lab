@@ -51,5 +51,18 @@
   </p>
 </section>
 
+
+{% if view.note.refs or view.note.html %}
+<section class="tool">
+  <h2>참고</h2>
+  {% if view.note.refs %}
+  <nav aria-label="참고 자료">
+    {% for ref in view.note.refs %}<a href="{{ ref.url }}">{{ ref.label }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+  {% if view.note.html %}<div class="preview">{{ view.note.html|safe }}</div>{% endif %}
+</section>
+{% endif %}
+
 <p class="meta"><a href="/career/stack">← 기술스택</a></p>
 {% endblock %}

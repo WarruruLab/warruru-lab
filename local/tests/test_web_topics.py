@@ -463,3 +463,55 @@ def test_기록이_생기면_원래_화면으로_돌아간다(client):
     page = client.get("/t/ds-hash").text
     assert "아직 기록이 없다" not in page
     assert "해시 충돌" in page
+
+
+def _note(home, slug, text):
+    from warruru_local import paths
+
+    root = paths.topic_note_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{slug}.md").write_text(text, encoding="utf-8")
+
+
+NOTE = """---
+label: 해시
+refs:
+  - Hash | https://github.com/gyoogle/tech-interview-for-developer/blob/master/x.md
+  - 나쁜 링크 | javascript:alert(1)
+---
+
+# 확인할 것
+
+- 해시 충돌을 어떻게 해결하나?
+"""
+
+
+def test_참고_자료가_빈_주제_화면에_붙는다(client, home):
+    _note(home, "ds-hash", NOTE)
+    page = client.get("/t/ds-hash").text
+    assert "참고" in page
+    assert "해시 충돌을 어떻게 해결하나" in page
+    assert "github.com/gyoogle" in page
+
+
+def test_기록이_생겨도_참고는_남는다(client, home):
+    """면접 준비로 되읽을 때 필요하다."""
+    _note(home, "ds-hash", NOTE)
+    client.post("/v1/records", json={
+        "record_id": "rec_H", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "CONCEPT", "topic": "ds-hash", "title": "충돌", "body": "본문",
+    })
+    page = client.get("/t/ds-hash").text
+    assert "충돌" in page
+    assert "해시 충돌을 어떻게 해결하나" in page
+
+
+def test_노트가_없어도_주제_화면은_열린다(client):
+    """노트는 있으면 좋은 것이지 관문이 아니다."""
+    assert client.get("/t/algo-dp").status_code == 200
+
+
+def test_참고_링크도_수상하면_안_건다(client, home):
+    _note(home, "ds-hash", NOTE)
+    page = client.get("/t/ds-hash").text
+    assert "javascript:alert" not in page

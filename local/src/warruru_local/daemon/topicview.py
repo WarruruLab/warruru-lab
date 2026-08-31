@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from warruru_local import topics
+from warruru_local import paths, topics
 from warruru_local.clock import (
     local_date_or_none,
     local_day_bounds,
@@ -46,6 +46,22 @@ def _group(row: dict) -> dict:
     }
 
 
+def _note(ctx, topic_slug: str) -> dict:
+    """주제별 참고 노트. 없으면 빈 값이다 — 노트는 있으면 좋은 것이지 관문이 아니다."""
+    from warruru_local.daemon import careerview
+
+    path = paths.topic_note_dir(ctx.settings.home) / f"{topic_slug}.md"
+    if not path.is_file():
+        return {"refs": [], "html": ""}
+    meta, body = careerview.parse_front_matter(
+        path.read_text(encoding="utf-8", errors="replace")
+    )
+    return {
+        "refs": careerview.parse_links(meta.get("refs")),
+        "html": tistory_clipboard.to_html(body),
+    }
+
+
 def _build_empty(ctx, topic_slug: str) -> dict:
     """기록이 아직 없는 주제. **왜 이게 목록에 있는지**를 대신 보여준다.
 
@@ -65,6 +81,7 @@ def _build_empty(ctx, topic_slug: str) -> dict:
         "certs": [{"key": key, "name": name} for key, name in topics.certs_of(topic_slug)],
         "companies": careerview.demand(careerview.list_companies(ctx)).get(topic_slug, []),
         "recommended": topics.is_recommended(topic_slug),
+        "note": _note(ctx, topic_slug),
     }
 
 
@@ -118,6 +135,8 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         # 사람은 다시 만들거나 포기한다.
         "draft_id": (draft or {}).get("draft_id"),
         "draft_status": (draft or {}).get("status"),
+        # 기록이 쌓인 뒤에도 참고는 남는다. 면접 준비로 되읽을 때 필요하다.
+        "note": _note(ctx, topic_slug),
     }
 
 
