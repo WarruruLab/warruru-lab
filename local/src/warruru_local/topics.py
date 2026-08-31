@@ -252,53 +252,55 @@ def _literal(value) -> str:
 
 
 # 슬러그를 **공고에 흔히 나오는 말**로 묶은 것. 화면에서만 쓴다.
+# 첫 칸은 URL 에 쓰는 열쇠다 — 라벨은 사람이 읽는 말이라 언제든 다듬을 수
+# 있어야 하는데, 그게 주소에 들어가면 링크가 같이 깨진다.
 #
 # `RECOMMENDED_SLUGS` 는 로드맵 주차 순서라 공부 순서를 말하고, 이쪽은
 # "공고가 이 말을 쓰면 어느 슬러그를 보면 되는가" 를 말한다. 두 순서가 달라서
 # 한 상수로 합칠 수 없다 — 대신 **같은 100개를 빠짐없이 겹치지 않게 덮는지**
 # 를 테스트가 본다. 덮지 못하면 기술스택 화면에서 슬러그가 조용히 사라진다.
-SLUG_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Java / JVM", ("jvm-gc", "java-concurrency")),
-    ("Spring / Spring Boot", ("spring-di", "spring-mvc", "spring-transactional",
+SLUG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("java", "Java / JVM", ("jvm-gc", "java-concurrency")),
+    ("spring", "Spring / Spring Boot", ("spring-di", "spring-mvc", "spring-transactional",
                               "tx-boundary", "filter-vs-interceptor")),
-    ("REST API / API 설계", ("api-error-handling", "dto-separation", "net-http")),
-    ("JPA / ORM", ("jpa-persistence-context", "jpa-lazy-loading", "jpa-n-plus-one",
+    ("api", "REST API / API 설계", ("api-error-handling", "dto-separation", "net-http")),
+    ("jpa", "JPA / ORM", ("jpa-persistence-context", "jpa-lazy-loading", "jpa-n-plus-one",
                    "jpa-fetch-join", "jpa-batch-size", "entity-association", "querydsl")),
-    ("RDBMS / SQL / DB 설계", ("db-index", "db-transaction", "db-isolation", "db-lock",
+    ("db", "RDBMS / SQL / DB 설계", ("db-index", "db-transaction", "db-isolation", "db-lock",
                               "db-normalization", "db-join", "db-execution-plan",
                               "composite-index", "domain-erd")),
-    ("동시성 / 데이터 정합성", ("optimistic-vs-pessimistic-lock", "race-condition",
+    ("concurrency", "동시성 / 데이터 정합성", ("optimistic-vs-pessimistic-lock", "race-condition",
                           "idempotency")),
-    ("Redis / 캐싱", ("redis-data-types", "redis-ttl-eviction", "cache-target-selection",
+    ("redis", "Redis / 캐싱", ("redis-data-types", "redis-ttl-eviction", "cache-target-selection",
                     "cache-aside", "cache-invalidation", "cache-ttl-policy",
                     "redis-cache-effect")),
-    ("RabbitMQ / 메시지 큐", ("rabbitmq-basics", "rabbitmq-exchange-routing", "rabbitmq-ack",
+    ("rabbitmq", "RabbitMQ / 메시지 큐", ("rabbitmq-basics", "rabbitmq-exchange-routing", "rabbitmq-ack",
                           "rabbitmq-retry", "rabbitmq-dlq", "poison-message",
                           "message-persistence", "consumer-failure", "consumer-restart")),
-    ("Kafka / 이벤트 스트림", ("kafka-basics", "kafka-partition-offset", "kafka-consumer-group",
+    ("kafka", "Kafka / 이벤트 스트림", ("kafka-basics", "kafka-partition-offset", "kafka-consumer-group",
                           "kafka-partition-throughput", "kafka-delivery-semantics",
                           "kafka-offset-commit", "kafka-rebalancing", "rabbitmq-vs-kafka",
                           "task-queue-vs-event-stream")),
-    ("비동기 / 실시간", ("sync-to-async", "sse-reconnect")),
-    ("성능 / 부하 테스트", ("k6-load-test", "latency-p95")),
-    ("Docker / 컨테이너", ("dockerfile-multistage", "docker-compose",
+    ("async", "비동기 / 실시간", ("sync-to-async", "sse-reconnect")),
+    ("perf", "성능 / 부하 테스트", ("k6-load-test", "latency-p95")),
+    ("docker", "Docker / 컨테이너", ("dockerfile-multistage", "docker-compose",
                        "docker-image-optimization")),
-    ("Kubernetes", ("k8s-pod-deployment", "k8s-service-ingress", "k8s-configmap-secret",
+    ("k8s", "Kubernetes", ("k8s-pod-deployment", "k8s-service-ingress", "k8s-configmap-secret",
                     "k8s-probe", "k8s-hpa", "k8s-necessity")),
-    ("CI/CD", ("github-actions-pipeline",)),
-    ("모니터링 / 옵저버빌리티", ("prometheus-grafana",)),
-    ("AWS / 클라우드 인프라", ("aws-vpc", "public-private-subnet", "nat-gateway",
+    ("cicd", "CI/CD", ("github-actions-pipeline",)),
+    ("monitoring", "모니터링 / 옵저버빌리티", ("prometheus-grafana",)),
+    ("aws", "AWS / 클라우드 인프라", ("aws-vpc", "public-private-subnet", "nat-gateway",
                         "security-group-nacl", "ec2-vs-ecs", "aws-rds",
                         "aws-elasticache", "aws-deploy")),
-    ("Terraform / IaC", ("terraform-state", "terraform-module")),
-    ("Nginx / 로드밸런싱", ("nginx-reverse-proxy", "nginx-tls-termination",
+    ("terraform", "Terraform / IaC", ("terraform-state", "terraform-module")),
+    ("nginx", "Nginx / 로드밸런싱", ("nginx-reverse-proxy", "nginx-tls-termination",
                        "load-balancing", "net-load-balancing")),
-    ("네트워크", ("net-tcp", "net-udp", "net-tls", "net-dns", "net-subnet-nat",
+    ("network", "네트워크", ("net-tcp", "net-udp", "net-tls", "net-dns", "net-subnet-nat",
                "net-socket")),
-    ("Linux / OS", ("os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+    ("os", "Linux / OS", ("os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
                     "os-virtual-memory", "os-io", "os-deadlock")),
-    ("테스트", ("test-strategy", "mockito-unit-test", "spring-integration-test")),
-    ("아키텍처 / 구조", ("package-structure",)),
+    ("test", "테스트", ("test-strategy", "mockito-unit-test", "spring-integration-test")),
+    ("architecture", "아키텍처 / 구조", ("package-structure",)),
 )
 
 
