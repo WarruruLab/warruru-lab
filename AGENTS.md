@@ -33,7 +33,8 @@
   다른 저장소를 열어도 기록 규칙과 툴이 따라온다.
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
-  · `/career`(허브) · `/career/stack` · `/career/stack/{묶음}`
+  · `/career`(허브 — 내가 채울 것 / 채용공고) · `/career/stack`
+  · `/career/stack/{묶음}`
   · `/career/cert/{자격증}` · `/career/companies` · `/career/c/{회사}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
   JavaScript 는 초안 복사와 일반/다크 모드 전환에만 쓴다.

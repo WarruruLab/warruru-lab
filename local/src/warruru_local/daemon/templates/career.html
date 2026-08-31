@@ -11,8 +11,8 @@
 <div class="two">
 
 <section class="tool">
-  <h2><a href="/career/stack">나의 기술스택</a></h2>
-  <h3 class="sub">자격증 <span class="quiet">접수 가까운 순</span></h3>
+  <h2><a href="/career/stack">내가 채울 것</a></h2>
+  <h3 class="sub">자격증 <span class="quiet">마감이 있는 것 · 접수 가까운 순</span></h3>
   <ul class="picks">
     {% for cert in certs %}
     <li>
@@ -33,7 +33,7 @@
     {% endfor %}
   </ul>
 
-  <h3 class="sub">CS 지식 <span class="quiet">{{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
+  <h3 class="sub">CS 지식 <span class="quiet">면접에서 묻는 것 · {{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
   <ul class="picks">
     {% for group in stack.cs_groups %}
     <li>
@@ -43,7 +43,7 @@
     {% endfor %}
   </ul>
 
-  <h3 class="sub">로드맵 주제 <span class="quiet">{{ stack.coverage.covered }}/{{ stack.coverage.total }}</span></h3>
+  <h3 class="sub">프로젝트 주제 <span class="quiet">만들면서 겪는 것 · {{ stack.coverage.covered }}/{{ stack.coverage.total }}</span></h3>
   <ul class="picks">
     {% for group in stack.groups %}
     <li>
