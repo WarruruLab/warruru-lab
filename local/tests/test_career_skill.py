@@ -55,22 +55,3 @@ def test_산출물이_저장소_밖이다():
 def test_노션은_단방향으로만_읽는다():
     body = SKILL.read_text(encoding="utf-8")
     assert "되쓰지 않는다" in body
-
-
-def test_표를_쓰지_말라고_적혀_있다():
-    """`/career` 의 렌더러가 마크다운 표를 모른다.
-
-    스킬이 표로 쓰면 파이프 문자가 그대로 문단으로 나온다. 렌더러를 고치는
-    대신 쓰는 쪽을 맞췄으므로, 그 약속이 사라지면 화면이 조용히 지저분해진다.
-    """
-    body = SKILL.read_text(encoding="utf-8")
-    assert "마크다운 표" in body and "쓰지 않는다" in body
-
-
-def test_렌더러가_아직_표를_모른다():
-    """위 규칙의 전제. 표를 지원하게 되면 이 테스트가 깨지고,
-    그때 스킬의 금지 문구를 걷으면 된다."""
-    from warruru_local.publish import tistory_clipboard
-
-    html = tistory_clipboard.to_html("| a | b |\n|---|---|\n| 1 | 2 |\n")
-    assert "<table" not in html

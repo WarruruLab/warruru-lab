@@ -381,6 +381,22 @@
     margin: .6rem 0; padding: .6rem .7rem; overflow-x: auto;
   }
   .preview pre code { background: none; padding: 0; }
+  /* 표는 넓어지기 쉽다. 넘치면 **이 블록만** 가로로 굴린다 —
+     body 가 가로로 밀리면 화면 전체가 어긋난 것처럼 보인다. */
+  .preview { overflow-x: auto; }
+  .preview table {
+    border-collapse: collapse; margin: .7rem 0; font-size: var(--t-md);
+  }
+  .preview th, .preview td {
+    border: 1px solid var(--rule); padding: .3rem .55rem;
+    text-align: left; vertical-align: top;
+  }
+  .preview th { background: var(--ground); font-weight: 600; }
+  .preview blockquote {
+    margin: .6rem 0; padding: .1rem .8rem;
+    border-left: 3px solid var(--rule); color: var(--ink-soft);
+  }
+  .preview hr { border: none; border-top: 1px solid var(--rule); margin: 1rem 0; }
 
   details > summary { cursor: pointer; margin-top: .5rem; }
 
