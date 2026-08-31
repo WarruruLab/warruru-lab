@@ -232,13 +232,9 @@ def demand(companies: list[dict]) -> dict[str, list[str]]:
     return made
 
 
-def build_stack(ctx) -> dict:
-    """내 기술스택 화면. 로드맵 슬러그 100개를 기록·수요와 함께 놓는다."""
-    counts = _counts(ctx)
-    wanted = demand(list_companies(ctx))
-
+def _group_rows(source, counts, wanted) -> list[dict]:
     groups = []
-    for key, label, slugs in topics.SLUG_GROUPS:
+    for key, label, slugs in source:
         # 키 이름이 `items` 면 Jinja 가 dict 의 메서드를 먼저 집는다.
         rows = [
             {
@@ -255,6 +251,30 @@ def build_stack(ctx) -> dict:
             "have": sum(1 for item in rows if item["count"]),
             "total": len(rows),
         })
+    return groups
+
+
+def _tally(groups: list[dict]) -> dict:
+    every = [item for group in groups for item in group["slugs"]]
+    covered = sum(1 for item in every if item["count"])
+    return {
+        "total": len(every),
+        "covered": covered,
+        "percent": round(covered * 100 / len(every)) if every else 0,
+    }
+
+
+def build_stack(ctx) -> dict:
+    """기술스택 화면.
+
+    **두 축을 섞지 않는다.** 로드맵 100개는 *직접 만들어 보는 것* 이고
+    CS 49개는 *면접에서 묻는 것* 이라, 한 막대로 합치면 어느 쪽이 비었는지
+    알 수 없다.
+    """
+    counts = _counts(ctx)
+    wanted = demand(list_companies(ctx))
+    groups = _group_rows(topics.SLUG_GROUPS, counts, wanted)
+    cs_groups = _group_rows(topics.CS_GROUPS, counts, wanted)
 
     every = [item for group in groups for item in group["slugs"]]
     # 먼저 할 것 — **요구하는 회사가 많은데 기록이 0건인 것.** 하나를 채우면
@@ -263,17 +283,15 @@ def build_stack(ctx) -> dict:
         [item for item in every if not item["count"] and item["companies"]],
         key=lambda item: (-len(item["companies"]), item["slug"]),
     )
+    known = {item["slug"] for item in every} | set(topics.CS_SLUGS)
     return {
         "groups": groups,
+        "cs_groups": cs_groups,
         "first": first,
-        "coverage": {
-            "total": len(every),
-            "covered": sum(1 for item in every if item["count"]),
-            "percent": round(sum(1 for item in every if item["count"]) * 100 / len(every))
-            if every else 0,
-        },
-        # 로드맵 밖 주제. 기록은 있는데 슬러그가 목록에 없는 것들이다.
-        "outside": sorted(slug for slug in counts if slug not in {i["slug"] for i in every}),
+        "coverage": _tally(groups),
+        "cs_coverage": _tally(cs_groups),
+        # 어느 목록에도 없는 주제. 기록은 있는데 갈 곳이 없는 것들이다.
+        "outside": sorted(slug for slug in counts if slug not in known),
     }
 
 
@@ -376,7 +394,7 @@ def build_cert(ctx, key: str) -> dict | None:
 def build_group(ctx, key: str) -> dict | None:
     """묶음 하나. 허브에서 `Spring` 을 눌렀을 때 오는 자리다."""
     stack = build_stack(ctx)
-    for group in stack["groups"]:
+    for group in stack["groups"] + stack["cs_groups"]:
         if group["key"] == key:
             return group
     return None

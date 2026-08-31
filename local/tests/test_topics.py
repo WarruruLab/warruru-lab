@@ -330,3 +330,18 @@ def test_자격증끼리는_겹쳐도_된다():
 
     by_name = {name: set(slugs) for _, name, slugs in CERTIFICATIONS}
     assert by_name["SQLD"] & by_name["정보처리기사"]
+
+
+def test_CS_슬러그가_로드맵과_겹치지_않는다():
+    """겹치면 한 주제가 두 축에 세어져 어느 쪽 막대도 못 믿게 된다."""
+    from warruru_local.topics import CS_SLUGS, RECOMMENDED_SLUGS
+
+    assert not (set(CS_SLUGS) & set(RECOMMENDED_SLUGS))
+    assert len(CS_SLUGS) == len(set(CS_SLUGS))
+
+
+def test_CS_열쇠가_로드맵_묶음_열쇠와_겹치지_않는다():
+    """한 라우트(`/career/stack/{열쇠}`)가 둘을 다 받는다."""
+    from warruru_local.topics import CS_GROUPS, SLUG_GROUPS
+
+    assert not ({k for k, _, _ in CS_GROUPS} & {k for k, _, _ in SLUG_GROUPS})

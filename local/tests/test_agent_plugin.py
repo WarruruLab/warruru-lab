@@ -92,3 +92,13 @@ def test_권장_슬러그_목록이_원본과_한_글자도_다르지_않다():
     listed = re.findall(r"`([a-z0-9-]+)`", SKILL.read_text(encoding="utf-8"))
     assert [s for s in listed if s in RECOMMENDED_SLUGS] == list(RECOMMENDED_SLUGS)
     assert set(RECOMMENDED_SLUGS) - set(listed) == set()
+
+
+def test_CS_슬러그도_빠짐없이_실려_있다():
+    """로드맵 밖 주제라 `recommended` 는 false 지만, 표기가 갈리면 안 되는 것은
+    똑같다. 에이전트가 목록을 못 보면 `자료구조` 같은 한글 슬러그가 생긴다.
+    """
+    from warruru_local.topics import CS_SLUGS
+
+    listed = re.findall(r"`([a-z0-9-]+)`", SKILL.read_text(encoding="utf-8"))
+    assert set(CS_SLUGS) - set(listed) == set()
