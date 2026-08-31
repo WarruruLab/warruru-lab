@@ -403,3 +403,16 @@ def test_모든_화면에서_일반_다크_모드를_바꿀_수_있다(client, h
     assert '[data-theme="dark"]' in base
     assert 'localStorage.getItem("warruru-theme")' in base
     assert 'localStorage.setItem("warruru-theme", next)' in base
+
+
+def test_고른_적_없으면_운영체제_설정을_따른다(client, home):
+    """저장값이 없을 때만 시스템을 본다. 한 번 고르면 그 선택이 이긴다."""
+    base = client.get("/t").text
+
+    # CSS 앞에서 정해야 첫 그림에 흰 화면이 안 낀다.
+    head = base.split("<style>", 1)[0]
+    assert '(prefers-color-scheme: dark)' in head
+    assert 'savedTheme !== "light" && prefersDark' in head
+
+    # 켜 둔 채로 시스템이 밤 모드로 넘어가도 따라간다.
+    assert 'media.addEventListener' in base

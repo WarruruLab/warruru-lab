@@ -4,12 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Warruru Local{% endblock %}</title>
-{# CSS 를 읽기 전에 저장한 테마를 붙여 화면이 하얗게 번쩍이지 않게 한다. #}
+{#
+  CSS 를 읽기 전에 테마를 정해 화면이 하얗게 번쩍이지 않게 한다.
+  저장한 선택이 없으면 **운영체제 설정을 따른다** — 맥을 다크로 쓰는데
+  이 화면만 하얗게 뜨는 일이 첫 방문마다 있었다. 한 번이라도 토글하면
+  그때부터 저장값이 시스템을 이긴다.
+#}
 <script>
-  try {
-    var savedTheme = localStorage.getItem("warruru-theme");
-    if (savedTheme === "dark") document.documentElement.dataset.theme = "dark";
-  } catch (error) {}
+  (function () {
+    var savedTheme = null;
+    try { savedTheme = localStorage.getItem("warruru-theme"); } catch (error) {}
+    var prefersDark = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (savedTheme === "dark" || (savedTheme !== "light" && prefersDark)) {
+      document.documentElement.dataset.theme = "dark";
+    }
+  }());
 </script>
 {#
   스타일은 여기 한 곳에만 둔다. 화면이 여섯이고 사용자가 한 명이라
@@ -464,6 +474,10 @@
       });
     }
 
+    function chosen() {
+      try { return localStorage.getItem("warruru-theme"); } catch (error) { return null; }
+    }
+
     paint(root.dataset.theme === "dark" ? "dark" : "light");
     toggles.forEach(function (button) {
       button.addEventListener("click", function () {
@@ -472,6 +486,15 @@
         try { localStorage.setItem("warruru-theme", next); } catch (error) {}
       });
     });
+
+    // 아직 고른 적이 없다면 켜 둔 채로 맥이 밤 모드로 넘어가도 따라간다.
+    // 한 번 고른 뒤에는 그 선택이 이기므로 여기서 아무 일도 하지 않는다.
+    var media = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+    if (media && media.addEventListener) {
+      media.addEventListener("change", function (event) {
+        if (!chosen()) paint(event.matches ? "dark" : "light");
+      });
+    }
   }());
 </script>
 </body>
