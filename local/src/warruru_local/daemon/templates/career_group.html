@@ -11,6 +11,21 @@
   <a href="/career/stack">기술스택 전체</a>
 </p>
 
+{% if view.axis == "roadmap" %}
+{# 로드맵 화면이 답할 것은 "어디까지 왔는가" 다(2026-09-01 확정).
+   그래서 진도가 맨 위에 오고, 아래 목록은 **로드맵 순서**로 선다. #}
+<section class="tool">
+  <h2>어디까지 왔나 {{ view.have }} / {{ view.total }}</h2>
+  <p>{% with coverage = {"covered": view.have, "total": view.total,
+        "percent": (view.have * 100 // view.total) if view.total else 0} %}
+    {% include "_coverage.html" %}{% endwith %}</p>
+  <p class="meta quiet">
+    아래 목록은 <strong>로드맵 순서</strong>다. 주차는 세지 않는다 —
+    무엇 다음에 무엇인지만 본다.
+  </p>
+</section>
+{% endif %}
+
 {% if view.intro %}
 <section class="tool">
   <div class="preview">{{ view.intro|safe }}</div>
@@ -48,6 +63,7 @@
   {% endfor %}
 </section>
 
+{% if view.axis != "roadmap" %}
 <section class="tool">
   <h2>내 기록 {{ view.have }} / {{ view.total }}</h2>
   <p>{% with coverage = {"covered": view.have, "total": view.total,
@@ -58,4 +74,5 @@
     결과다.
   </p>
 </section>
+{% endif %}
 {% endblock %}

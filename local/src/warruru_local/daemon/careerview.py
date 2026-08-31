@@ -254,9 +254,16 @@ def demand(companies: list[dict]) -> dict[str, list[str]]:
     return made
 
 
-def _group_rows(source, counts, wanted) -> list[dict]:
+def _group_rows(source, counts, wanted, *, ordered: bool = False) -> list[dict]:
+    """`ordered` 면 로드맵 순서로 세운다 — 묶음도, 묶음 안 슬러그도.
+
+    로드맵 화면이 답할 것은 "어디까지 왔는가" 라(2026-09-01 확정) 순서가
+    보여야 한다. 공고에 나오는 말로 묶은 순서로는 다음에 뭘 할지가 안 나온다.
+    """
     groups = []
     for key, label, slugs in source:
+        if ordered:
+            slugs = tuple(sorted(slugs, key=topics.roadmap_index))
         # 키 이름이 `items` 면 Jinja 가 dict 의 메서드를 먼저 집는다.
         rows = [
             {
@@ -270,11 +277,12 @@ def _group_rows(source, counts, wanted) -> list[dict]:
         groups.append({
             "key": key,
             "label": label,
+            "order": min((topics.roadmap_index(row["slug"]) for row in rows), default=0),
             "slugs": rows,
             "have": sum(1 for item in rows if item["count"]),
             "total": len(rows),
         })
-    return groups
+    return sorted(groups, key=lambda g: g["order"]) if ordered else groups
 
 
 def _tally(groups: list[dict]) -> dict:
@@ -296,7 +304,7 @@ def build_stack(ctx) -> dict:
     """
     counts = _counts(ctx)
     wanted = demand(list_companies(ctx))
-    groups = _group_rows(topics.SLUG_GROUPS, counts, wanted)
+    groups = _group_rows(topics.SLUG_GROUPS, counts, wanted, ordered=True)
     cs_groups = _group_rows(topics.CS_GROUPS, counts, wanted)
 
     every = [item for group in groups for item in group["slugs"]]
@@ -307,10 +315,17 @@ def build_stack(ctx) -> dict:
         key=lambda item: (-len(item["companies"]), item["slug"]),
     )
     known = {item["slug"] for item in every} | set(topics.CS_SLUGS)
+    # **다음에 할 것.** 로드맵 순서에서 아직 0건인 첫 주제들이다.
+    # "먼저 할 것"(회사가 많이 요구하는 것)과 다른 값이다 — 이쪽은 순서를,
+    # 저쪽은 겹침을 본다.
+    ahead = [item for item in sorted(every, key=lambda i: topics.roadmap_index(i["slug"]))
+             if not item["count"]][:5]
+
     return {
         "groups": groups,
         "cs_groups": cs_groups,
         "first": first,
+        "ahead": ahead,
         "coverage": _tally(groups),
         "cs_coverage": _tally(cs_groups),
         # 어느 목록에도 없는 주제. 기록은 있는데 갈 곳이 없는 것들이다.
@@ -453,6 +468,7 @@ def build_group(ctx, key: str) -> dict | None:
     for group in stack["groups"] + stack["cs_groups"]:
         if group["key"] != key:
             continue
+        group["axis"] = "roadmap" if group in stack["groups"] else "cs"
         for row in group["slugs"]:
             note = topicview.topic_note(ctx, row["slug"])
             row["asks"] = note["asks"]

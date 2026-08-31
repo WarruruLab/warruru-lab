@@ -53,9 +53,17 @@
 <section class="tool">
   <h2>로드맵 주제</h2>
   <p class="meta">
-    31주 로드맵의 권장 주제다. 회사 배지(●)는 그 슬러그를 요구하는 공고가
-    있다는 뜻이다.
+    31주 로드맵의 권장 주제다. 아래 묶음은 <strong>로드맵 순서</strong>로 섰고,
+    회사 배지(●)는 그 슬러그를 요구하는 공고가 있다는 뜻이다.
   </p>
+  {% if view.ahead %}
+  <p class="meta">다음에 할 것 — 로드맵 순서에서 아직 0건인 것:</p>
+  <p>
+    {% for item in view.ahead %}
+    <a class="badge warn" href="/t/{{ item.slug }}" title="{{ item.slug }}">{{ item.label }}</a>
+    {% endfor %}
+  </p>
+  {% endif %}
 </section>
 
 {% if view.first %}
