@@ -77,6 +77,16 @@ def cert_dir(home: Path) -> Path:
     return career_dir(home) / "certs"
 
 
+def topic_note_dir(home: Path) -> Path:
+    """주제별 참고 노트. **기록이 아니다** — 읽을 거리와 확인할 질문이다.
+
+    `learning_record` 에 넣지 않는 이유는 성격이 다르기 때문이다. 기록은
+    *내가 한 일* 이고 이쪽은 *남이 정리해 둔 것* 이다. 섞으면 주제 화면의
+    건수가 "내가 남긴 것" 을 뜻하지 않게 된다.
+    """
+    return career_dir(home) / "topics"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 
