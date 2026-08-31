@@ -12,17 +12,23 @@
 
 <section class="tool">
   <h2><a href="/career/stack">나의 기술스택</a></h2>
-  <h3 class="sub">자격증</h3>
+  <h3 class="sub">자격증 <span class="quiet">접수 가까운 순</span></h3>
   <ul class="picks">
     {% for cert in certs %}
     <li>
-      <a href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      <a class="{{ 'quiet' if cert.done }}" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      {% if cert.done %}
+        <span class="badge ok">합격</span>
+      {% elif cert.next %}
+        {# 일정이 먼저다. 준비도는 그다음이다. #}
+        <span class="badge {{ 'warn' if cert.next.days <= 30 else '' }}">D-{{ cert.next.days }}</span>
+        <span class="meta">{{ cert.next.label }}</span>
+      {% else %}
+        <span class="meta quiet">{{ cert.status }} · 일정 미정</span>
+      {% endif %}
       <span class="badge {{ 'ok' if cert.coverage.covered == cert.coverage.total else '' }}">
         {{ cert.coverage.covered }}/{{ cert.coverage.total }}
       </span>
-      {% if cert.next %}
-        <span class="badge {{ 'warn' if cert.next.days <= 30 else '' }}">D-{{ cert.next.days }}</span>
-      {% endif %}
     </li>
     {% endfor %}
   </ul>

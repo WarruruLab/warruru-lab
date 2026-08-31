@@ -503,3 +503,39 @@ def test_빈_곳_배지도_한글이다(client, home):
     page = client.get("/career/c/hyundai-autoever").text
     assert "JVM GC" in page
     assert 'title="jvm-gc"' in page
+
+
+# ── 자격증은 '마감이 있는 일정' 이다 (2026-08-31 확정) ────────────────
+
+def test_접수가_가까운_자격증이_위에_온다(ctx, home):
+    """이 화면이 먼저 답할 것은 '언제 접수하나' 다. 사흘·나흘짜리 접수를
+    놓치면 몇 달이 밀린다."""
+    _cert(home, "sqld", CERT_NOTE.replace("2026-07-30", "2026-09-30"))
+    _cert(home, "network-2")                       # 07-30 → 더 가깝다
+    order = [cert["key"] for cert in careerview.build_certs(ctx)]
+    assert order.index("network-2") < order.index("sqld")
+
+
+def test_일정을_모르는_자격증은_뒤로_간다(ctx, home):
+    _cert(home, "network-2")
+    certs = careerview.build_certs(ctx)
+    assert certs[0]["key"] == "network-2"
+    assert certs[-1]["next"] is None
+
+
+def test_합격한_자격증은_맨_뒤에서_조용해진다(ctx, home):
+    _cert(home, "network-2", "---\nstatus: 합격\n---\n# 끝\n")
+    certs = careerview.build_certs(ctx)
+    assert certs[-1]["key"] == "network-2"
+    assert certs[-1]["done"] is True
+
+
+def test_상태를_안_적으면_미시작이다(ctx):
+    assert all(cert["status"] == "미시작" for cert in careerview.build_certs(ctx))
+
+
+def test_허브가_다음에_할_일을_이름으로_보여준다(client, home):
+    """D-8 만 있으면 무엇이 8일 남았는지 모른다."""
+    _cert(home, "network-2")
+    page = client.get("/career").text
+    assert "D-8" in page and "4회 접수 시작" in page
