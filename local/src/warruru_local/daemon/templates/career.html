@@ -7,20 +7,31 @@
 </header>
 
 {% if companies %}
-<p class="meta">회사 {{ companies|length }}곳. 공고가 요구하는 것과 내 기록을 맞춰 둔 자리다.</p>
+<p class="meta">
+  회사 {{ companies|length }}곳. 막대는 <strong>지금</strong> 센 것이다 —
+  기록을 하나 남기면 여기가 같이 움직인다.
+</p>
 {% for row in companies %}
 <article class="work">
   <div class="work-head">
     {% if row.slug %}
       <strong><a href="/career/{{ row.slug }}">{{ row.title }}</a></strong>
+      {% if row.blocked %}
+        <span class="badge warn">자격 {{ row.blocked|length }}개 막힘</span>
+      {% endif %}
+      {% if row.deadline and not row.deadline.past %}
+        <span class="badge">D-{{ row.deadline.days }}</span>
+      {% endif %}
     {% else %}
       {# 슬러그 규칙 밖의 파일. 목록에는 보이되 링크는 걸지 않는다 —
          눌러서 404 가 뜨는 것보다 왜 못 여는지가 보여야 한다. #}
       <strong class="quiet">{{ row.title }}</strong>
       <span class="badge warn">파일 이름이 규칙 밖</span>
     {% endif %}
-    <span class="meta">{{ row.name }}</span>
   </div>
+  {% if row.coverage %}
+  <div class="meta">{% with coverage = row.coverage %}{% include "_coverage.html" %}{% endwith %}</div>
+  {% endif %}
 </article>
 {% endfor %}
 {% else %}
@@ -28,8 +39,8 @@
   <h2>아직 비어 있다</h2>
   <p class="empty-today">회사 노트 0곳</p>
   <p class="empty">
-    이 화면은 <code>~/.warruru/career/</code> 의 파일을 그대로 보여준다.
-    데몬은 노션을 읽지 않는다 — 공고를 읽고 대조하는 쪽은 에이전트다.
+    이 화면은 <code>~/.warruru/career/</code> 의 파일을 읽는다.
+    데몬은 노션을 읽지 않는다 — 공고를 읽고 요약하는 쪽은 에이전트다.
   </p>
   <p class="meta">
     에이전트에게 <code>career-prep</code> 스킬로 회사 하나를 대조하게 하면

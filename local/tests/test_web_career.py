@@ -117,3 +117,125 @@ def test_제목이_없으면_파일_이름이_제목이다(client, home):
 def test_모든_화면의_nav_에_포트폴리오가_있다(client, home):
     for path in ("/career", f"/d/{TODAY}", "/t", f"/c/{TODAY[:7]}"):
         assert 'href="/career"' in client.get(path).text, path
+
+
+# ── 앞머리와 live 계산 (2026-08-31) ──────────────────────────────────
+
+WITH_META = """---
+company: 현대오토에버
+role: 엔터프라이즈IT / 백엔드
+confidence: A
+source: https://example.com/posting.pdf
+deadline: 2026-07-10
+gates:
+  - 영어회화자격(OPIc/토스) | 미확인
+  - 2026년 8월 이전 졸업 | 충족
+required:
+  - Java 21 | jvm-gc, java-concurrency
+  - RDBMS | db-index, db-transaction
+unmapped: MSA
+---
+# 메모
+
+설명회에서 들은 것.
+"""
+
+
+def _record(client, slug_topic, **extra):
+    body = {
+        "record_id": f"rec_{slug_topic}", "client_instance_id": "cli_X",
+        "tool": "codex", "kind": "CONCEPT", "topic": slug_topic,
+        "title": f"{slug_topic} 이해", "body": "본문",
+    }
+    body.update(extra)
+    return client.post("/v1/records", json=body)
+
+
+def test_앞머리에서_회사와_신뢰도를_읽는다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/hyundai-autoever").text
+    assert "현대오토에버" in page
+    assert "신뢰도 A" in page
+    assert "https://example.com/posting.pdf" in page
+
+
+def test_준비도를_파일이_아니라_DB_에서_센다(client, home):
+    """**이 테스트가 이 화면의 이유다.**
+
+    파일에 숫자를 박아 두면 기록을 하나 남긴 뒤에도 화면이 옛 숫자를 말한다.
+    확인하러 여는 화면이 거짓말을 하면 확인용이 아니다.
+    """
+    _write(home, "hyundai-autoever.md", WITH_META)
+    assert "0 / 4 슬러그" in client.get("/career/hyundai-autoever").text
+
+    _record(client, "db-index")
+    page = client.get("/career/hyundai-autoever").text
+    assert "1 / 4 슬러그" in page          # 파일은 한 글자도 안 고쳤다
+
+
+def test_막힌_자격이_맨_위에서_붙잡는다(client, home):
+    """어학 하나가 서류 자체를 막는다. 준비도보다 먼저 보여야 한다."""
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/hyundai-autoever").text
+    assert "아직 1개가 막혀 있다" in page
+    # 제목 태그로 비교한다. 본문 문자열로 찾으면 스타일 주석의 같은 낱말이 걸린다.
+    assert page.index("<h2>지원 자격</h2>") < page.index("<h2>준비도</h2>")
+
+
+def test_지난_마감은_다음_기수_대기로_눕는다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    assert "다음 기수 대기" in client.get("/career/hyundai-autoever").text
+
+
+def test_남은_마감은_D_day_로_센다(client, home):
+    _write(home, "sk-ax.md", WITH_META.replace("2026-07-10", "2026-07-30"))
+    assert "D-8" in client.get("/career/sk-ax").text
+
+
+def test_빈_곳이_주제_화면으로_이어진다(client, home):
+    """눌러서 바로 그 주제의 기록을 볼 수 있어야 다음 행동이 이어진다."""
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/hyundai-autoever").text
+    assert "빈 곳 4개" in page
+    assert 'href="/t/jvm-gc"' in page
+
+
+def test_면접_문장이_모인다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    _record(client, "db-index", interview="인덱스를 왜 이렇게 잡았는지 설명했습니다")
+    page = client.get("/career/hyundai-autoever").text
+    assert "인덱스를 왜 이렇게 잡았는지" in page
+
+
+def test_로드맵_밖_기술을_지어내지_않고_보여준다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    assert "로드맵 밖" in client.get("/career/hyundai-autoever").text
+    assert "MSA" in client.get("/career/hyundai-autoever").text
+
+
+def test_앞머리가_없어도_열린다(client, home):
+    """앞머리는 나중에 생긴 것이다. 먼저 쓴 노트를 깨면 안 된다."""
+    _write(home, "sk-ax.md", "# 제목만 있는 노트\n\n본문.\n")
+    page = client.get("/career/sk-ax").text
+    assert "제목만 있는 노트" in page
+    assert "required" in page          # 앞머리를 채우라는 안내
+
+
+def test_닫히지_않은_앞머리라도_본문을_잃지_않는다(ctx, home):
+    _write(home, "sk-ax.md", "---\ncompany: 어딘가\n\n# 본문은 살아야 한다\n")
+    view = careerview.build_company(ctx, "sk-ax")
+    assert "본문은 살아야 한다" in view["markdown"]
+    assert "본문은 살아야 한다" in view["html"]
+
+
+def test_요구_기술이_없으면_0퍼센트다(ctx, home):
+    """0/0 을 100% 로 만들지 않는다. 못 적은 것과 다 갖춘 것은 다른 상태다."""
+    _write(home, "sk-ax.md", "---\ncompany: SK AX\n---\n# 메모\n")
+    assert careerview.build_company(ctx, "sk-ax")["coverage"]["percent"] == 0
+
+
+def test_목록에도_막대와_배지가_선다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career").text
+    assert "자격 1개 막힘" in page
+    assert "0 / 4 슬러그" in page

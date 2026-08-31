@@ -1,0 +1,8 @@
+{# 준비도 막대. 재료 막대(`_gauge.html`)와 색을 나눠 쓴다 —
+   초록은 '있다', 주황 바닥은 '비었다' 로 화면 전체에서 같은 뜻이다.
+   0/0 은 0% 다. 요구 기술을 아직 못 적은 것과 다 갖춘 것은 다른 상태다. #}
+<span class="cover" role="img"
+      aria-label="준비도 {{ coverage.covered }} / {{ coverage.total }}">
+  <i style="width: {{ coverage.percent }}%"></i>
+</span>
+<span class="meta">{{ coverage.covered }} / {{ coverage.total }} 슬러그</span>
