@@ -50,11 +50,12 @@ async def calendar_month(request: Request, year_month: str):
 
 
 @router.get("/t")
-async def topics_index(request: Request):
-    """오늘 자정~자정 구간의 주제별 요약. 조회이므로 토큰이 필요 없다."""
+async def topics_index(request: Request, date: str | None = None):
+    """선택한 로컬 날짜의 주제별 요약. 날짜가 없으면 오늘이다."""
     ctx = request.app.state.ctx
     today = local_date_of(to_iso(ctx.clock.now()))
-    view = topicview.build_index(ctx, today)
+    selected = _validate_date(date) if date else today
+    view = topicview.build_index(ctx, selected)
     return templates.TemplateResponse(
         request, "topics.html", {"view": view, "today": today}
     )

@@ -381,3 +381,25 @@ def test_모든_화면에서_주제_홈으로_돌아갈_수_있다(client, home)
         page = client.get(path).text
         assert 'class="home-link" href="/t"' in page, path
         assert 'aria-label="홈으로"' in page, path
+
+
+def test_모든_화면에서_일반_다크_모드를_바꿀_수_있다(client, home):
+    """화면을 옮겨도 브라우저에 저장한 테마를 같은 토글로 바꾼다."""
+    _seed(client)
+    client.post("/v1/records", json={
+        "record_id": "rec_T", "kind": "CONCEPT", "topic": "connection pool",
+        "title": "테마 토글", "body": "본문", **COMMON,
+    })
+    draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
+
+    for path in (f"/d/{TODAY}", f"/d/{TODAY}?deleted=1", "/t",
+                 "/t/connection-pool", f"/c/{TODAY[:7]}",
+                 f"/drafts/{draft['draft_id']}"):
+        page = client.get(path).text
+        assert 'class="theme-toggle"' in page, path
+        assert 'data-theme-toggle' in page, path
+
+    base = client.get("/t").text
+    assert '[data-theme="dark"]' in base
+    assert 'localStorage.getItem("warruru-theme")' in base
+    assert 'localStorage.setItem("warruru-theme", next)' in base

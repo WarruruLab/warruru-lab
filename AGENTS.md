@@ -24,7 +24,8 @@
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
-  JavaScript 는 초안 화면의 복사 버튼 하나뿐이고, 그것이 죽어도 경로는 살아 있다
+  JavaScript 는 초안 복사와 일반/다크 모드 전환에만 쓴다.
+  둘 다 실패해도 기록 조회·수정·발행 표시 경로는 살아 있다
 
 ### 코드 0줄이었던 명세 7묶음은 폐기한다
 
@@ -241,4 +242,4 @@ RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_opt
 
 ---
 
-**Last Updated:** 2026-08-18
+**Last Updated:** 2026-08-31

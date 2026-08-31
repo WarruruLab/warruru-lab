@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from warruru_local import topics
 from warruru_local.clock import (
     local_date_or_none,
@@ -163,6 +165,7 @@ def build_index(ctx, date: str) -> dict:
     것을 숨기면 안 된다. 날짜 축은 `/d` 와 `/c` 가 이미 둘이나 맡고 있고,
     여기까지 날짜로 자르면 주제 축을 보는 화면이 하나도 남지 않는다.
     """
+    day = datetime.strptime(date, "%Y-%m-%d")
     start, end = local_day_bounds(date)
     rows = ctx.records.slug_summary(since=start, until=end)
 
@@ -206,6 +209,8 @@ def build_index(ctx, date: str) -> dict:
 
     return {
         "date": date,
+        "prev_date": (day - timedelta(days=1)).strftime("%Y-%m-%d"),
+        "next_date": (day + timedelta(days=1)).strftime("%Y-%m-%d"),
         "today_count": sum(row["count"] for row in rows),
         "groups": groups,
         "unsorted": unsorted_rows,

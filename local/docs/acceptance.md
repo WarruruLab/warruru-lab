@@ -283,7 +283,7 @@ grep -c 'TODO:' ~/.warruru/drafts/2026/08/*.md
 `draft.status='PUBLISHED'` 와 `published_url` 이 남고 `/t` 목록의
 그 주제에 체크가 붙는가. 이 폼은 상태 변경이므로 **토큰을 요구**해야 한다.
 
-복사 버튼은 JavaScript 예외 하나이므로, **스크립트를 꺼도**
+복사 버튼은 JavaScript 예외이므로, **스크립트를 꺼도**
 `textarea` 전체 선택으로 같은 일이 되는지 함께 확인한다. 되지 않으면
 경로가 끊긴 것이므로 미달이다.
 
