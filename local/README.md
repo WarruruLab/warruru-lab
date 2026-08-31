@@ -60,6 +60,35 @@ python -m pytest -q                           # 4. 489 passed 확인
 `WARRURU_TOOL` 은 화면에서 기록을 도구별로 나눌 때 쓰는 이름이다.
 에이전트마다 다르게 준다: `codex`, `claude-code`, `antigravity`.
 
+## 어느 저장소에서든 쓰기 — Codex 플러그인
+
+위 설정을 저장소마다 넣는 대신, `codex-plugin/` 을 한 번 설치하면 끝난다.
+MCP 연결과 기록 규칙(스킬)이 함께 들어가므로 **다른 프로젝트를 열어도
+`AGENTS.md` 를 손대지 않고** 그대로 쓴다.
+
+먼저 어댑터를 PATH 에 올린다. venv 안에만 있으면 다른 경로에서 안 잡힌다.
+
+```bash
+ln -sf "$PWD/local/.venv/bin/warruru-mcp" ~/.local/bin/warruru-mcp
+```
+
+그다음 이 저장소를 로컬 마켓플레이스로 걸고 설치한다.
+
+```bash
+codex plugin marketplace add ./codex-plugin
+codex plugin add warruru@warruru-local
+```
+
+확인은 `codex mcp list` 에 `warruru`(command 가 `warruru-mcp`)가 보이면 된다.
+스킬까지 붙었는지는 `codex debug prompt-input` 에서
+`warruru:warruru-recording` 을 찾으면 된다 — 모델을 부르지 않는다.
+
+`~/.codex/config.toml` 에 `[mcp_servers.warruru]` 를 직접 넣어 뒀다면 **지운다.**
+플러그인이 같은 이름으로 서버를 등록하므로 두 벌이 된다.
+
+플러그인 파일을 고친 뒤에는 캐시로 복사된 사본이 낡으므로
+`codex plugin add warruru@warruru-local` 을 다시 실행한다.
+
 ## 구성
 
 ```text
