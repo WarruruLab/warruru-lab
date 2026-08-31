@@ -9,7 +9,11 @@
 
 import inspect
 
-from warruru_local.publish.tistory_clipboard import TistoryClipboardTarget
+from warruru_local.publish.tistory_clipboard import (
+    TistoryClipboardTarget,
+    to_html,
+    unsupported_syntax,
+)
 
 MARKDOWN = """# 커넥션 풀
 
@@ -73,3 +77,56 @@ def test_결과에_경로가_없다():
     result = TistoryClipboardTarget().publish(title="t", markdown=MARKDOWN)
     assert result.path is None
     assert result.target == "tistory_clipboard"
+
+
+# ── 2026-08-31: `/career` 가 두 번째 사용처로 들어오며 넓힌 범위 ──────────
+
+def test_표가_thead_와_tbody_로_나뉜다():
+    html = to_html("| 키워드 | 기록 |\n|---|---|\n| Kafka | 0건 |\n")
+    assert "<thead><tr><th>키워드</th><th>기록</th></tr></thead>" in html
+    assert "<tbody><tr><td>Kafka</td><td>0건</td></tr></tbody>" in html
+
+
+def test_구분선을_빠뜨린_표도_표로_그린다():
+    """파이프가 그대로 문단으로 눕는 것보다 머리 없는 표가 낫다."""
+    html = to_html("| a | b |\n| c | d |\n")
+    assert "<table>" in html and "<thead>" not in html
+
+
+def test_표_칸_안에서도_굵게와_코드가_산다():
+    html = to_html("| x |\n|---|\n| **0건** `db-index` |\n")
+    assert "<strong>0건</strong>" in html
+    assert "<code>db-index</code>" in html
+
+
+def test_인용문과_번호목록과_가로줄():
+    html = to_html("> 인용\n\n1. 하나\n2. 둘\n\n---\n")
+    assert "<blockquote><p>인용</p></blockquote>" in html
+    assert "<ol><li>하나</li><li>둘</li></ol>" in html
+    assert "<hr>" in html
+
+
+def test_링크의_앰퍼샌드가_두_번_escape_되지_않는다():
+    """`&amp;amp;` 가 되면 주소가 깨진다. 들어오는 문자열은 이미 escape 된 상태다."""
+    html = to_html("[원문](https://e.com/a?b=1&c=2)")
+    assert 'href="https://e.com/a?b=1&amp;c=2"' in html
+    assert "&amp;amp;" not in html
+
+
+def test_수상한_주소는_링크를_걸지_않는다():
+    """미리보기는 `|safe` 로 그려진다. 공고 원문을 붙여넣는 자리가 생긴 이상
+    '내가 쓴 것' 이라는 전제를 세우지 않는다."""
+    html = to_html("[누르지마](javascript:alert(1))")
+    assert "<a" not in html
+    assert "누르지마" in html
+
+
+def test_주소_안의_따옴표가_속성_밖으로_못_나간다():
+    html = to_html('[x](https://e.com/"onmouseover="alert(1))')
+    assert "onmouseover=\"alert" not in html
+    assert "&quot;" in html
+
+
+def test_이미지는_여전히_안_그린다():
+    assert unsupported_syntax("![그림](./a.png)") == ["이미지"]
+    assert unsupported_syntax("| a |\n|---|\n> 인용\n1. 하나\n---\n[링크](/a)") == []

@@ -255,14 +255,19 @@ def test_미리보기는_꼬리말을_빼고_그린다(client):
 
 
 def test_못_그리는_문법을_숨기지_않는다(client):
-    """조용히 문단으로 눕히면 '여기서 이렇게 보였는데' 가 생긴다."""
+    """조용히 문단으로 눕히면 '여기서 이렇게 보였는데' 가 생긴다.
+
+    표·인용문·번호목록·가로줄·링크는 2026-08-31 에 그릴 수 있게 됐다.
+    남은 것은 이미지 하나다 — 로컬 파일을 가리키면 붙여넣는 순간 깨지고,
+    외부 호스팅은 이 프로젝트가 하지 않기로 한 일이다.
+    """
     made = _draft(client)
     client.post("/v1/drafts", json={
         "topic_slug": "connection-pool",
-        "markdown": "# 제목\n\n| a | b |\n|---|---|\n\n> 인용\n",
+        "markdown": "# 제목\n\n![그림](./a.png)\n",
     })
     page = client.get(f"/drafts/{made['draft_id']}").text
-    assert "표" in page and "인용문" in page
+    assert "이미지" in page
 
 
 def test_붙여넣기는_마크다운이다(client):
