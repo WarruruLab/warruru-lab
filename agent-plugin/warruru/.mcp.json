@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "warruru": {
+      "command": "warruru-mcp"
+    }
+  }
+}
