@@ -415,3 +415,51 @@ def test_채울_수_없는_절을_누르기_전에_알려준다(client):
     page = client.get("/t/connection-pool").text
     assert "재료 4/4" in page
     assert "구현" in page
+
+
+# ── 기록이 없는 주제 (2026-08-31) ────────────────────────────────────
+
+def test_아는_주제는_기록이_없어도_열린다(client):
+    """기술스택 화면의 배지가 전부 이리로 온다. 404 면 목록 전체가 죽은 링크다."""
+    response = client.get("/t/ds-hash")
+    assert response.status_code == 200
+    assert "해시" in response.text
+    assert "아직 기록이 없다" in response.text
+
+
+def test_모르는_슬러그는_404_그대로(client):
+    """오타를 알 수 있어야 한다."""
+    assert client.get("/t/없는주제").status_code == 404
+    assert client.get("/t/ds-hashh").status_code == 404
+
+
+def test_빈_화면이_채우는_방법을_준다(client):
+    page = client.get("/t/ds-hash").text
+    assert "record topic=ds-hash" in page
+    assert 'href="/career/stack/ds"' in page      # 어느 묶음인지
+
+
+def test_빈_화면이_요구하는_곳을_보여준다(client, home):
+    """왜 이 주제가 목록에 있는지가 곧 공부할 이유다."""
+    from warruru_local import paths
+
+    root = paths.career_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "hyundai-autoever.md").write_text(
+        "---\ncompany: 현대오토에버\nrequired:\n  - RDBMS | db-index\n---\n# 메모\n",
+        encoding="utf-8",
+    )
+    page = client.get("/t/db-index").text
+    assert "현대오토에버" in page          # 회사
+    assert "SQLD" in page                  # 자격증
+
+
+def test_기록이_생기면_원래_화면으로_돌아간다(client):
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": CLIENT, "tool": "codex",
+        "kind": "CONCEPT", "topic": "ds-hash",
+        "title": "해시 충돌", "body": "체이닝과 개방주소법",
+    })
+    page = client.get("/t/ds-hash").text
+    assert "아직 기록이 없다" not in page
+    assert "해시 충돌" in page

@@ -46,6 +46,28 @@ def _group(row: dict) -> dict:
     }
 
 
+def _build_empty(ctx, topic_slug: str) -> dict:
+    """기록이 아직 없는 주제. **왜 이게 목록에 있는지**를 대신 보여준다.
+
+    빈 화면에 "없습니다" 만 있으면 다음에 뭘 할지가 안 나온다. 어느 회사가
+    이걸 요구하고 어느 자격증에 나오는지가 곧 공부할 이유다.
+    """
+    from warruru_local.daemon import careerview
+
+    group = topics.group_of(topic_slug)
+    return {
+        "empty": True,
+        "topic": topics.label_of(topic_slug),
+        "topic_slug": topic_slug,
+        "count": 0,
+        "records": [],
+        "group": {"key": group[0], "label": group[1]} if group else None,
+        "certs": [{"key": key, "name": name} for key, name in topics.certs_of(topic_slug)],
+        "companies": careerview.demand(careerview.list_companies(ctx)).get(topic_slug, []),
+        "recommended": topics.is_recommended(topic_slug),
+    }
+
+
 def build_detail(ctx, topic_slug: str) -> dict | None:
     """한 주제의 전체 기록. **하루치가 아니다** — 글 한 편의 재료는 며칠에 걸친다.
 
@@ -54,13 +76,17 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
     """
     rows = ctx.records.list_records(topic_slug=topic_slug, limit=100)
     if not rows:
-        return None
+        # **아는 주제면 빈 화면을 준다.** 기술스택 화면의 배지가 전부 이리로
+        # 오는데, 기록이 없다고 404 면 목록 전체가 죽은 링크가 된다.
+        # 모르는 슬러그는 404 그대로 둔다 — 오타를 알 수 있어야 한다.
+        return _build_empty(ctx, topic_slug) if topics.is_known(topic_slug) else None
 
     # 목록은 최신순이지만 상세는 시간순이다. 읽는 순서가 곧 서사 순서다.
     rows = sorted(rows, key=lambda row: (row["occurred_at"], row["record_id"]))
     draft = ctx.records.latest_draft_of(topic_slug)
 
     return {
+        "empty": False,
         "topic": rows[-1]["topic"],
         "topic_slug": topic_slug,
         "count": len(rows),

@@ -466,6 +466,31 @@ def label_of(slug: str) -> str:
     return SLUG_LABELS.get(slug, slug)
 
 
+def is_known(slug: str) -> bool:
+    """이 슬러그가 **앞으로 기록이 쌓일 자리**인가.
+
+    `is_recommended` 와 다르다. 그쪽은 "31주 로드맵 위인가" 이고, 이쪽은
+    로드맵이든 CS 든 화면이 이름을 아는 주제인가를 묻는다. 기록이 아직
+    없어도 화면을 보여줘야 하는 자리를 가르는 값이다.
+    """
+    return slug in SLUG_LABELS
+
+
+def group_of(slug: str) -> tuple[str, str] | None:
+    """이 슬러그가 속한 묶음. `(열쇠, 라벨)` 이다."""
+    for key, label, slugs in SLUG_GROUPS + CS_GROUPS:
+        if slug in slugs:
+            return key, label
+    return None
+
+
+def certs_of(slug: str) -> list[tuple[str, str]]:
+    """이 슬러그가 나오는 자격증들. `(열쇠, 이름)` 이다."""
+    return [
+        (key, name) for key, name, slugs in CERTIFICATIONS if slug in slugs
+    ]
+
+
 # 로드맵 100개에 **없는** CS 기초. 출처는 아래 둘이다(2026-08-31 확인).
 #
 #   TeachYourselfCS-KR      https://github.com/minnsane/TeachYourselfCS-KR
