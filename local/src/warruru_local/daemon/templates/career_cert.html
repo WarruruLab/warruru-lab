@@ -39,13 +39,16 @@
     </li>
     {% endfor %}
   </ul>
-  {% if view.site %}
+  {% if view.links %}
+  <nav aria-label="공식 사이트">
+    {% for link in view.links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
+  </nav>
+  {% endif %}
   <p class="meta">
-    <a href="{{ view.site }}">{{ view.issuer or view.site }}</a>
-    {% if view.checked %} · {{ view.checked }} 확인{% endif %} ·
+    {% if view.issuer %}{{ view.issuer }} · {% endif %}
+    {% if view.checked %}{{ view.checked }} 확인 · {% endif %}
     <strong>일정은 바뀐다. 접수 전에 공식 사이트를 다시 본다.</strong>
   </p>
-  {% endif %}
 </section>
 {% endif %}
 

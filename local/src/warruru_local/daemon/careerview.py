@@ -44,6 +44,11 @@ _GATE_OK = "충족"
 # 이미 접수가 끝난 회차의 시험 같은 것이다.
 _NOT_MINE = "해당없음"
 
+# 링크는 `|safe` 로 그려지지 않지만 href 로는 들어간다. 노트를 쓰는 쪽이
+# 에이전트라 `javascript:` 가 섞일 이유가 없어야 하는데, "없어야 한다" 를
+# 검사 없이 믿지 않는다.
+_SAFE_LINK = re.compile(r"^https?://", re.I)
+
 
 def _root(ctx) -> Path:
     return paths.career_dir(ctx.settings.home)
@@ -280,7 +285,10 @@ def _cert_note(ctx, key: str, today: str) -> dict:
     """
     path = paths.cert_dir(ctx.settings.home) / f"{key}.md"
     if not path.is_file():
-        return {"exams": [], "next": None, "html": "", "markdown": "", "meta": {}}
+        return {
+            "exams": [], "links": [], "next": None,
+            "html": "", "markdown": "", "meta": {},
+        }
 
     text = path.read_text(encoding="utf-8", errors="replace")
     meta, body = parse_front_matter(text)
@@ -299,12 +307,19 @@ def _cert_note(ctx, key: str, today: str) -> dict:
             "days": (_days(date) - _days(today)),
         })
     exams.sort(key=lambda row: row["date"])
+
+    links = []
+    for item in meta.get("links") or []:
+        label, url = _pair(item)
+        if url and _SAFE_LINK.match(url):
+            links.append({"label": label or url, "url": url})
     return {
         "meta": meta,
         "issuer": meta.get("issuer") or "",
         "site": meta.get("site") or "",
         "checked": meta.get("checked") or "",
         "exams": exams,
+        "links": links,
         # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —
         # 지워 버리면 "이번에 놓쳤다" 는 사실까지 사라진다.
         "next": next(
