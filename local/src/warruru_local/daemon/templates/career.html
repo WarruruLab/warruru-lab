@@ -21,6 +21,9 @@
       <span class="badge {{ 'ok' if cert.coverage.covered == cert.coverage.total else '' }}">
         {{ cert.coverage.covered }}/{{ cert.coverage.total }}
       </span>
+      {% if cert.next %}
+        <span class="badge {{ 'warn' if cert.next.days <= 30 else '' }}">D-{{ cert.next.days }}</span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
