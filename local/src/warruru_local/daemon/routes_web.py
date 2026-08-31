@@ -136,6 +136,7 @@ async def career_index(request: Request):
         {
             "companies": companies,
             "stack": careerview.build_stack(ctx),
+            "certs": careerview.build_certs(ctx),
             "today": local_date_of(to_iso(ctx.clock.now())),
         },
     )
@@ -150,6 +151,21 @@ async def career_stack(request: Request):
             "view": careerview.build_stack(ctx),
             "today": local_date_of(to_iso(ctx.clock.now())),
         },
+    )
+
+
+@router.get("/career/cert/{key}")
+async def career_cert(request: Request, key: str):
+    ctx = request.app.state.ctx
+    view = careerview.build_cert(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_cert.html",
+        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
     )
 
 

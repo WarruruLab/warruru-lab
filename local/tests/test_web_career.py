@@ -335,3 +335,33 @@ def test_묶음_화면의_건수도_그_자리에서_센다(client, home):
     assert "0건" in client.get("/career/stack/db").text
     _record(client, "db-index")
     assert "1건" in client.get("/career/stack/db").text
+
+
+# ── 자격증 (2026-08-31) ──────────────────────────────────────────────
+
+def test_허브_왼쪽_칸에_자격증이_선다(client):
+    page = client.get("/career").text
+    assert 'href="/career/cert/sqld"' in page
+    assert "네트워크관리사 2급" in page
+    assert "AWS SAA" in page
+
+
+def test_자격증_화면이_겹치는_주제만_보여준다(client):
+    page = client.get("/career/cert/sqld").text
+    assert "db-index" in page
+    assert "aws-vpc" not in page
+
+
+def test_자격증_준비도가_시험_합격이_아니라고_말한다(client):
+    """이 화면이 다 차도 합격을 뜻하지 않는다. 그 오해가 가장 비싸다."""
+    assert "시험 범위가 아니다" in client.get("/career/cert/linux-2").text
+
+
+def test_자격증_건수도_그_자리에서_센다(client):
+    assert "0 / 10 슬러그" in client.get("/career/cert/sqld").text
+    _record(client, "db-index")
+    assert "1 / 10 슬러그" in client.get("/career/cert/sqld").text
+
+
+def test_없는_자격증은_404(client):
+    assert client.get("/career/cert/없는것").status_code == 404

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">
+  <a href="/career">← 포트폴리오</a> ·
+  <a href="/career/stack">기술스택 전체</a>
+</p>
+
+<section class="tool">
+  <h2>{{ view.coverage.covered }} / {{ view.coverage.total }}</h2>
+  <p>{% with coverage = view.coverage %}{% include "_coverage.html" %}{% endwith %}</p>
+  <p class="empty">
+    <strong>시험 범위가 아니다.</strong> 이 자격증을 공부하며 나오는 것 중
+    31주 로드맵과 겹치는 주제만 모은 것이다. 여기가 다 차도 합격을 뜻하지
+    않는다 — 시험에는 나오지만 로드맵에 없는 것이 있다.
+  </p>
+  <ul class="checkpoints">
+    {% for item in view.slugs %}
+    <li>
+      <div class="work-head">
+        <strong><a href="/t/{{ item.slug }}">{{ item.slug }}</a></strong>
+        <span class="badge {{ 'ok' if item.count else 'warn' }}">{{ item.count }}건</span>
+        {% for name in item.companies %}<span class="badge">{{ name }}</span>{% endfor %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

@@ -303,3 +303,30 @@ def test_묶음_열쇠가_겹치지_않고_URL_에_넣을_수_있다():
     keys = [key for key, _, _ in SLUG_GROUPS]
     assert len(keys) == len(set(keys))
     assert all(re.match(r"^[a-z0-9][a-z0-9-]*$", key) for key in keys)
+
+
+def test_자격증_슬러그가_전부_로드맵_위에_있다():
+    """로드맵 밖 슬러그를 적으면 그 줄은 어느 화면에서도 안 보인다."""
+    from warruru_local.topics import CERTIFICATIONS, RECOMMENDED_SLUGS
+
+    for _, name, slugs in CERTIFICATIONS:
+        assert set(slugs) <= set(RECOMMENDED_SLUGS), name
+        assert len(slugs) == len(set(slugs)), name
+
+
+def test_자격증_열쇠가_겹치지_않고_URL_에_넣을_수_있다():
+    import re
+
+    from warruru_local.topics import CERTIFICATIONS
+
+    keys = [key for key, _, _ in CERTIFICATIONS]
+    assert len(keys) == len(set(keys))
+    assert all(re.match(r"^[a-z0-9][a-z0-9-]*$", key) for key in keys)
+
+
+def test_자격증끼리는_겹쳐도_된다():
+    """`SLUG_GROUPS` 와 다르다. `db-index` 는 정보처리기사이자 SQLD 다."""
+    from warruru_local.topics import CERTIFICATIONS
+
+    by_name = {name: set(slugs) for _, name, slugs in CERTIFICATIONS}
+    assert by_name["SQLD"] & by_name["정보처리기사"]
