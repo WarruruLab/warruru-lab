@@ -539,3 +539,70 @@ def test_허브가_다음에_할_일을_이름으로_보여준다(client, home):
     _cert(home, "network-2")
     page = client.get("/career").text
     assert "D-8" in page and "4회 접수 시작" in page
+
+
+# ── 자격증은 시험이다 — 단계로 나눈다 (2026-09-01 확정) ──────────────
+
+STAGED = """---
+status: 필기 합격
+issuer: 한국산업인력공단
+stages:
+  - 필기 | 합격
+  - 실기 | 준비중
+exams:
+  - 2026-07-10 | 필기 발표 | 지난 것 | 해당없음 | 필기
+  - 2026-07-30 | 실기 접수 | 사흘뿐이다 | | 실기
+  - 2026-08-20 | 실기 시험 | | | 실기
+---
+
+# 필기 — 끝났다
+
+# 실기 — 남은 것
+
+## 문제 유형
+
+필답형. 부분 점수가 없다.
+"""
+
+
+def test_단계마다_칸이_선다(client, home):
+    """필기와 실기는 유형도 공부법도 다른 시험이다. 같은 칸에 놓으면 흐려진다."""
+    _cert(home, "jeongcheogi", STAGED)
+    page = client.get("/career/cert/jeongcheogi").text
+    assert "<h2>필기" in page and "<h2>실기" in page
+    assert "합격" in page and "준비중" in page
+
+
+def test_단계마다_자기_다음_일정을_본다(ctx, home):
+    _cert(home, "jeongcheogi", STAGED)
+    stages = {s["name"]: s for s in careerview.build_cert(ctx, "jeongcheogi")["stages"]}
+    assert stages["실기"]["next"]["label"] == "실기 접수"
+    assert stages["필기"]["next"] is None      # 지났고 해당없음이다
+
+
+def test_단계가_없으면_예전처럼_다음에_할_일만(client, home):
+    _cert(home, "sqld")                        # stages 없는 노트
+    page = client.get("/career/cert/sqld").text
+    assert "다음에 할 일" in page
+
+
+def test_일정_목록에_단계가_붙는다(client, home):
+    _cert(home, "jeongcheogi", STAGED)
+    page = client.get("/career/cert/jeongcheogi").text
+    assert "실기 시험" in page and "필기 발표" in page
+
+
+def test_문제_유형과_공부법이_보인다(client, home):
+    """이 화면의 주인공은 슬러그 목록이 아니라 시험이다."""
+    _cert(home, "jeongcheogi", STAGED)
+    page = client.get("/career/cert/jeongcheogi").text
+    assert "과목 · 유형 · 공부법" in page
+    assert "부분 점수가 없다" in page
+
+
+def test_슬러그_겹침은_아래에_작게_남는다(client, home):
+    """기록과 잇는 유일한 끈이라 지우지는 않는다."""
+    _cert(home, "jeongcheogi", STAGED)
+    page = client.get("/career/cert/jeongcheogi").text
+    assert "내 기록과 겹치는 것" in page
+    assert page.index("과목 · 유형 · 공부법") < page.index("내 기록과 겹치는 것")

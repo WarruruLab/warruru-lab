@@ -95,10 +95,9 @@ def _pair(item: str) -> tuple[str, str]:
     return left.strip(), right.strip()
 
 
-def _quad(item: str) -> tuple[str, str, str, str]:
+def _fields(item: str, count: int) -> list[str]:
     parts = [part.strip() for part in item.split(_SPLIT)]
-    parts += [""] * (4 - len(parts))
-    return parts[0], parts[1], parts[2], parts[3]
+    return (parts + [""] * count)[:count]
 
 
 def parse_links(items) -> list[dict]:
@@ -328,7 +327,7 @@ def _cert_note(ctx, key: str, today: str) -> dict:
     path = paths.cert_dir(ctx.settings.home) / f"{key}.md"
     if not path.is_file():
         return {
-            "exams": [], "links": [], "next": None, "status": "미시작",
+            "exams": [], "links": [], "stages": [], "next": None, "status": "미시작",
             "done": False, "html": "", "markdown": "", "meta": {},
         }
 
@@ -336,7 +335,7 @@ def _cert_note(ctx, key: str, today: str) -> dict:
     meta, body = parse_front_matter(text)
     exams = []
     for item in meta.get("exams") or []:
-        date, label, note, mine = _quad(item)
+        date, label, note, mine, stage = _fields(item, 5)
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
             continue
         exams.append({
@@ -345,12 +344,29 @@ def _cert_note(ctx, key: str, today: str) -> dict:
             # 합격해야 볼 수 있는 실기 같은 것. 목록에는 남기되 D-day 로는
             # 안 쓴다 — 못 하는 일을 카운트다운하면 그 숫자가 거짓말이다.
             "mine": mine != _NOT_MINE,
+            "stage": stage,
             "past": date < today,
             "days": (_days(date) - _days(today)),
         })
     exams.sort(key=lambda row: row["date"])
 
     links = parse_links(meta.get("links"))
+
+    # 단계(필기·실기 · 1차·2차). **이 화면의 주인공이다** — 자격증은 슬러그
+    # 목록이 아니라 시험이고, 시험은 단계마다 유형도 공부법도 다르다.
+    stages = []
+    for item in meta.get("stages") or []:
+        name, state = _fields(item, 2)
+        if name:
+            stages.append({"name": name, "state": state or "미시작",
+                           "done": state == _CERT_DONE})
+    for stage in stages:
+        stage["next"] = next(
+            (row for row in exams
+             if not row["past"] and row["mine"] and row["stage"] == stage["name"]),
+            None,
+        )
+
     return {
         "meta": meta,
         "status": meta.get("status") or "미시작",
@@ -360,6 +376,7 @@ def _cert_note(ctx, key: str, today: str) -> dict:
         "checked": meta.get("checked") or "",
         "exams": exams,
         "links": links,
+        "stages": stages,
         # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —
         # 지워 버리면 "이번에 놓쳤다" 는 사실까지 사라진다.
         "next": next(
