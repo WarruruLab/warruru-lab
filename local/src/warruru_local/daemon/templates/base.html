@@ -456,6 +456,29 @@
   table.calendar td.today { box-shadow: inset 0 0 0 2px var(--ink-faint); }
   table.calendar td.marked.today { box-shadow: inset 0 0 0 2px var(--full); }
 
+  /* ── 두 칸 ─────────────────────────────────────────────
+     좁은 화면에서는 한 줄로 눕는다. 억지로 두 칸을 유지하면 배지가
+     줄줄이 접혀 오히려 못 읽는다. */
+  .two {
+    display: grid; gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    align-items: start;
+  }
+  .two > .tool { margin-bottom: 0; }
+  .two h2 > a { text-decoration: none; color: var(--ink); }
+  .two h2 > a:hover { color: var(--primary); }
+
+  ul.picks { list-style: none; margin: .6rem 0 0; padding: 0; }
+  ul.picks > li {
+    display: flex; gap: .4rem; align-items: baseline; flex-wrap: wrap;
+    padding: .42rem 0; border-top: 1px solid var(--rule-soft);
+  }
+  ul.picks > li:first-child { border-top: none; }
+  ul.picks > li > a {
+    font-weight: 600; text-decoration: none; margin-right: auto;
+  }
+  ul.picks > li > a:hover { color: var(--primary); }
+
   /* ── 준비도 막대 ─────────────────────────────────────────
      재료 막대와 색을 나눠 쓴다. 초록은 '있다', 주황 바닥은 '비었다' 로
      화면 전체에서 같은 뜻이어야 한다. */

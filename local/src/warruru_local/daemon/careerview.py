@@ -223,7 +223,7 @@ def build_stack(ctx) -> dict:
     wanted = demand(list_companies(ctx))
 
     groups = []
-    for label, slugs in topics.SLUG_GROUPS:
+    for key, label, slugs in topics.SLUG_GROUPS:
         # 키 이름이 `items` 면 Jinja 가 dict 의 메서드를 먼저 집는다.
         rows = [
             {
@@ -234,6 +234,7 @@ def build_stack(ctx) -> dict:
             for slug in slugs
         ]
         groups.append({
+            "key": key,
             "label": label,
             "slugs": rows,
             "have": sum(1 for item in rows if item["count"]),
@@ -259,6 +260,15 @@ def build_stack(ctx) -> dict:
         # 로드맵 밖 주제. 기록은 있는데 슬러그가 목록에 없는 것들이다.
         "outside": sorted(slug for slug in counts if slug not in {i["slug"] for i in every}),
     }
+
+
+def build_group(ctx, key: str) -> dict | None:
+    """묶음 하나. 허브에서 `Spring` 을 눌렀을 때 오는 자리다."""
+    stack = build_stack(ctx)
+    for group in stack["groups"]:
+        if group["key"] == key:
+            return group
+    return None
 
 
 def list_companies(ctx) -> list[dict]:

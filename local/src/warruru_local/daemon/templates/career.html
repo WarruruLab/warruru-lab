@@ -6,47 +6,56 @@
   {% include "_nav.html" %}
 </header>
 
-<p class="meta">
-  묻는 것이 다른 두 축이다. 왼쪽은 <strong>무엇을 공부할까</strong>,
-  오른쪽은 <strong>어디에 지원할까</strong>.
-</p>
+{# 두 축을 **나란히** 놓는다. 위아래로 쌓으면 아래쪽이 스크롤 밖으로 밀리고,
+   그러면 두 축이 대등하다는 사실이 화면에서 사라진다. #}
+<div class="two">
 
 <section class="tool">
-  <h2>나의 기술스택</h2>
-  <div class="work-head">
-    <strong><a href="/career/stack">로드맵 슬러그 {{ stack.coverage.total }}개</a></strong>
-    {% if stack.first %}
-      <span class="badge warn">먼저 할 것 {{ stack.first|length }}개</span>
-    {% endif %}
-  </div>
+  <h2><a href="/career/stack">나의 기술스택</a></h2>
   <div class="meta">{% with coverage = stack.coverage %}{% include "_coverage.html" %}{% endwith %}</div>
-  <p class="meta">
-    31주 로드맵의 주제마다 내 기록이 몇 건인지, 그리고
-    <strong>어느 회사가 그걸 요구하는지</strong>를 함께 놓는다.
-  </p>
+  <ul class="picks">
+    {% for group in stack.groups %}
+    <li>
+      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
+      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
+      {% set wanted = group.slugs | selectattr("companies") | list %}
+      {% if wanted %}<span class="badge warn">공고 {{ wanted|length }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
 </section>
 
 <section class="tool">
-  <h2>채용공고</h2>
-  <div class="work-head">
-    <strong><a href="/career/companies">회사 {{ companies|length }}곳</a></strong>
-    {% set blocked = companies | selectattr("blocked") | list %}
-    {% if blocked %}
-      <span class="badge warn">자격 막힌 회사 {{ blocked|length }}곳</span>
-    {% endif %}
-  </div>
+  <h2><a href="/career/companies">채용공고</a></h2>
+  <p class="meta">회사 {{ companies|length }}곳</p>
   {% if companies %}
-  <p class="meta">
-    {% for row in companies[:5] %}
-      {% if row.slug %}<a href="/career/c/{{ row.slug }}">{{ row.company }}</a>{% else %}{{ row.title }}{% endif %}{% if not loop.last %} · {% endif %}
+  <ul class="picks">
+    {% for row in companies %}
+    <li>
+      {% if row.slug %}
+        <a href="/career/c/{{ row.slug }}">{{ row.company }}</a>
+        {% if row.confidence %}<span class="badge">{{ row.confidence }}</span>{% endif %}
+        {% if row.blocked %}<span class="badge warn">자격 {{ row.blocked|length }}</span>{% endif %}
+        {% if row.deadline and not row.deadline.past %}
+          <span class="badge">D-{{ row.deadline.days }}</span>
+        {% endif %}
+        {% if row.coverage.total %}
+          <span class="badge {{ 'ok' if row.coverage.covered else 'warn' }}">{{ row.coverage.covered }}/{{ row.coverage.total }}</span>
+        {% endif %}
+      {% else %}
+        <span class="quiet">{{ row.title }}</span>
+        <span class="badge warn">파일 이름이 규칙 밖</span>
+      {% endif %}
+    </li>
     {% endfor %}
-    {% if companies|length > 5 %} 외 {{ companies|length - 5 }}곳{% endif %}
-  </p>
+  </ul>
   {% else %}
   <p class="empty">
-    아직 회사 노트가 없다. 공고를 노션에 넣고 에이전트에게
-    <code>career-prep</code> 으로 대조하게 하면 여기 줄이 선다.
+    아직 없다. 공고를 노션에 넣고 에이전트에게 <code>career-prep</code> 으로
+    대조하게 하면 여기 줄이 선다.
   </p>
   {% endif %}
 </section>
+
+</div>
 {% endblock %}

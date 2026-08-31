@@ -282,7 +282,7 @@ def test_묶음이_로드맵_100개를_빠짐없이_덮는다():
     """덮지 못하면 기술스택 화면에서 그 슬러그가 조용히 사라진다."""
     from warruru_local.topics import RECOMMENDED_SLUGS, SLUG_GROUPS
 
-    flat = [slug for _, slugs in SLUG_GROUPS for slug in slugs]
+    flat = [slug for _, _, slugs in SLUG_GROUPS for slug in slugs]
     assert set(flat) == set(RECOMMENDED_SLUGS)
 
 
@@ -290,5 +290,16 @@ def test_한_슬러그가_두_묶음에_걸치지_않는다():
     """겹치면 기술스택 화면의 '몇 개 중 몇 개' 가 실제보다 커진다."""
     from warruru_local.topics import SLUG_GROUPS
 
-    flat = [slug for _, slugs in SLUG_GROUPS for slug in slugs]
+    flat = [slug for _, _, slugs in SLUG_GROUPS for slug in slugs]
     assert len(flat) == len(set(flat))
+
+
+def test_묶음_열쇠가_겹치지_않고_URL_에_넣을_수_있다():
+    """라벨은 사람이 읽는 말이라 다듬을 수 있어야 한다. 주소에 들어가면 링크가 깨진다."""
+    import re
+
+    from warruru_local.topics import SLUG_GROUPS
+
+    keys = [key for key, _, _ in SLUG_GROUPS]
+    assert len(keys) == len(set(keys))
+    assert all(re.match(r"^[a-z0-9][a-z0-9-]*$", key) for key in keys)

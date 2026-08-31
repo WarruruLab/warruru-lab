@@ -298,3 +298,40 @@ def test_회사_상세는_c_아래에_있다(client, home):
     _write(home, "hyundai-autoever.md", WITH_META)
     assert client.get("/career/c/hyundai-autoever").status_code == 200
     assert client.get("/career/hyundai-autoever").status_code == 404
+
+
+# ── 허브 두 칸 (2026-08-31) ──────────────────────────────────────────
+
+def test_허브의_왼쪽_칸에서_주제를_눌러_들어간다(client, home):
+    """기술스택 칸의 항목은 묶음이다 — Spring · DB · Redis · 네트워크 …"""
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career").text
+    assert 'href="/career/stack/spring"' in page
+    assert 'href="/career/stack/db"' in page
+    assert "Spring / Spring Boot" in page
+
+
+def test_허브의_오른쪽_칸에서_회사를_눌러_들어간다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career").text
+    assert 'href="/career/c/hyundai-autoever"' in page
+    assert "현대오토에버" in page
+
+
+def test_묶음_화면이_그_묶음의_슬러그만_보여준다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/stack/db").text
+    assert "db-index" in page
+    assert "jvm-gc" not in page          # 다른 묶음은 안 섞인다
+    assert "현대오토에버" in page          # 요구하는 회사가 배지로 붙는다
+
+
+def test_없는_묶음은_404(client):
+    assert client.get("/career/stack/없는것").status_code == 404
+
+
+def test_묶음_화면의_건수도_그_자리에서_센다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    assert "0건" in client.get("/career/stack/db").text
+    _record(client, "db-index")
+    assert "1건" in client.get("/career/stack/db").text

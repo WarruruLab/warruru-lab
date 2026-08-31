@@ -153,6 +153,21 @@ async def career_stack(request: Request):
     )
 
 
+@router.get("/career/stack/{key}")
+async def career_group(request: Request, key: str):
+    ctx = request.app.state.ctx
+    view = careerview.build_group(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 묶음이 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_group.html",
+        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
+    )
+
+
 @router.get("/career/companies")
 async def career_companies(request: Request):
     ctx = request.app.state.ctx

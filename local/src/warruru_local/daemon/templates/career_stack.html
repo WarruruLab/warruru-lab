@@ -40,7 +40,7 @@
 {% for group in view.groups %}
 <article class="work">
   <div class="work-head">
-    <strong>{{ group.label }}</strong>
+    <strong><a href="/career/stack/{{ group.key }}">{{ group.label }}</a></strong>
     <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }} / {{ group.total }}</span>
   </div>
   <p class="meta">
