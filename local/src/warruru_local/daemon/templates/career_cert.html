@@ -11,6 +11,44 @@
   <a href="/career/stack">기술스택 전체</a>
 </p>
 
+{% if view.next %}
+<section class="tool">
+  <h2>다음에 할 일</h2>
+  <div class="work-head">
+    <strong>{{ view.next.label or view.next.date }}</strong>
+    <span class="badge {{ 'warn' if view.next.days <= 14 else '' }}">D-{{ view.next.days }}</span>
+    <span class="meta">{{ view.next.date }}</span>
+  </div>
+  {% if view.next.note %}<p class="meta">{{ view.next.note }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if view.exams %}
+<section class="tool">
+  <h2>2026 일정</h2>
+  <ul class="checkpoints">
+    {% for exam in view.exams %}
+    <li class="{{ 'quiet' if exam.past else '' }}">
+      <div class="work-head">
+        <strong>{{ exam.label or exam.date }}</strong>
+        <span class="badge {{ '' if exam.past else 'ok' }}">{{ exam.date }}</span>
+        {% if exam.past %}<span class="badge">지남</span>
+        {% elif not exam.mine %}<span class="badge">해당없음</span>{% endif %}
+        <span class="meta">{{ exam.note }}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if view.site %}
+  <p class="meta">
+    <a href="{{ view.site }}">{{ view.issuer or view.site }}</a>
+    {% if view.checked %} · {{ view.checked }} 확인{% endif %} ·
+    <strong>일정은 바뀐다. 접수 전에 공식 사이트를 다시 본다.</strong>
+  </p>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="tool">
   <h2>{{ view.coverage.covered }} / {{ view.coverage.total }}</h2>
   <p>{% with coverage = view.coverage %}{% include "_coverage.html" %}{% endwith %}</p>
@@ -31,4 +69,11 @@
     {% endfor %}
   </ul>
 </section>
+
+{% if view.html %}
+<section class="tool">
+  <h2>준비</h2>
+  <div class="preview">{{ view.html|safe }}</div>
+</section>
+{% endif %}
 {% endblock %}

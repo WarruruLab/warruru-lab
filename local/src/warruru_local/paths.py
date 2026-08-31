@@ -69,6 +69,14 @@ def career_dir(home: Path) -> Path:
     return home / "career"
 
 
+def cert_dir(home: Path) -> Path:
+    """자격증 노트. 회사 노트와 **같은 자리에 섞지 않는다** —
+    `career/*.md` 는 회사 하나를 뜻하므로, 자격증이 그 자리에 들어오면
+    회사 목록에 자격증이 선다.
+    """
+    return career_dir(home) / "certs"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 

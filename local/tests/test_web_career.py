@@ -365,3 +365,67 @@ def test_자격증_건수도_그_자리에서_센다(client):
 
 def test_없는_자격증은_404(client):
     assert client.get("/career/cert/없는것").status_code == 404
+
+
+# ── 자격증 일정 (2026-08-31) ─────────────────────────────────────────
+
+CERT_NOTE = """---
+issuer: 한국정보통신자격협회
+site: https://www.icqa.or.kr
+checked: 2026-07-22
+exams:
+  - 2026-07-10 | 3회 필기 | 지난 회차
+  - 2026-07-25 | 3회 실기 | 필기 합격자만 | 해당없음
+  - 2026-07-30 | 4회 접수 시작 | 4일뿐이다
+---
+
+# 준비
+
+서브네팅 계산 연습.
+"""
+
+
+def _cert(home, key, text=CERT_NOTE):
+    root = paths.cert_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{key}.md").write_text(text, encoding="utf-8")
+
+
+def test_노트가_없어도_자격증_화면이_열린다(client):
+    """일정은 사람이 확인해 적는 값이다. 없는 것이 기본 상태다."""
+    page = client.get("/career/cert/sqld").text
+    assert "0 / 10" in page
+    assert "다음에 할 일" not in page
+
+
+def test_다음에_할_일이_D_day_로_뜬다(client, home):
+    _cert(home, "network-2")
+    page = client.get("/career/cert/network-2").text
+    assert "다음에 할 일" in page
+    assert "4회 접수 시작" in page
+    assert "D-8" in page                    # 2026-07-22 → 07-30
+
+
+def test_해당없음은_D_day_후보에서_빠진다(client, home):
+    """앞 단계에 합격해야 보는 실기다. 못 하는 일을 카운트다운하면 거짓말이다."""
+    _cert(home, "network-2")
+    page = client.get("/career/cert/network-2").text
+    assert "해당없음" in page               # 목록에는 남는다
+    assert "D-3" not in page                # 07-25 로는 세지 않는다
+
+
+def test_지난_일정도_지우지_않는다(client, home):
+    """지워 버리면 '이번에 놓쳤다' 는 사실까지 사라진다."""
+    _cert(home, "network-2")
+    page = client.get("/career/cert/network-2").text
+    assert "3회 필기" in page and "지남" in page
+
+
+def test_자격증_노트의_산문도_보인다(client, home):
+    _cert(home, "network-2")
+    assert "서브네팅 계산 연습" in client.get("/career/cert/network-2").text
+
+
+def test_허브의_자격증에도_D_day_가_붙는다(client, home):
+    _cert(home, "network-2")
+    assert "D-8" in client.get("/career").text

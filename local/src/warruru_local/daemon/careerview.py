@@ -40,6 +40,10 @@ _SPLIT = "|"
 # 막는다. 기술 준비가 아무리 되어 있어도 그 앞에서 끝난다.
 _GATE_OK = "충족"
 
+# 자격증 일정 중 **내가 지금 할 수 없는 것**. 앞 단계 합격자만 보는 실기,
+# 이미 접수가 끝난 회차의 시험 같은 것이다.
+_NOT_MINE = "해당없음"
+
 
 def _root(ctx) -> Path:
     return paths.career_dir(ctx.settings.home)
@@ -81,6 +85,12 @@ def parse_front_matter(text: str) -> tuple[dict, str]:
 def _pair(item: str) -> tuple[str, str]:
     left, _, right = item.partition(_SPLIT)
     return left.strip(), right.strip()
+
+
+def _quad(item: str) -> tuple[str, str, str, str]:
+    parts = [part.strip() for part in item.split(_SPLIT)]
+    parts += [""] * (4 - len(parts))
+    return parts[0], parts[1], parts[2], parts[3]
 
 
 def _many(value) -> list[str]:
@@ -262,6 +272,55 @@ def build_stack(ctx) -> dict:
     }
 
 
+def _cert_note(ctx, key: str, today: str) -> dict:
+    """자격증 노트 파일. **없어도 화면은 뜬다.**
+
+    시험 일정은 사람이 확인해 적는 값이라 코드 상수로 둘 수 없다 —
+    해마다 바뀌고, 틀리면 접수를 놓친다.
+    """
+    path = paths.cert_dir(ctx.settings.home) / f"{key}.md"
+    if not path.is_file():
+        return {"exams": [], "next": None, "html": "", "markdown": "", "meta": {}}
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    meta, body = parse_front_matter(text)
+    exams = []
+    for item in meta.get("exams") or []:
+        date, label, note, mine = _quad(item)
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+            continue
+        exams.append({
+            "date": date, "label": label, "note": note,
+            # 넷째 칸이 `해당없음` 이면 내가 못 하는 일정이다. 앞 단계에
+            # 합격해야 볼 수 있는 실기 같은 것. 목록에는 남기되 D-day 로는
+            # 안 쓴다 — 못 하는 일을 카운트다운하면 그 숫자가 거짓말이다.
+            "mine": mine != _NOT_MINE,
+            "past": date < today,
+            "days": (_days(date) - _days(today)),
+        })
+    exams.sort(key=lambda row: row["date"])
+    return {
+        "meta": meta,
+        "issuer": meta.get("issuer") or "",
+        "site": meta.get("site") or "",
+        "checked": meta.get("checked") or "",
+        "exams": exams,
+        # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —
+        # 지워 버리면 "이번에 놓쳤다" 는 사실까지 사라진다.
+        "next": next(
+            (row for row in exams if not row["past"] and row["mine"]), None
+        ),
+        "markdown": text,
+        "html": tistory_clipboard.to_html(body),
+    }
+
+
+def _days(date: str) -> int:
+    from datetime import date as _date
+
+    return _date.fromisoformat(date).toordinal()
+
+
 def build_certs(ctx) -> list[dict]:
     """자격증마다 로드맵과 겹치는 부분의 준비도.
 
@@ -269,10 +328,12 @@ def build_certs(ctx) -> list[dict]:
     시험에는 나오지만 로드맵에 없는 것이 있다.
     """
     counts = _counts(ctx)
+    today = local_date_of(to_iso(ctx.clock.now()))
     made = []
     for key, name, slugs in topics.CERTIFICATIONS:
         rows = [{"slug": slug, "count": counts.get(slug, 0)} for slug in slugs]
         covered = sum(1 for row in rows if row["count"])
+        note = _cert_note(ctx, key, today)
         made.append({
             "key": key,
             "name": name,
@@ -282,6 +343,7 @@ def build_certs(ctx) -> list[dict]:
                 "covered": covered,
                 "percent": round(covered * 100 / len(rows)) if rows else 0,
             },
+            **note,
         })
     return made
 
