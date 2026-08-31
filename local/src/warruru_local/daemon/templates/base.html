@@ -456,6 +456,32 @@
   table.calendar td.today { box-shadow: inset 0 0 0 2px var(--ink-faint); }
   table.calendar td.marked.today { box-shadow: inset 0 0 0 2px var(--full); }
 
+  /* ── 준비도 막대 ─────────────────────────────────────────
+     재료 막대와 색을 나눠 쓴다. 초록은 '있다', 주황 바닥은 '비었다' 로
+     화면 전체에서 같은 뜻이어야 한다. */
+  .cover {
+    display: inline-block; vertical-align: -2px;
+    width: 10rem; height: .5rem; border-radius: 2px;
+    background: var(--gap-soft); overflow: hidden;
+    margin-right: .45rem;
+  }
+  .cover > i { display: block; height: 100%; background: var(--full); }
+
+  table.cover-table { border-collapse: collapse; margin: .7rem 0 0; }
+  table.cover-table th, table.cover-table td {
+    border-bottom: 1px solid var(--rule-soft);
+    padding: .3rem .8rem .3rem 0; text-align: left;
+    font-size: var(--t-md);
+  }
+  table.cover-table th {
+    font-family: var(--mono); font-size: var(--t-xs);
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  table.cover-table .ready { color: var(--full); font-weight: 600; }
+  table.cover-table .short { color: var(--gap); font-weight: 600; }
+  a.badge { text-decoration: none; }
+  a.badge:hover { background: var(--gap); color: var(--ground); }
+
   .quiet { color: var(--ink-faint); }
   .empty { color: var(--ink-soft); }
   .empty-today { color: var(--gap); font-weight: 600; }
