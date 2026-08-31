@@ -345,3 +345,21 @@ def test_CS_열쇠가_로드맵_묶음_열쇠와_겹치지_않는다():
     from warruru_local.topics import CS_GROUPS, SLUG_GROUPS
 
     assert not ({k for k, _, _ in CS_GROUPS} & {k for k, _, _ in SLUG_GROUPS})
+
+
+def test_모든_슬러그에_한글_이름이_있다():
+    """배지에 `ds-hash` 가 그대로 뜨면 훑을 때 안 읽힌다."""
+    from warruru_local.topics import CS_SLUGS, RECOMMENDED_SLUGS, SLUG_LABELS
+
+    every = set(RECOMMENDED_SLUGS) | set(CS_SLUGS)
+    assert every - set(SLUG_LABELS) == set()
+    assert set(SLUG_LABELS) - every == set()   # 안 쓰는 이름도 남기지 않는다
+    assert all(name.strip() for name in SLUG_LABELS.values())
+
+
+def test_이름이_없으면_슬러그를_그대로_쓴다():
+    """도구를 만들며 남긴 주제처럼 목록 밖 슬러그도 화면에 떠야 한다."""
+    from warruru_local.topics import label_of
+
+    assert label_of("db-index") == "인덱스"
+    assert label_of("spool-durability") == "spool-durability"

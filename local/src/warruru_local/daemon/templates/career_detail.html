@@ -83,8 +83,8 @@
   <h2>빈 곳 {{ view.coverage.gaps|length }}개</h2>
   <p class="meta">기록 0건인 슬러그. 이 자리가 면접에서 대답 못 할 자리다.</p>
   <p>
-    {% for slug in view.coverage.gaps %}
-    <a class="badge warn" href="/t/{{ slug }}">{{ slug }}</a>
+    {% for gap in view.coverage.gaps %}
+    <a class="badge warn" href="/t/{{ gap.slug }}" title="{{ gap.slug }}">{{ gap.label }}</a>
     {% endfor %}
   </p>
 </section>
