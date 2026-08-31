@@ -373,6 +373,9 @@ CERT_NOTE = """---
 issuer: 한국정보통신자격협회
 site: https://www.icqa.or.kr
 checked: 2026-07-22
+links:
+  - 종목 안내 | https://www.icqa.or.kr/cn/page/network
+  - 나쁜 링크 | javascript:alert(1)
 exams:
   - 2026-07-10 | 3회 필기 | 지난 회차
   - 2026-07-25 | 3회 실기 | 필기 합격자만 | 해당없음
@@ -429,3 +432,20 @@ def test_자격증_노트의_산문도_보인다(client, home):
 def test_허브의_자격증에도_D_day_가_붙는다(client, home):
     _cert(home, "network-2")
     assert "D-8" in client.get("/career").text
+
+
+def test_공식_사이트_링크가_붙는다(client, home):
+    """일정은 바뀐다. 접수 전에 볼 곳이 화면에 있어야 한다."""
+    _cert(home, "network-2")
+    page = client.get("/career/cert/network-2").text
+    assert 'href="https://www.icqa.or.kr/cn/page/network"' in page
+    assert "종목 안내" in page
+
+
+def test_수상한_링크는_걸지_않는다(client, home):
+    """노트를 쓰는 쪽이 에이전트라 섞일 이유가 없어야 하는데,
+    '없어야 한다' 를 검사 없이 믿지 않는다."""
+    _cert(home, "network-2")
+    page = client.get("/career/cert/network-2").text
+    assert "javascript:alert" not in page
+    assert "나쁜 링크" not in page
