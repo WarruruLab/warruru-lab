@@ -123,14 +123,41 @@ def _back(date: str) -> RedirectResponse:
 
 @router.get("/career")
 async def career_index(request: Request):
-    """회사별 준비 노트 목록. **파일이 없는 것이 기본 상태다.**
+    """포트폴리오 허브. **두 갈래로 갈라 놓는다.**
 
-    9월에 공고가 열리기 전까지 이 화면은 비어 있다. 그래서 빈 화면이
-    '고장' 이 아니라 '다음에 할 일' 로 읽히게 안내를 함께 둔다.
+    기술스택은 '무엇을 공부할까' 를, 채용공고는 '어디에 지원할까' 를 묻는다.
+    두 축은 묻는 것이 다르고 보는 주기도 다르다 — 한 화면에 섞으면 어느
+    쪽도 훑기 어려워진다.
     """
     ctx = request.app.state.ctx
+    companies = careerview.list_companies(ctx)
     return templates.TemplateResponse(
         request, "career.html",
+        {
+            "companies": companies,
+            "stack": careerview.build_stack(ctx),
+            "today": local_date_of(to_iso(ctx.clock.now())),
+        },
+    )
+
+
+@router.get("/career/stack")
+async def career_stack(request: Request):
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "career_stack.html",
+        {
+            "view": careerview.build_stack(ctx),
+            "today": local_date_of(to_iso(ctx.clock.now())),
+        },
+    )
+
+
+@router.get("/career/companies")
+async def career_companies(request: Request):
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "career_companies.html",
         {
             "companies": careerview.list_companies(ctx),
             "today": local_date_of(to_iso(ctx.clock.now())),
@@ -138,8 +165,14 @@ async def career_index(request: Request):
     )
 
 
-@router.get("/career/{slug}")
+@router.get("/career/c/{slug}")
 async def career_detail(request: Request, slug: str):
+    """회사 상세. **`/career/c/` 아래 둔다.**
+
+    `/career/{slug}` 로 두면 `stack` · `companies` 같은 이름의 회사가 생기는
+    순간 어느 쪽인지 알 수 없다. 지금은 그런 회사가 없지만, 그 충돌은
+    생기고 나서 고치면 이미 링크가 퍼진 뒤다.
+    """
     ctx = request.app.state.ctx
     view = careerview.build_company(ctx, slug)
     if view is None:

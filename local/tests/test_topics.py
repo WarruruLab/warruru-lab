@@ -274,3 +274,21 @@ def test_공백만_있으면_비어_있는_것으로_본다():
 def test_기록이_없으면_전부_0이다():
     fill = topics.material_fill([])
     assert all(item["filled"] == 0 and item["total"] == 0 for item in fill)
+
+
+# ── 슬러그 묶음 (2026-08-31) ─────────────────────────────────────────
+
+def test_묶음이_로드맵_100개를_빠짐없이_덮는다():
+    """덮지 못하면 기술스택 화면에서 그 슬러그가 조용히 사라진다."""
+    from warruru_local.topics import RECOMMENDED_SLUGS, SLUG_GROUPS
+
+    flat = [slug for _, slugs in SLUG_GROUPS for slug in slugs]
+    assert set(flat) == set(RECOMMENDED_SLUGS)
+
+
+def test_한_슬러그가_두_묶음에_걸치지_않는다():
+    """겹치면 기술스택 화면의 '몇 개 중 몇 개' 가 실제보다 커진다."""
+    from warruru_local.topics import SLUG_GROUPS
+
+    flat = [slug for _, slugs in SLUG_GROUPS for slug in slugs]
+    assert len(flat) == len(set(flat))

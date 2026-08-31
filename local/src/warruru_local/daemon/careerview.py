@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from warruru_local import paths
+from warruru_local import paths, topics
 from warruru_local.clock import local_date_of, to_iso
 from warruru_local.publish import tistory_clipboard
 
@@ -198,6 +198,66 @@ def _read(ctx, path: Path, slug: str) -> dict:
         "says": _says(ctx, coverage["slugs"], counts),
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
+    }
+
+
+def demand(companies: list[dict]) -> dict[str, list[str]]:
+    """슬러그마다 **어느 회사가 요구하는가.** 회사 노트를 거꾸로 모은 것이다.
+
+    공부 순서를 정하는 값이다 — 두 회사가 함께 요구하는 슬러그 하나를 채우면
+    두 화면의 막대가 같이 오른다.
+    """
+    made: dict[str, list[str]] = {}
+    for row in companies:
+        name = row.get("company") or row.get("title")
+        for slug in (row.get("coverage") or {}).get("slugs", []):
+            names = made.setdefault(slug, [])
+            if name not in names:
+                names.append(name)
+    return made
+
+
+def build_stack(ctx) -> dict:
+    """내 기술스택 화면. 로드맵 슬러그 100개를 기록·수요와 함께 놓는다."""
+    counts = _counts(ctx)
+    wanted = demand(list_companies(ctx))
+
+    groups = []
+    for label, slugs in topics.SLUG_GROUPS:
+        # 키 이름이 `items` 면 Jinja 가 dict 의 메서드를 먼저 집는다.
+        rows = [
+            {
+                "slug": slug,
+                "count": counts.get(slug, 0),
+                "companies": wanted.get(slug, []),
+            }
+            for slug in slugs
+        ]
+        groups.append({
+            "label": label,
+            "slugs": rows,
+            "have": sum(1 for item in rows if item["count"]),
+            "total": len(rows),
+        })
+
+    every = [item for group in groups for item in group["slugs"]]
+    # 먼저 할 것 — **요구하는 회사가 많은데 기록이 0건인 것.** 하나를 채우면
+    # 여러 회사의 막대가 같이 오르므로, 같은 노력으로 가장 많이 움직인다.
+    first = sorted(
+        [item for item in every if not item["count"] and item["companies"]],
+        key=lambda item: (-len(item["companies"]), item["slug"]),
+    )
+    return {
+        "groups": groups,
+        "first": first,
+        "coverage": {
+            "total": len(every),
+            "covered": sum(1 for item in every if item["count"]),
+            "percent": round(sum(1 for item in every if item["count"]) * 100 / len(every))
+            if every else 0,
+        },
+        # 로드맵 밖 주제. 기록은 있는데 슬러그가 목록에 없는 것들이다.
+        "outside": sorted(slug for slug in counts if slug not in {i["slug"] for i in every}),
     }
 
 
