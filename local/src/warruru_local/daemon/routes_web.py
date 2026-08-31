@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
-    calendarview, dayview, drafting, publishing, topicview,
+    calendarview, careerview, dayview, drafting, publishing, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -119,6 +119,38 @@ def _check_token(request: Request, token: str | None) -> None:
 
 def _back(date: str) -> RedirectResponse:
     return RedirectResponse(f"/d/{date}", status_code=302)
+
+
+@router.get("/career")
+async def career_index(request: Request):
+    """회사별 준비 노트 목록. **파일이 없는 것이 기본 상태다.**
+
+    9월에 공고가 열리기 전까지 이 화면은 비어 있다. 그래서 빈 화면이
+    '고장' 이 아니라 '다음에 할 일' 로 읽히게 안내를 함께 둔다.
+    """
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "career.html",
+        {
+            "companies": careerview.list_companies(ctx),
+            "today": local_date_of(to_iso(ctx.clock.now())),
+        },
+    )
+
+
+@router.get("/career/{slug}")
+async def career_detail(request: Request, slug: str):
+    ctx = request.app.state.ctx
+    view = careerview.build_company(ctx, slug)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 회사 노트가 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_detail.html",
+        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
+    )
 
 
 @router.post("/web/drafts/{draft_id}/published")
