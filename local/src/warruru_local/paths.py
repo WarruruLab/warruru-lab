@@ -56,6 +56,19 @@ def drafts_dir(home: Path) -> Path:
     return home / "drafts"
 
 
+def career_dir(home: Path) -> Path:
+    """회사별 준비 노트가 앉는 자리. **저장소 바깥이다.**
+
+    초안(`drafts_dir`)과 같은 이유이고, 이유가 하나 더 있다 — 여기에는
+    자소서에 쓸 경험과 회사 조사가 섞여 들어온다. 초안보다 더 개인적인
+    내용이라 public 저장소 근처에 두면 안 된다.
+
+    `ensure_layout` 이 미리 만들지 않는다. `career-prep` 스킬이 첫 파일을
+    쓸 때 생긴다 — 빈 디렉터리가 먼저 보이면 뭔가 잃었다고 오해한다.
+    """
+    return home / "career"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 

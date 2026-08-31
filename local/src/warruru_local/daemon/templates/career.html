@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}포트폴리오 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>포트폴리오</h1>
+  {% include "_nav.html" %}
+</header>
+
+{% if companies %}
+<p class="meta">회사 {{ companies|length }}곳. 공고가 요구하는 것과 내 기록을 맞춰 둔 자리다.</p>
+{% for row in companies %}
+<article class="work">
+  <div class="work-head">
+    {% if row.slug %}
+      <strong><a href="/career/{{ row.slug }}">{{ row.title }}</a></strong>
+    {% else %}
+      {# 슬러그 규칙 밖의 파일. 목록에는 보이되 링크는 걸지 않는다 —
+         눌러서 404 가 뜨는 것보다 왜 못 여는지가 보여야 한다. #}
+      <strong class="quiet">{{ row.title }}</strong>
+      <span class="badge warn">파일 이름이 규칙 밖</span>
+    {% endif %}
+    <span class="meta">{{ row.name }}</span>
+  </div>
+</article>
+{% endfor %}
+{% else %}
+<section class="tool">
+  <h2>아직 비어 있다</h2>
+  <p class="empty-today">회사 노트 0곳</p>
+  <p class="empty">
+    이 화면은 <code>~/.warruru/career/</code> 의 파일을 그대로 보여준다.
+    데몬은 노션을 읽지 않는다 — 공고를 읽고 대조하는 쪽은 에이전트다.
+  </p>
+  <p class="meta">
+    에이전트에게 <code>career-prep</code> 스킬로 회사 하나를 대조하게 하면
+    파일이 생기고 여기 줄이 선다. 공고는 노션의
+    <em>백엔드 신입/인턴 채용공고 아카이브</em> 에 넣어 둔 것을 쓴다.
+  </p>
+</section>
+{% endif %}
+{% endblock %}

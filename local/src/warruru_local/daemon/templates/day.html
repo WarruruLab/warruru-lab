@@ -8,6 +8,9 @@
     <a href="/d/{{ view.prev_date }}">◀ 이전</a>
     <a href="/d/{{ view.next_date }}">다음 ▶</a>
     <a href="/d/{{ view.date }}?deleted=1">삭제 항목 보기</a>
+    {# 들어오는 문이 이 화면이다(`/` 가 여기로 보낸다). 여기에 없으면
+       포트폴리오 축은 주소를 아는 사람만 쓰게 된다. #}
+    <a href="/career">포트폴리오</a>
     {% include "_theme_toggle.html" %}
   </nav>
 </header>

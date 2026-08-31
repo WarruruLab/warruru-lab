@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ view.title }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.title }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta"><a href="/career">← 포트폴리오</a> · <code>{{ view.slug }}.md</code></p>
+
+{# 초안 미리보기와 같은 렌더러다. 두 화면이 다른 규칙으로 그리면
+   같은 마크다운이 자리마다 달라 보인다. #}
+<div class="preview">{{ view.html|safe }}</div>
+
+<details>
+  <summary class="meta">마크다운 원문</summary>
+  <pre class="body">{{ view.markdown }}</pre>
+</details>
+{% endblock %}

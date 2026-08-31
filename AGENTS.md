@@ -22,12 +22,15 @@
   (`machine` / `client_instance` / `work_session` / `checkpoint`
   / `learning_record` / `draft`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
+- 회사별 준비 노트 `~/.warruru/career/*.md` — 저장소 바깥이다.
+  `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
 - 에이전트 플러그인 `agent-plugin/` — 스킬 2개(`warruru-recording`
   · `career-prep`) + MCP 연결.
   **Codex 와 Claude Code 가 매니페스트 한 벌을 같이 읽는다.** 한 번 설치하면
   다른 저장소를 열어도 기록 규칙과 툴이 따라온다.
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
+  · `/career` · `/career/{회사}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
   JavaScript 는 초안 복사와 일반/다크 모드 전환에만 쓴다.
   둘 다 실패해도 기록 조회·수정·발행 표시 경로는 살아 있다
