@@ -151,6 +151,21 @@
     color: var(--primary); background: var(--primary-soft);
     border-color: var(--primary);
   }
+  .date-switcher {
+    width: fit-content; margin: 0 0 .6rem;
+    align-items: center; gap: .35rem;
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 8px; padding: .25rem;
+  }
+  .date-switcher strong {
+    min-width: 7.2rem; text-align: center;
+    font-family: var(--mono); font-size: var(--t-md);
+    font-variant-numeric: tabular-nums;
+  }
+  .date-switcher a {
+    display: grid; place-items: center; width: 2rem; height: 2rem;
+    padding: 0; font-size: var(--t-lg);
+  }
 
   /* ── 카드 ───────────────────────────────────────────── */
   .tool {

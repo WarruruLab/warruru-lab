@@ -1,6 +1,6 @@
 """주제 화면 `/t` — 하루치 기록이 주제로 묶여 한 줄이 된다.
 
-Jinja2 서버 렌더링, JavaScript 없음. 조회는 토큰이 필요 없다.
+Jinja2 서버 렌더링. 조회는 토큰이 필요 없고 JS 는 테마 전환에만 쓴다.
 """
 
 from datetime import datetime, timezone
@@ -113,6 +113,27 @@ def test_오늘_경계는_로컬_자정_기준이다(client):
     assert "connection pool" in 오늘
     assert "jvm gc" not in 오늘
     assert "jvm gc" in 지난
+
+
+def test_홈의_날짜_화살표로_전날과_다음날을_본다(client):
+    _record(client, "rec_전날", title="전날에만 한 일",
+            occurred_at="2026-08-23T09:00:00.000Z")
+
+    today = client.get("/t").text
+    assert 'href="/t?date=2026-08-23"' in today
+    assert 'href="/t?date=2026-08-25"' in today
+
+    previous = client.get("/t?date=2026-08-23").text
+    assert "2026-08-23" in previous
+    assert "선택 날짜 기록 1건" in previous
+    assert "전날에만 한 일" not in previous  # 홈은 제목이 아니라 주제로 묶는다
+    assert "connection pool" in previous
+    assert 'href="/t?date=2026-08-22"' in previous
+    assert 'href="/t?date=2026-08-24"' in previous
+
+
+def test_홈의_잘못된_날짜는_400이다(client):
+    assert client.get("/t?date=2026-02-30").status_code == 400
 
 
 # ── 지난 주제 ────────────────────────────────────────────────────────────
