@@ -134,7 +134,10 @@ def _coverage(meta: dict, counts: dict[str, int]) -> dict:
             slugs = [s.strip() for s in joined.split(",") if s.strip()]
             groups.append({
                 "keyword": keyword,
-                "slugs": [{"slug": s, "count": counts.get(s, 0)} for s in slugs],
+                "slugs": [
+                    {"slug": s, "label": topics.label_of(s), "count": counts.get(s, 0)}
+                    for s in slugs
+                ],
                 "total": len(slugs),
                 "have": sum(counts.get(s, 0) for s in slugs),
             })
@@ -149,7 +152,10 @@ def _coverage(meta: dict, counts: dict[str, int]) -> dict:
         # 0/0 을 100% 로 만들지 않는다. 요구 기술을 아직 못 적은 것과
         # 다 갖춘 것은 완전히 다른 상태다.
         "percent": round(covered * 100 / total) if total else 0,
-        "gaps": [s for s in seen if not counts.get(s)],
+        "gaps": [
+            {"slug": s, "label": topics.label_of(s)}
+            for s in seen if not counts.get(s)
+        ],
     }
 
 
@@ -239,6 +245,7 @@ def _group_rows(source, counts, wanted) -> list[dict]:
         rows = [
             {
                 "slug": slug,
+                "label": topics.label_of(slug),
                 "count": counts.get(slug, 0),
                 "companies": wanted.get(slug, []),
             }
@@ -364,7 +371,10 @@ def build_certs(ctx) -> list[dict]:
     today = local_date_of(to_iso(ctx.clock.now()))
     made = []
     for key, name, slugs in topics.CERTIFICATIONS:
-        rows = [{"slug": slug, "count": counts.get(slug, 0)} for slug in slugs]
+        rows = [
+            {"slug": slug, "label": topics.label_of(slug), "count": counts.get(slug, 0)}
+            for slug in slugs
+        ]
         covered = sum(1 for row in rows if row["count"])
         note = _cert_note(ctx, key, today)
         made.append({

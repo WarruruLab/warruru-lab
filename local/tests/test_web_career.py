@@ -483,3 +483,23 @@ def test_CS_슬러그는_로드맵_밖_구획에_안_간다(client):
     _record(client, "ds-hash")
     page = client.get("/career/stack").text
     assert "로드맵 밖" not in page
+
+
+def test_화면이_슬러그_대신_한글을_보여준다(client, home):
+    """기록·URL·집계는 슬러그로 간다. 읽는 자리에서만 한글로 바꾼다."""
+    page = client.get("/career/stack/db").text
+    assert "인덱스" in page
+    assert 'href="/t/db-index"' in page          # 링크는 슬러그 그대로
+
+
+def test_슬러그도_같이_보인다(client):
+    """`record_learning` 에 적어야 하는 값이라 화면에서 사라지면 안 된다."""
+    page = client.get("/career/stack/ds").text
+    assert "해시" in page and "ds-hash" in page
+
+
+def test_빈_곳_배지도_한글이다(client, home):
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/c/hyundai-autoever").text
+    assert "JVM GC" in page
+    assert 'title="jvm-gc"' in page

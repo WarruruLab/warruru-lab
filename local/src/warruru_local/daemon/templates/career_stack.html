@@ -40,8 +40,9 @@
     </div>
     <p class="meta">
       {% for item in group.slugs %}
-      <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}">
-        {{ item.slug }}{% if item.count %} {{ item.count }}{% endif %}
+      <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}"
+         title="{{ item.slug }}">
+        {{ item.label }}{% if item.count %} {{ item.count }}{% endif %}
       </a>
       {% endfor %}
     </p>
@@ -68,7 +69,8 @@
     {% for item in view.first %}
     <li>
       <div class="work-head">
-        <strong><a href="/t/{{ item.slug }}">{{ item.slug }}</a></strong>
+        <strong><a href="/t/{{ item.slug }}">{{ item.label }}</a></strong>
+        <code class="quiet">{{ item.slug }}</code>
         {% for name in item.companies %}<span class="badge warn">{{ name }}</span>{% endfor %}
       </div>
     </li>
@@ -86,8 +88,8 @@
   <p class="meta">
     {% for item in group.slugs %}
     <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}"
-       {% if item.companies %}title="{{ item.companies | join(' · ') }} 요구"{% endif %}>
-      {{ item.slug }}{% if item.count %} {{ item.count }}{% endif %}{% if item.companies %} ●{% endif %}
+       title="{{ item.slug }}{% if item.companies %} · {{ item.companies | join(' · ') }} 요구{% endif %}">
+      {{ item.label }}{% if item.count %} {{ item.count }}{% endif %}{% if item.companies %} ●{% endif %}
     </a>
     {% endfor %}
   </p>

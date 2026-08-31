@@ -64,7 +64,8 @@
     {% for item in view.slugs %}
     <li>
       <div class="work-head">
-        <strong><a href="/t/{{ item.slug }}">{{ item.slug }}</a></strong>
+        <strong><a href="/t/{{ item.slug }}">{{ item.label }}</a></strong>
+        <code class="quiet">{{ item.slug }}</code>
         <span class="badge {{ 'ok' if item.count else 'warn' }}">{{ item.count }}건</span>
         {% for name in item.companies %}<span class="badge">{{ name }}</span>{% endfor %}
       </div>
