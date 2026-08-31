@@ -70,6 +70,10 @@ description: Compare target-company job postings kept in the user's Notion archi
 
 ## 회사 파일 6단
 
+**마크다운 표(`| … |`)를 쓰지 않는다.** `/career` 화면의 렌더러가 표를 모른다 —
+파이프 문자가 그대로 문단으로 나와 오히려 읽기 어려워진다(2026-08-31 확인).
+같은 내용은 `- **항목** 값` 형태의 목록으로 적는다.
+
 ```markdown
 # {회사} — {직무}
 
