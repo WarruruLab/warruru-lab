@@ -13,6 +13,19 @@
 <section class="tool">
   <h2><a href="/career/stack">나의 기술스택</a></h2>
   <div class="meta">{% with coverage = stack.coverage %}{% include "_coverage.html" %}{% endwith %}</div>
+  <h3 class="sub">자격증</h3>
+  <ul class="picks">
+    {% for cert in certs %}
+    <li>
+      <a href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      <span class="badge {{ 'ok' if cert.coverage.covered == cert.coverage.total else '' }}">
+        {{ cert.coverage.covered }}/{{ cert.coverage.total }}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="sub">주제</h3>
   <ul class="picks">
     {% for group in stack.groups %}
     <li>

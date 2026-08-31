@@ -304,6 +304,45 @@ SLUG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 
 
+# 자격증마다 **로드맵 주제와 겹치는 부분**. 시험 범위 자체가 아니다.
+#
+# 이 목록은 "이 자격증을 딸 때 공부하는 것 중, 이 프로젝트에 기록으로 남길
+# 만한 것" 이다. 시험에는 나오지만 로드맵에 없는 것(정보처리기사의 소프트웨어
+# 생명주기, 리눅스마스터의 명령어 암기 같은 것)은 여기 없다.
+# **그러니 이 화면의 준비도가 100% 여도 합격을 뜻하지 않는다.**
+#
+# 겹쳐도 된다. `SLUG_GROUPS` 는 100개를 한 번씩 나누지만 이쪽은 자격증마다
+# 같은 슬러그를 다시 본다 — `db-index` 는 정보처리기사이자 SQLD 다.
+CERTIFICATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("jeongcheogi", "정보처리기사", (
+        "db-normalization", "db-index", "db-transaction", "db-join",
+        "db-execution-plan", "domain-erd", "entity-association",
+        "net-tcp", "net-udp", "net-http", "net-tls", "net-dns",
+        "net-subnet-nat", "net-socket",
+        "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+        "os-virtual-memory", "os-io", "os-deadlock",
+        "package-structure", "test-strategy",
+    )),
+    ("sqld", "SQLD", (
+        "db-normalization", "db-join", "db-index", "db-transaction",
+        "db-isolation", "db-lock", "db-execution-plan", "composite-index",
+        "domain-erd", "entity-association",
+    )),
+    ("network-2", "네트워크관리사 2급", (
+        "net-tcp", "net-udp", "net-http", "net-tls", "net-dns",
+        "net-subnet-nat", "net-socket", "net-load-balancing", "load-balancing",
+    )),
+    ("linux-2", "리눅스마스터 2급", (
+        "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+        "os-virtual-memory", "os-io", "os-deadlock",
+    )),
+    ("aws-saa", "AWS SAA", (
+        "aws-vpc", "public-private-subnet", "nat-gateway", "security-group-nacl",
+        "ec2-vs-ecs", "aws-rds", "aws-elasticache", "aws-deploy", "load-balancing",
+    )),
+)
+
+
 # 원본은 `docs/guides/backend-infra-roadmap-31w.md` 부록 A 다. **문서가 곧 데이터다.**
 # 자동 반영은 없으므로 문서를 고치면 여기도 함께 고친다.
 # 이미 기록이 쌓인 슬러그의 이름은 바꾸지 않는다 — 바꾸면 그 주제가 둘로 갈라진다.

@@ -262,6 +262,40 @@ def build_stack(ctx) -> dict:
     }
 
 
+def build_certs(ctx) -> list[dict]:
+    """자격증마다 로드맵과 겹치는 부분의 준비도.
+
+    **시험 범위가 아니다.** 여기가 다 차도 합격을 뜻하지 않는다 —
+    시험에는 나오지만 로드맵에 없는 것이 있다.
+    """
+    counts = _counts(ctx)
+    made = []
+    for key, name, slugs in topics.CERTIFICATIONS:
+        rows = [{"slug": slug, "count": counts.get(slug, 0)} for slug in slugs]
+        covered = sum(1 for row in rows if row["count"])
+        made.append({
+            "key": key,
+            "name": name,
+            "slugs": rows,
+            "coverage": {
+                "total": len(rows),
+                "covered": covered,
+                "percent": round(covered * 100 / len(rows)) if rows else 0,
+            },
+        })
+    return made
+
+
+def build_cert(ctx, key: str) -> dict | None:
+    for cert in build_certs(ctx):
+        if cert["key"] == key:
+            wanted = demand(list_companies(ctx))
+            for row in cert["slugs"]:
+                row["companies"] = wanted.get(row["slug"], [])
+            return cert
+    return None
+
+
 def build_group(ctx, key: str) -> dict | None:
     """묶음 하나. 허브에서 `Spring` 을 눌렀을 때 오는 자리다."""
     stack = build_stack(ctx)
