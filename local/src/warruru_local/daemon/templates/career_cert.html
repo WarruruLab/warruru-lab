@@ -12,12 +12,36 @@
   <span class="badge {{ 'ok' if view.done else '' }}">{{ view.status }}</span>
 </p>
 
-{% if view.next %}
+{% if view.stages %}
+{# 단계가 이 화면의 주인공이다. 필기와 실기는 유형도 공부법도 다른 시험이라
+   같은 칸에 놓으면 어느 쪽 이야기인지 흐려진다. #}
+<div class="two">
+  {% for stage in view.stages %}
+  <section class="tool">
+    <h2>{{ stage.name }}
+      <span class="badge {{ 'ok' if stage.done else 'warn' }}">{{ stage.state }}</span>
+    </h2>
+    {% if stage.next %}
+    <div class="work-head">
+      <strong>{{ stage.next.label }}</strong>
+      <span class="badge {{ 'warn' if stage.next.days <= 30 else '' }}">D-{{ stage.next.days }}</span>
+      <span class="meta">{{ stage.next.date }}</span>
+    </div>
+    {% if stage.next.note %}<p class="meta">{{ stage.next.note }}</p>{% endif %}
+    {% elif stage.done %}
+    <p class="meta quiet">끝났다.</p>
+    {% else %}
+    <p class="meta quiet">다음 일정 미정.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% elif view.next %}
 <section class="tool">
   <h2>다음에 할 일</h2>
   <div class="work-head">
-    <strong>{{ view.next.label or view.next.date }}</strong>
-    <span class="badge {{ 'warn' if view.next.days <= 14 else '' }}">D-{{ view.next.days }}</span>
+    <strong>{{ view.next.label }}</strong>
+    <span class="badge {{ 'warn' if view.next.days <= 30 else '' }}">D-{{ view.next.days }}</span>
     <span class="meta">{{ view.next.date }}</span>
   </div>
   {% if view.next.note %}<p class="meta">{{ view.next.note }}</p>{% endif %}
@@ -26,11 +50,12 @@
 
 {% if view.exams %}
 <section class="tool">
-  <h2>2026 일정</h2>
+  <h2>일정</h2>
   <ul class="checkpoints">
     {% for exam in view.exams %}
     <li class="{{ 'quiet' if exam.past else '' }}">
       <div class="work-head">
+        {% if exam.stage %}<span class="badge">{{ exam.stage }}</span>{% endif %}
         <strong>{{ exam.label or exam.date }}</strong>
         <span class="badge {{ '' if exam.past else 'ok' }}">{{ exam.date }}</span>
         {% if exam.past %}<span class="badge">지남</span>
@@ -53,8 +78,15 @@
 </section>
 {% endif %}
 
+{% if view.html %}
 <section class="tool">
-  <h2>{{ view.coverage.covered }} / {{ view.coverage.total }}</h2>
+  <h2>과목 · 유형 · 공부법</h2>
+  <div class="preview">{{ view.html|safe }}</div>
+</section>
+{% endif %}
+
+<section class="tool">
+  <h2>내 기록과 겹치는 것 {{ view.coverage.covered }} / {{ view.coverage.total }}</h2>
   <p>{% with coverage = view.coverage %}{% include "_coverage.html" %}{% endwith %}</p>
   <p class="empty">
     <strong>시험 범위가 아니다.</strong> 이 자격증을 공부하며 나오는 것 중
@@ -75,10 +107,4 @@
   </ul>
 </section>
 
-{% if view.html %}
-<section class="tool">
-  <h2>준비</h2>
-  <div class="preview">{{ view.html|safe }}</div>
-</section>
-{% endif %}
 {% endblock %}
