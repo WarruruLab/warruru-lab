@@ -747,3 +747,17 @@ def test_자소서가_요구_기술_뒤에_온다(client, home):
     _write(home, "hyundai-autoever.md", ESSAY_NOTE)
     page = client.get("/career/c/hyundai-autoever").text
     assert page.index("<h2>준비도</h2>") < page.index("<h2>자소서</h2>")
+
+
+def test_왼쪽_박스와_구획_이름이_성격을_말한다(client):
+    """'나의 기술스택' 이 박스 이름이자 그중 한 구획처럼 읽혔다(2026-09-01 정리).
+
+    셋의 성격이 정해졌으니 이름이 그걸 말해야 한다 —
+    마감이 있는 것 · 면접에서 묻는 것 · 만들면서 겪는 것.
+    """
+    page = client.get("/career").text
+    assert "내가 채울 것" in page
+    assert "나의 기술스택" not in page
+    assert "프로젝트 주제" in page
+    assert "마감이 있는 것" in page and "면접에서 묻는 것" in page
+    assert "만들면서 겪는 것" in page
