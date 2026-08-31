@@ -91,6 +91,54 @@
 {% endif %}
 
 <section class="tool">
+  <h2>자소서</h2>
+  {% if view.essays %}
+  <p class="meta">
+    문항마다 <strong>붙일 기록</strong>이 있는지 본다. 없으면 없는 것이다 —
+    비슷한 것으로 채우면 지원서에 그대로 나가고 면접에서 되물으면 답이 없다.
+  </p>
+  {% for essay in view.essays %}
+  <article class="work">
+    <div class="work-head">
+      <strong>{{ essay.question }}</strong>
+      {% if essay.limit %}<span class="badge">{{ essay.limit }}</span>{% endif %}
+      <span class="badge {{ 'ok' if essay.records else 'warn' }}">
+        붙일 기록 {{ essay.records|length }}건
+      </span>
+    </div>
+    {% if essay.slugs %}
+    <p class="meta">
+      {% for item in essay.slugs %}
+      <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}"
+         title="{{ item.slug }}">{{ item.label }} {{ item.count }}</a>
+      {% endfor %}
+    </p>
+    {% endif %}
+    {% for row in essay.records %}
+    <div class="meta">
+      <a href="/t/{{ row.slug }}">{{ row.title }}</a>
+      {% if row.interview %}<p class="say"><span class="say-tag">쓸 문장</span>{{ row.interview }}</p>{% endif %}
+    </div>
+    {% else %}
+    <p class="empty">
+      붙일 기록이 없다. 위 주제를 공부하고 <code>record_learning</code> 으로
+      남기면 여기 선다.
+    </p>
+    {% endfor %}
+  </article>
+  {% endfor %}
+  {% else %}
+  <p class="empty">
+    아직 문항이 없다. 공고에서 자소서 문항을 확인해 노트 앞머리의
+    <code>essays</code> 에 적으면, 문항마다 붙일 기록을 여기서 찾아 준다.
+  </p>
+  <p class="meta">
+    <code>essays:</code> 아래 <code>- 문항 | 글자수 | 슬러그, 슬러그</code> 형식이다.
+  </p>
+  {% endif %}
+</section>
+
+<section class="tool">
   <h2>면접에서 말할 것</h2>
   {% if view.says %}
     {% for say in view.says %}

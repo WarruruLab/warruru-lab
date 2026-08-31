@@ -196,6 +196,42 @@ def _deadline(meta: dict, today: str) -> dict | None:
     return {"date": date, "days": left, "past": left < 0}
 
 
+def _essays(ctx, meta: dict, counts: dict[str, int]) -> list[dict]:
+    """자소서 문항과 **거기 붙일 기록**.
+
+    이 화면이 답할 것 둘 중 하나가 "자소서를 어떻게 준비하나" 다(2026-09-01
+    확정). 문항만 적어 두면 지원서 쓸 때 다시 기록을 뒤져야 한다 — 무엇을
+    붙일지가 문항 옆에 있어야 한다.
+
+    **붙일 기록이 없으면 없다고 말한다.** 비슷한 것으로 채우면 지원서에
+    그대로 나가고, 면접에서 되물으면 답이 없다.
+    """
+    made = []
+    for item in meta.get("essays") or []:
+        question, limit, joined = _fields(item, 3)
+        if not question:
+            continue
+        slugs = [s.strip() for s in joined.split(",") if s.strip()]
+        rows = []
+        for slug in slugs:
+            for row in ctx.records.list_records(topic_slug=slug, limit=20):
+                rows.append({
+                    "slug": slug,
+                    "label": topics.label_of(slug),
+                    "title": row["title"],
+                    "interview": (row.get("interview") or "").strip(),
+                    "record_id": row["record_id"],
+                })
+        made.append({
+            "question": question,
+            "limit": limit,
+            "slugs": [{"slug": s, "label": topics.label_of(s), "count": counts.get(s, 0)}
+                      for s in slugs],
+            "records": rows,
+        })
+    return made
+
+
 def _says(ctx, slugs: list[str], counts: dict[str, int]) -> list[dict]:
     """이 회사 키워드에 붙일 수 있는 면접 문장. 기록이 있는 슬러그만 훑는다."""
     made = []
@@ -233,6 +269,7 @@ def _read(ctx, path: Path, slug: str) -> dict:
         "coverage": coverage,
         "unmapped": _many(meta.get("unmapped")),
         "says": _says(ctx, coverage["slugs"], counts),
+        "essays": _essays(ctx, meta, counts),
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
     }
