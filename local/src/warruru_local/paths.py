@@ -87,6 +87,15 @@ def topic_note_dir(home: Path) -> Path:
     return career_dir(home) / "topics"
 
 
+def group_note_dir(home: Path) -> Path:
+    """묶음(자료구조 · 알고리즘 …)마다 한 장. **면접 문서다.**
+
+    주제 노트가 주제 하나를 다루는 자리라면 이쪽은 그 묶음을 왜 이 순서로
+    보는지, 무엇이 자주 같이 나오는지를 적는 자리다.
+    """
+    return career_dir(home) / "groups"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 

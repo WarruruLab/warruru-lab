@@ -54,6 +54,15 @@
 </section>
 
 
+
+{% if view.note.asks %}
+<section class="tool">
+  <h2>확인할 것</h2>
+  <ul class="checkpoints">
+    {% for ask in view.note.asks %}<li>{{ ask }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% if view.note.refs or view.note.html %}
 <section class="tool">
   <h2>참고</h2>

@@ -11,25 +11,51 @@
   <a href="/career/stack">기술스택 전체</a>
 </p>
 
+{% if view.intro %}
 <section class="tool">
-  <h2>{{ view.have }} / {{ view.total }}</h2>
+  <div class="preview">{{ view.intro|safe }}</div>
+</section>
+{% endif %}
+
+{# 이 화면의 주인공은 질문이다. "답할 수 있나" 를 점검하러 오는 자리라
+   건수는 맨 아래로 내렸다(2026-09-01 확정). #}
+<section class="tool">
+  <h2>면접에서 묻는 것 {{ view.asks_total }}개</h2>
   <p class="meta">
-    기록이 있는 주제 수다. 건수는 <strong>지금</strong> 센 것이고,
-    회사 배지는 그 주제를 요구하는 공고가 있다는 뜻이다.
+    답이 막히는 주제가 곧 다음에 볼 것이다. 답할 수 있게 되면
+    <code>record topic=…</code> 로 남긴다 — <strong>내 말로</strong>.
   </p>
-  <ul class="checkpoints">
-    {% for item in view.slugs %}
-    <li>
-      <div class="work-head">
-        <strong><a href="/t/{{ item.slug }}">{{ item.label }}</a></strong>
-        <code class="quiet">{{ item.slug }}</code>
-        <span class="badge {{ 'ok' if item.count else 'warn' }}">
-          {{ item.count }}건
-        </span>
-        {% for name in item.companies %}<span class="badge">{{ name }}</span>{% endfor %}
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
+
+  {% for item in view.slugs %}
+  <article class="work">
+    <div class="work-head">
+      <strong><a href="/t/{{ item.slug }}">{{ item.label }}</a></strong>
+      <code class="quiet">{{ item.slug }}</code>
+      <span class="badge {{ 'ok' if item.count else 'warn' }}">{{ item.count }}건</span>
+      {% for name in item.companies %}<span class="badge">{{ name }}</span>{% endfor %}
+    </div>
+    {% if item.asks %}
+    <ul class="checkpoints">
+      {% for ask in item.asks %}<li>{{ ask }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if item.refs %}
+    <nav aria-label="참고">
+      {% for ref in item.refs %}<a href="{{ ref.url }}">{{ ref.label }}</a>{% endfor %}
+    </nav>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+<section class="tool">
+  <h2>내 기록 {{ view.have }} / {{ view.total }}</h2>
+  <p>{% with coverage = {"covered": view.have, "total": view.total,
+        "percent": (view.have * 100 // view.total) if view.total else 0} %}
+    {% include "_coverage.html" %}{% endwith %}</p>
+  <p class="meta quiet">
+    기록이 있는 주제 수다. 이 숫자가 목적이 아니라, 위 질문에 답할 수 있게 된
+    결과다.
+  </p>
 </section>
 {% endblock %}

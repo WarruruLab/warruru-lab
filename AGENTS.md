@@ -24,7 +24,8 @@
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 회사별 준비 노트 `~/.warruru/career/*.md` · 자격증 노트
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
-  `~/.warruru/career/topics/*.md` — 저장소 바깥이다.
+  `~/.warruru/career/topics/*.md` · 묶음 머리말
+  `~/.warruru/career/groups/*.md` — 저장소 바깥이다.
   `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
 - 에이전트 플러그인 `agent-plugin/` — 스킬 2개(`warruru-recording`
   · `career-prep`) + MCP 연결.
