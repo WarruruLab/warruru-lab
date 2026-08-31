@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "warruru": {
+      "command": "warruru-mcp",
+      "env": {
+        "WARRURU_TOOL": "codex"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "warruru",
+  "version": "0.1.0",
+  "description": "개발하다 배운 것을 그 자리에서 로컬 Warruru 데몬에 남기고, 주제로 묶어 6단 마크다운 초안까지 끌고 간다.",
+  "author": {
+    "name": "pswaao"
+  },
+  "repository": "https://github.com/WarruruLab/warruru-lab",
+  "license": "MIT",
+  "keywords": ["learning-record", "local-first", "interview-prep"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

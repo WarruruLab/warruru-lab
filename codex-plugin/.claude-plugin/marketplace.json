@@ -1,0 +1,16 @@
+{
+  "name": "warruru-local",
+  "description": "WarruruLab 의 로컬 마켓플레이스. 이 머신에서만 쓴다.",
+  "owner": {
+    "name": "pswaao"
+  },
+  "plugins": [
+    {
+      "name": "warruru",
+      "description": "개발하다 배운 것을 그 자리에서 로컬 Warruru 데몬에 남기고, 주제로 묶어 초안까지 끌고 간다.",
+      "author": { "name": "pswaao" },
+      "category": "productivity",
+      "source": "./warruru"
+    }
+  ]
+}
