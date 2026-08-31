@@ -444,12 +444,32 @@ def build_cert(ctx, key: str) -> dict | None:
 
 
 def build_group(ctx, key: str) -> dict | None:
-    """묶음 하나. 허브에서 `Spring` 을 눌렀을 때 오는 자리다."""
+    """묶음 하나. **면접 문서다** — 이 묶음에서 뭘 묻는지가 주인공이고
+    기록 건수는 아래에 작게 남는다(2026-09-01 확정).
+    """
+    from warruru_local.daemon import topicview
+
     stack = build_stack(ctx)
     for group in stack["groups"] + stack["cs_groups"]:
-        if group["key"] == key:
-            return group
+        if group["key"] != key:
+            continue
+        for row in group["slugs"]:
+            note = topicview.topic_note(ctx, row["slug"])
+            row["asks"] = note["asks"]
+            row["refs"] = note["refs"]
+        group["asks_total"] = sum(len(row["asks"]) for row in group["slugs"])
+        group["intro"] = _group_intro(ctx, key)
+        return group
     return None
+
+
+def _group_intro(ctx, key: str) -> str:
+    """묶음 머리말. 없으면 빈 문자열이다 — 있으면 좋은 것이지 관문이 아니다."""
+    path = paths.group_note_dir(ctx.settings.home) / f"{key}.md"
+    if not path.is_file():
+        return ""
+    _, body = parse_front_matter(path.read_text(encoding="utf-8", errors="replace"))
+    return tistory_clipboard.to_html(body)
 
 
 def list_companies(ctx) -> list[dict]:

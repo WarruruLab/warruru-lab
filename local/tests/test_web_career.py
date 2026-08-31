@@ -606,3 +606,53 @@ def test_슬러그_겹침은_아래에_작게_남는다(client, home):
     page = client.get("/career/cert/jeongcheogi").text
     assert "내 기록과 겹치는 것" in page
     assert page.index("과목 · 유형 · 공부법") < page.index("내 기록과 겹치는 것")
+
+
+# ── CS 는 면접 문서다 — 묶음 한 장 (2026-09-01 확정) ──────────────────
+
+def _topic_note(home, slug, asks):
+    from warruru_local import paths
+
+    root = paths.topic_note_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"  - {ask}" for ask in asks)
+    (root / f"{slug}.md").write_text(
+        f"---\nlabel: 해시\nasks:\n{body}\nrefs:\n  - Hash | https://example.com/h.md\n---\n\n# 무엇을 기록하나\n\n본문.\n",
+        encoding="utf-8",
+    )
+
+
+def test_묶음_화면이_질문을_모아_한_장으로_만든다(client, home):
+    """CS 화면을 여는 이유는 '답할 수 있나' 를 점검하는 것이다."""
+    _topic_note(home, "ds-hash", ["해시 충돌을 어떻게 해결하나?", "리해싱은 언제 일어나나?"])
+    page = client.get("/career/stack/ds").text
+    assert "면접에서 묻는 것" in page
+    assert "해시 충돌을 어떻게 해결하나?" in page
+    assert "리해싱은 언제 일어나나?" in page
+
+
+def test_질문_수를_센다(ctx, home):
+    _topic_note(home, "ds-hash", ["하나?", "둘?"])
+    assert careerview.build_group(ctx, "ds")["asks_total"] == 2
+
+
+def test_기록_숫자는_맨_아래로_내려간다(client, home):
+    _topic_note(home, "ds-hash", ["하나?"])
+    page = client.get("/career/stack/ds").text
+    assert page.index("면접에서 묻는 것") < page.index("내 기록")
+
+
+def test_묶음_머리말이_있으면_맨_위에_온다(client, home):
+    from warruru_local import paths
+
+    root = paths.group_note_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "ds.md").write_text("이 묶음은 면접에서 가장 먼저 묻는다.\n", encoding="utf-8")
+    page = client.get("/career/stack/ds").text
+    assert "면접에서 가장 먼저 묻는다" in page
+    assert page.index("가장 먼저 묻는다") < page.index("면접에서 묻는 것")
+
+
+def test_머리말이_없어도_묶음_화면은_열린다(client):
+    """있으면 좋은 것이지 관문이 아니다."""
+    assert client.get("/career/stack/algo").status_code == 200
