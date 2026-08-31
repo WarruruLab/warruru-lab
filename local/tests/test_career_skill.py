@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from warruru_local.topics import RECOMMENDED_SLUGS
+from warruru_local.topics import RECOMMENDED_SLUGS, SLUG_GROUPS
 
 SKILL = (
     Path(__file__).resolve().parents[2]
@@ -37,6 +37,13 @@ def test_설명이_발동_조건을_담고_있다():
 def test_매핑_표가_로드맵_100개를_빠짐없이_덮는다():
     slugs = _table_slugs()
     assert set(slugs) == set(RECOMMENDED_SLUGS)
+
+
+def test_매핑_표가_화면의_묶음과_같다():
+    """스킬의 표(에이전트가 읽는 것)와 `SLUG_GROUPS`(화면이 그리는 것)가
+    갈라지면, 공고에서 뽑은 슬러그가 기술스택 화면의 다른 칸에 가서 앉는다.
+    """
+    assert _table_slugs() == [slug for _, slugs in SLUG_GROUPS for slug in slugs]
 
 
 def test_한_슬러그가_두_줄에_걸치지_않는다():

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}나의 기술스택 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>나의 기술스택</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta"><a href="/career">← 포트폴리오</a></p>
+
+<section class="tool">
+  <h2>전체</h2>
+  <p>{% with coverage = view.coverage %}{% include "_coverage.html" %}{% endwith %}</p>
+  <p class="meta">
+    31주 로드맵의 권장 주제다. 건수는 <strong>지금</strong> 센 것이고,
+    회사 배지는 그 슬러그를 요구하는 공고가 있다는 뜻이다.
+  </p>
+</section>
+
+{% if view.first %}
+<section class="tool">
+  <h2>먼저 할 것</h2>
+  <p class="meta">
+    <strong>요구하는 회사가 있는데 기록이 0건인 것.</strong> 회사가 많은 순이다 —
+    하나를 채우면 여러 회사의 막대가 같이 오른다.
+  </p>
+  <ul class="checkpoints">
+    {% for item in view.first %}
+    <li>
+      <div class="work-head">
+        <strong><a href="/t/{{ item.slug }}">{{ item.slug }}</a></strong>
+        {% for name in item.companies %}<span class="badge warn">{{ name }}</span>{% endfor %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for group in view.groups %}
+<article class="work">
+  <div class="work-head">
+    <strong>{{ group.label }}</strong>
+    <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }} / {{ group.total }}</span>
+  </div>
+  <p class="meta">
+    {% for item in group.slugs %}
+    <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}"
+       {% if item.companies %}title="{{ item.companies | join(' · ') }} 요구"{% endif %}>
+      {{ item.slug }}{% if item.count %} {{ item.count }}{% endif %}{% if item.companies %} ●{% endif %}
+    </a>
+    {% endfor %}
+  </p>
+</article>
+{% endfor %}
+
+{% if view.outside %}
+<section class="tool">
+  <h2>로드맵 밖</h2>
+  <p class="meta">
+    기록은 있는데 권장 목록에 없는 주제다. 도구를 만들며 남긴 것들이라
+    면접에서 쓸 수는 있지만 공고와는 안 겹친다.
+  </p>
+  <p>
+    {% for slug in view.outside %}
+    <a class="badge" href="/t/{{ slug }}">{{ slug }}</a>
+    {% endfor %}
+  </p>
+</section>
+{% endif %}
+{% endblock %}
