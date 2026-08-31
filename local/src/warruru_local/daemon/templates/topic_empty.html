@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ view.topic }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.topic }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">
+  <code>{{ view.topic_slug }}</code>
+  {% if view.group %}
+    · <a href="/career/stack/{{ view.group.key }}">{{ view.group.label }}</a>
+  {% endif %}
+  {% if view.recommended %}<span class="badge ok">로드맵</span>{% endif %}
+</p>
+
+<section class="tool">
+  <h2>아직 기록이 없다</h2>
+  <p class="empty-today">0건</p>
+
+  {# 빈 화면에 "없습니다" 만 있으면 다음에 뭘 할지가 안 나온다.
+     이 주제가 왜 목록에 있는지가 곧 공부할 이유다. #}
+  {% if view.companies or view.certs %}
+  <p class="meta">이 주제를 요구하는 곳:</p>
+  <p>
+    {% for name in view.companies %}<span class="badge warn">{{ name }}</span> {% endfor %}
+    {% for cert in view.certs %}
+      <a class="badge" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+    {% endfor %}
+  </p>
+  {% else %}
+  <p class="meta">
+    아직 이 주제를 요구하는 공고나 자격증이 없다. 공고를 노션에 넣고 대조하면
+    여기에 회사가 선다.
+  </p>
+  {% endif %}
+</section>
+
+<section class="tool">
+  <h2>채우는 방법</h2>
+  <p class="meta">
+    공부해서 <strong>알게 된 것</strong>이 아니라 <strong>코드에서 확인한 것</strong>을
+    남긴다. "무엇인지" 가 아니라 "그래서 지금 이 코드의 무엇이 설명되는지" 다.
+  </p>
+  <p class="meta">에이전트에게 이 한 줄을 준다.</p>
+  <pre class="body">record topic={{ view.topic_slug }}</pre>
+  <p class="meta">
+    남기면 이 화면에 쌓이고,
+    {% if view.group %}<a href="/career/stack/{{ view.group.key }}">{{ view.group.label }}</a>{% else %}기술스택{% endif %}
+    막대와 이 주제를 요구하는 회사의 준비도가 함께 오른다.
+  </p>
+</section>
+
+<p class="meta"><a href="/career/stack">← 기술스택</a></p>
+{% endblock %}

@@ -72,7 +72,7 @@ async def topic_detail(request: Request, topic_slug: str):
         )
     today = local_date_of(to_iso(ctx.clock.now()))
     return templates.TemplateResponse(
-        request, "topic.html",
+        request, "topic_empty.html" if view["empty"] else "topic.html",
         {"view": view, "today": today, "token": ctx.settings.token}
     )
 
