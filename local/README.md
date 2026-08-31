@@ -57,14 +57,17 @@ python -m pytest -q                           # 4. 489 passed 확인
 }
 ```
 
-`WARRURU_TOOL` 은 화면에서 기록을 도구별로 나눌 때 쓰는 이름이다.
-에이전트마다 다르게 준다: `codex`, `claude-code`, `antigravity`.
+`WARRURU_TOOL` 은 **적지 않아도 된다.** 어댑터가 MCP 핸드셰이크의
+`clientInfo` 로 어느 에이전트가 붙었는지 알아낸다(`codex` · `claude-code` ·
+처음 보는 이름이면 그 이름 그대로). 적으면 그 값이 이긴다 — 추론을 덮고
+싶을 때만 쓴다.
 
-## 어느 저장소에서든 쓰기 — Codex 플러그인
+## 어느 저장소에서든 쓰기 — 에이전트 플러그인
 
-위 설정을 저장소마다 넣는 대신, `codex-plugin/` 을 한 번 설치하면 끝난다.
+위 설정을 저장소마다 넣는 대신 `agent-plugin/` 을 한 번 설치하면 끝난다.
 MCP 연결과 기록 규칙(스킬)이 함께 들어가므로 **다른 프로젝트를 열어도
 `AGENTS.md` 를 손대지 않고** 그대로 쓴다.
+**매니페스트 한 벌을 Codex 와 Claude Code 가 같이 읽는다.**
 
 먼저 어댑터를 PATH 에 올린다. venv 안에만 있으면 다른 경로에서 안 잡힌다.
 
@@ -75,19 +78,28 @@ ln -sf "$PWD/local/.venv/bin/warruru-mcp" ~/.local/bin/warruru-mcp
 그다음 이 저장소를 로컬 마켓플레이스로 걸고 설치한다.
 
 ```bash
-codex plugin marketplace add ./codex-plugin
+codex plugin marketplace add ./agent-plugin
 codex plugin add warruru@warruru-local
+
+claude plugin marketplace add ./agent-plugin
+claude plugin install warruru@warruru-local
 ```
 
-확인은 `codex mcp list` 에 `warruru`(command 가 `warruru-mcp`)가 보이면 된다.
-스킬까지 붙었는지는 `codex debug prompt-input` 에서
-`warruru:warruru-recording` 을 찾으면 된다 — 모델을 부르지 않는다.
+확인:
 
-`~/.codex/config.toml` 에 `[mcp_servers.warruru]` 를 직접 넣어 뒀다면 **지운다.**
-플러그인이 같은 이름으로 서버를 등록하므로 두 벌이 된다.
+- Codex — `codex mcp list` 에 `warruru`(command 가 `warruru-mcp`),
+  `codex debug prompt-input` 에 `warruru:warruru-recording`.
+- Claude Code — `claude plugin details warruru@warruru-local` 의 부품 목록에
+  Skills 1 · MCP servers 1.
 
-플러그인 파일을 고친 뒤에는 캐시로 복사된 사본이 낡으므로
-`codex plugin add warruru@warruru-local` 을 다시 실행한다.
+둘 다 모델을 부르지 않는다.
+
+**직접 넣어 둔 MCP 등록이 있으면 지운다.** 플러그인이 같은 이름으로 서버를
+등록하므로 두 벌이 된다 — `~/.codex/config.toml` 의 `[mcp_servers.warruru]`,
+Claude Code 는 `claude mcp remove warruru -s user`.
+
+플러그인 파일을 고친 뒤에는 캐시로 복사된 사본이 낡는다.
+설치 명령을 다시 실행하고 **에이전트를 재시작한다.**
 
 ## 구성
 

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.lowlevel.server import request_ctx
 
 from warruru_local import config, limits, logging_setup, spool, topics
 from warruru_local.clock import Clock, SystemClock, to_iso
@@ -41,7 +43,7 @@ def _common(outcome: Outcome) -> dict:
 class ToolService:
     """툴 4개의 순수 구현. FastMCP 와 분리해 테스트할 수 있게 둔다."""
 
-    def __init__(self, client, tool: str, clock: Clock) -> None:
+    def __init__(self, client, tool: str | Callable[[], str], clock: Clock) -> None:
         self._client = client
         self._tool = tool
         self._clock = clock
@@ -51,7 +53,7 @@ class ToolService:
             # 대화 귀속의 핵심 값이다. 없으면 조용히 None 을 보내는 대신
             # 배선이 잘못됐다는 신호로 크게 실패해야 한다.
             "client_instance_id": self._client._client_instance_id,  # noqa: SLF001
-            "tool": self._tool,
+            "tool": self._tool() if callable(self._tool) else self._tool,
             "cwd": os.getcwd(),
             "repo_path": repo_path,
         }
@@ -323,8 +325,59 @@ class ToolService:
         }
 
 
-def _detect_tool(settings: config.Settings) -> str:
-    return settings.tool or "unknown"
+# 클라이언트가 스스로 밝힌 이름 → 화면에서 쓰는 이름.
+# 여기 없는 클라이언트는 슬러그를 그대로 쓴다. **와 본 이름만 적는다** —
+# 안 와 본 이름을 넣어 두면 그게 맞는지 아무도 확인하지 못한다.
+# 2026-08-31 실측(핸드셰이크를 가로채 확인):
+#   codex 0.151.0        → "codex-mcp-client"
+#   Claude Code 2.1.251  → "claude-code"   (그대로라 별칭이 없다)
+_TOOL_ALIASES = {
+    "codex-mcp-client": "codex",
+}
+
+
+def _client_tool() -> str | None:
+    """MCP 핸드셰이크의 `clientInfo` 에서 어느 에이전트가 붙었는지 읽는다.
+
+    **환경변수로는 못 푼다.** 플러그인 하나를 여러 에이전트가 나눠 쓰면
+    `.mcp.json` 의 `WARRURU_TOOL` 은 모두에게 같은 값을 준다. Codex 용으로
+    적어 둔 값이 Claude Code 기록에도 붙어, 화면의 도구별 집계가 조용히
+    틀린다(2026-08-31 실제로 그랬다). 클라이언트 이름은 프로토콜이 주는
+    값이라 이 문제가 없고, 처음 보는 에이전트도 자동으로 맞는다.
+
+    툴 호출 밖에서 부르면 컨텍스트가 없다. 그때는 `None` 이고, 부르는 쪽이
+    `unknown` 으로 떨어뜨린다 — 기록이 실패하지는 않는다.
+    """
+    try:
+        params = request_ctx.get().session.client_params
+    except LookupError:
+        return None
+    name = getattr(getattr(params, "clientInfo", None), "name", None)
+    if not name or not name.strip():
+        # `slugify` 는 빈 문자열에 `misc` 를 준다. 집계용 폴백이지 도구 이름이
+        # 아니므로 여기서 걸러 낸다 — 이름을 안 밝힌 것은 `unknown` 이다.
+        return None
+    slug = topics.slugify(name)
+    return _TOOL_ALIASES.get(slug, slug) or None
+
+
+def _detect_tool(settings: config.Settings, logger=None) -> Callable[[], str]:
+    """호출마다 다시 판단한다. 어댑터가 뜨는 시점에는 아직 클라이언트가
+    자기 이름을 말하기 전이라, 여기서 값을 굳히면 영영 `unknown` 이다.
+    """
+    seen: set[str] = set()
+
+    def resolve() -> str:
+        # 환경변수가 이긴다. 사람이 직접 적은 값을 추론이 덮으면 안 된다.
+        tool = settings.tool or _client_tool() or "unknown"
+        # 처음 보는 값만 한 줄 남긴다. `unknown` 으로 기록이 쌓일 때
+        # 클라이언트가 뭐라고 말했는지 확인할 곳이 여기밖에 없다.
+        if logger is not None and tool not in seen:
+            seen.add(tool)
+            logger.info("client tool resolved: %s", tool)
+        return tool
+
+    return resolve
 
 
 def _never_raises(prefix: str):
@@ -476,7 +529,7 @@ def _build_service() -> ToolService:
     logger = logging_setup.setup_logging(settings.home, "mcp", settings.log_level)
     clock = SystemClock()
     client = DaemonClient(settings, new_id("cli"), logger, clock)
-    return ToolService(client, _detect_tool(settings), clock)
+    return ToolService(client, _detect_tool(settings, logger), clock)
 
 
 def main() -> None:

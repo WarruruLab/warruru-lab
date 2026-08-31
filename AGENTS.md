@@ -22,8 +22,9 @@
   (`machine` / `client_instance` / `work_session` / `checkpoint`
   / `learning_record` / `draft`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
-- Codex 플러그인 `codex-plugin/` — 스킬 1개 + MCP 연결.
-  한 번 설치하면 **다른 저장소를 열어도** 기록 규칙과 툴이 따라온다.
+- 에이전트 플러그인 `agent-plugin/` — 스킬 1개 + MCP 연결.
+  **Codex 와 Claude Code 가 매니페스트 한 벌을 같이 읽는다.** 한 번 설치하면
+  다른 저장소를 열어도 기록 규칙과 툴이 따라온다.
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
@@ -201,11 +202,11 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 - `local/docs/OUTSTANDING.md` — 미해결 결함
 - `local/docs/adr/2026-08-18-publish-target.md` — 발행 경로 결정
 
-**codex-plugin/**
+**agent-plugin/**
 
-- `codex-plugin/warruru/skills/warruru-recording/SKILL.md` — §5 를 저장소 밖으로
+- `agent-plugin/warruru/skills/warruru-recording/SKILL.md` — §5 를 저장소 밖으로
   들고 나간 사본. 권장 슬러그 100개가 본문에 실려 있다.
-  `local/tests/test_codex_plugin.py` 가 `topics.py` 와 대조해 어긋남을 막는다
+  `local/tests/test_agent_plugin.py` 가 `topics.py` 와 대조해 어긋남을 막는다
 
 `docs/architecture/*.md` · `docs/api/*` 12편은 **만들지 않는다.**
 약속만 있고 실물이 없었다. 시스템이 데몬 하나면 아키텍처 문서 4개가
