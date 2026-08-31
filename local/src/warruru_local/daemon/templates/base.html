@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Warruru Local{% endblock %}</title>
+{# CSS 를 읽기 전에 저장한 테마를 붙여 화면이 하얗게 번쩍이지 않게 한다. #}
+<script>
+  try {
+    var savedTheme = localStorage.getItem("warruru-theme");
+    if (savedTheme === "dark") document.documentElement.dataset.theme = "dark";
+  } catch (error) {}
+</script>
 {#
   스타일은 여기 한 곳에만 둔다. 화면이 여섯이고 사용자가 한 명이라
   빌드 파이프라인도 CSS 파일 분리도 값을 못 한다.
@@ -52,6 +59,25 @@
     --t-xl: 1.45rem;
 
     --radius: 12px;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --ground:    #111820;
+    --panel:     #19232d;
+    --panel-2:   #222e39;
+    --ink:       #edf3f8;
+    --ink-soft:  #b4c0ca;
+    --ink-faint: #82909d;
+    --rule:      #334250;
+    --rule-soft: #2a3743;
+    --primary:   #69aaf0;
+    --primary-hover: #8bbef4;
+    --primary-soft: #203b55;
+    --full:      #62c477;
+    --full-soft: #203d2a;
+    --gap:       #efb34f;
+    --gap-soft:  #493719;
   }
 
   * { box-sizing: border-box; }
@@ -115,6 +141,16 @@
     padding-inline: .7rem;
   }
   nav .home-link:hover { color: #fff; background: var(--primary-hover); }
+  nav .theme-toggle {
+    display: inline-flex; align-items: center; gap: .35rem;
+    color: var(--ink-soft); background: var(--panel-2);
+    border: 1px solid var(--rule); padding: .35rem .55rem;
+    white-space: nowrap;
+  }
+  nav .theme-toggle:hover {
+    color: var(--primary); background: var(--primary-soft);
+    border-color: var(--primary);
+  }
 
   /* ── 카드 ───────────────────────────────────────────── */
   .tool {
@@ -397,5 +433,31 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggles = document.querySelectorAll("[data-theme-toggle]");
+
+    function paint(theme) {
+      var dark = theme === "dark";
+      root.dataset.theme = dark ? "dark" : "light";
+      toggles.forEach(function (button) {
+        button.setAttribute("aria-pressed", String(dark));
+        button.setAttribute("aria-label", dark ? "일반 모드로 전환" : "다크 모드로 전환");
+        button.querySelector("[data-theme-label]").textContent = dark ? "일반 모드" : "다크 모드";
+        button.querySelector("[data-theme-icon]").textContent = dark ? "◑" : "◐";
+      });
+    }
+
+    paint(root.dataset.theme === "dark" ? "dark" : "light");
+    toggles.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var next = root.dataset.theme === "dark" ? "light" : "dark";
+        paint(next);
+        try { localStorage.setItem("warruru-theme", next); } catch (error) {}
+      });
+    });
+  }());
+</script>
 </body>
 </html>
