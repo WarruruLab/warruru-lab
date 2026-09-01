@@ -14,6 +14,38 @@
   </ul>
 </section>
 {% endif %}
+
+<section class="tool">
+  <h2>물어보기</h2>
+  <p class="meta">
+    막히면 에이전트에게 이 한 줄을 준다. 답은
+    <code>~/.warruru/career/answers/{{ view.topic_slug }}/</code> 에 쌓이고
+    아래 '물어본 것' 에 뜬다.
+  </p>
+  <pre class="body">ask topic={{ view.topic_slug }}</pre>
+</section>
+
+{% if view.answers %}
+<section class="tool">
+  <h2>물어본 것 {{ view.answers|length }}건</h2>
+  <p class="meta">
+    에이전트에게 묻고 받은 답이다. <strong>기록이 아니다</strong> —
+    내 말로 정리했을 때 <code>record topic={{ view.topic_slug }}</code> 로 남긴다.
+  </p>
+  {% for answer in view.answers %}
+  <article class="work">
+    <div class="work-head">
+      <strong>{{ answer.asked or answer.name }}</strong>
+      <span class="when">{{ answer.name }}{% if answer.tool %} · {{ answer.tool }}{% endif %}</span>
+    </div>
+    <details>
+      <summary class="meta">답 보기</summary>
+      <div class="preview">{{ answer.html|safe }}</div>
+    </details>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
 {% if view.note.refs or view.note.html %}
 <section class="tool">
   <h2>참고</h2>

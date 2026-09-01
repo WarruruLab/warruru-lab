@@ -263,6 +263,12 @@ def _read(ctx, path: Path, slug: str) -> dict:
         "confidence": meta.get("confidence") or "",
         "source": meta.get("source") or "",
         "posting": meta.get("posting") or "",
+        # 인재상·평가 항목. **요구 기술과 나란히 둔다** — 기술만 맞추고
+        # 이쪽을 모르면 자소서와 면접에서 그대로 드러난다.
+        #
+        # 키 이름이 `values` 면 Jinja 가 dict 의 메서드를 먼저 집는다.
+        # 앞머리 쪽 이름은 `values` 로 두되 화면에 넘길 때 바꾼다.
+        "traits": _many(meta.get("values")),
         "gates": gates,
         "blocked": [gate for gate in gates if not gate["ok"]],
         "deadline": _deadline(meta, today),

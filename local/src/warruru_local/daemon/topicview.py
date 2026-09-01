@@ -81,6 +81,31 @@ def topic_note(ctx, topic_slug: str) -> dict:
     }
 
 
+def answers(ctx, topic_slug: str) -> list[dict]:
+    """`~/.warruru/career/answers/{슬러그}/*.md`. 최신순.
+
+    파일 이름이 곧 날짜다. 물어본 순서가 곧 이해가 쌓인 순서라, 되읽을 때
+    그 순서가 보여야 한다.
+    """
+    from warruru_local.daemon import careerview
+
+    root = paths.answer_dir(ctx.settings.home) / topic_slug
+    if not root.is_dir():
+        return []
+    made = []
+    for path in sorted(root.glob("*.md"), reverse=True):
+        meta, body = careerview.parse_front_matter(
+            path.read_text(encoding="utf-8", errors="replace")
+        )
+        made.append({
+            "name": path.stem,
+            "asked": meta.get("asked") or "",
+            "tool": meta.get("tool") or "",
+            "html": tistory_clipboard.to_html(body),
+        })
+    return made
+
+
 def _note_with_checks(ctx, topic_slug: str) -> dict:
     note = topic_note(ctx, topic_slug)
     checked = ctx.records.checked_asks(topic_slug)
@@ -109,6 +134,7 @@ def _build_empty(ctx, topic_slug: str) -> dict:
         "companies": careerview.demand(careerview.list_companies(ctx)).get(topic_slug, []),
         "recommended": topics.is_recommended(topic_slug),
         "note": _note_with_checks(ctx, topic_slug),
+        "answers": answers(ctx, topic_slug),
     }
 
 
@@ -164,6 +190,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         "draft_status": (draft or {}).get("status"),
         # 기록이 쌓인 뒤에도 참고는 남는다. 면접 준비로 되읽을 때 필요하다.
         "note": _note_with_checks(ctx, topic_slug),
+        "answers": answers(ctx, topic_slug),
     }
 
 

@@ -515,3 +515,39 @@ def test_참고_링크도_수상하면_안_건다(client, home):
     _note(home, "ds-hash", NOTE)
     page = client.get("/t/ds-hash").text
     assert "javascript:alert" not in page
+
+
+# ── 물어보고 받은 답 (2026-09-01) ────────────────────────────────────
+
+def _answer(home, slug, name, text):
+    from warruru_local import paths
+
+    root = paths.answer_dir(home) / slug
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{name}.md").write_text(text, encoding="utf-8")
+
+
+def test_물어보기_한_줄이_주제_화면에_있다(client):
+    page = client.get("/t/ds-hash").text
+    assert "ask topic=ds-hash" in page
+
+
+def test_받은_답이_최신순으로_쌓인다(client, home):
+    _answer(home, "ds-hash", "2026-09-01",
+            "---\nasked: 충돌 해결법\ntool: claude-code\n---\n\n체이닝과 개방주소법.\n")
+    _answer(home, "ds-hash", "2026-08-30", "---\nasked: 리해싱\n---\n\n부하율.\n")
+    page = client.get("/t/ds-hash").text
+    assert "물어본 것 2건" in page
+    assert page.index("충돌 해결법") < page.index("리해싱")   # 최신이 위
+
+
+def test_답은_기록이_아니라고_말한다(client, home):
+    """기록은 '내 말로 정리했다' 다. 받은 답을 기록으로 세면 숫자가 거짓말이 된다."""
+    _answer(home, "ds-hash", "2026-09-01", "---\nasked: 충돌\n---\n\n답.\n")
+    page = client.get("/t/ds-hash").text
+    assert "기록이 아니다" in page
+    assert "0건" in page          # 기록은 그대로 0
+
+
+def test_답이_없어도_주제_화면은_열린다(client):
+    assert client.get("/t/algo-dp").status_code == 200

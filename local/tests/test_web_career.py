@@ -937,3 +937,30 @@ def test_진도_변경도_토큰을_요구한다(client, home):
         "/web/certs/jeongcheogi/progress",
         data={"item": _cert_hash("기출 3개년"), "total": 12},
     ).status_code == 401
+
+
+def test_뷰_키가_dict_메서드를_가리지_않는다(ctx, home):
+    """Jinja 에서 `view.items` 는 dict 의 메서드를 먼저 집는다.
+
+    세 번 밟았다 — `group.items` · `stage.items` · `view.values`. 셋 다 화면이
+    500 으로 죽었고, 템플릿을 열기 전에는 안 보였다. 그래서 여기서 막는다.
+    """
+    _write(home, "hyundai-autoever.md", WITH_META)
+    _cert(home, "network-2")
+    _topic_note(home, "ds-hash", ["하나?"])
+
+    shadowed = set(dir({})) - {"__class__"}
+
+    def walk(value, path="view"):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                assert key not in shadowed, f"{path}.{key} 가 dict 메서드를 가린다"
+                walk(child, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                walk(child, f"{path}[{index}]")
+
+    walk(careerview.build_company(ctx, "hyundai-autoever"))
+    walk(careerview.build_cert(ctx, "network-2"))
+    walk(careerview.build_group(ctx, "ds"))
+    walk(careerview.build_stack(ctx))

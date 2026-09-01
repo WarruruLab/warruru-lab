@@ -96,6 +96,19 @@ def group_note_dir(home: Path) -> Path:
     return career_dir(home) / "groups"
 
 
+def answer_dir(home: Path) -> Path:
+    """주제별로 물어보고 받은 답. **기록도 참고도 아니다.**
+
+    기록은 *내가 한 일*, 참고는 *남이 정리해 둔 것*, 답변은 *내가 물어서
+    받은 것* 이다. 셋을 섞으면 주제 화면의 건수가 무엇을 뜻하는지 흐려진다.
+
+    **데몬은 모델을 부르지 않는다.** 묻는 쪽은 사용자 앞의 에이전트이고,
+    데몬은 그 결과 파일을 읽어 보여줄 뿐이다 — 네트워크가 끊겨도 이 화면은
+    열린다.
+    """
+    return career_dir(home) / "answers"
+
+
 def logs_dir(home: Path) -> Path:
     return home / "logs"
 
