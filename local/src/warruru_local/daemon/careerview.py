@@ -506,11 +506,16 @@ def build_group(ctx, key: str) -> dict | None:
         if group["key"] != key:
             continue
         group["axis"] = "roadmap" if group in stack["groups"] else "cs"
+        checked = ctx.records.checked_asks()
         for row in group["slugs"]:
             note = topicview.topic_note(ctx, row["slug"])
-            row["asks"] = note["asks"]
+            row["asks"] = [
+                dict(ask, checked=ask["hash"] in checked) for ask in note["asks"]
+            ]
             row["refs"] = note["refs"]
+            row["asked"] = sum(1 for ask in row["asks"] if ask["checked"])
         group["asks_total"] = sum(len(row["asks"]) for row in group["slugs"])
+        group["asked_total"] = sum(row["asked"] for row in group["slugs"])
         group["intro"] = _group_intro(ctx, key)
         return group
     return None

@@ -180,7 +180,10 @@ async def career_group(request: Request, key: str):
         )
     return templates.TemplateResponse(
         request, "career_group.html",
-        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
+        {
+            "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
+        },
     )
 
 
@@ -215,6 +218,30 @@ async def career_detail(request: Request, slug: str):
         request, "career_detail.html",
         {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
     )
+
+
+@router.post("/web/topics/{topic_slug}/asks")
+async def toggle_ask_form(
+    request: Request,
+    topic_slug: str,
+    ask: str = Form(...),
+    text: str = Form(""),
+    back: str = Form("/career/stack"),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """면접 질문 하나를 켜고 끈다. 상태를 바꾸므로 토큰을 요구한다.
+
+    **기록과 다른 값이다.** 체크는 "답할 수 있다", 기록은 "내 말로 정리했다".
+    3초짜리와 5분짜리를 같은 문턱에 두면 아무것도 안 눌린다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    # 연결이 `isolation_level=None`(자동 커밋)이라 따로 커밋하지 않는다.
+    ctx.records.toggle_ask(topic_slug, ask, text, to_iso(ctx.clock.now()))
+    # 돌아갈 곳은 폼이 알려준다. 같은 질문이 묶음 화면과 주제 화면 양쪽에
+    # 있어서, 어디서 눌렀는지 서버가 짐작하면 다른 화면으로 튕긴다.
+    target = back if back.startswith("/") and not back.startswith("//") else "/career/stack"
+    return RedirectResponse(target, status_code=302)
 
 
 @router.post("/web/drafts/{draft_id}/published")

@@ -1,0 +1,16 @@
+{# 질문 한 줄. **JS 없이 폼 하나로 켜고 끈다** — 이 프로젝트의 JS 예외는
+   초안 복사와 테마 전환뿐이고, 여기까지 늘리지 않는다. #}
+<li class="ask">
+  <form class="inline" method="post" action="/web/topics/{{ slug }}/asks">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <input type="hidden" name="ask" value="{{ ask.hash }}">
+    <input type="hidden" name="text" value="{{ ask.text }}">
+    <input type="hidden" name="back" value="{{ back }}">
+    <button class="tick {{ 'on' if ask.checked }}" type="submit"
+            aria-pressed="{{ 'true' if ask.checked else 'false' }}"
+            aria-label="{{ '답할 수 있음 해제' if ask.checked else '답할 수 있음' }}">
+      {{ '✔' if ask.checked else '&nbsp;'|safe }}
+    </button>
+  </form>
+  <span class="{{ 'quiet' if ask.checked }}">{{ ask.text }}</span>
+</li>

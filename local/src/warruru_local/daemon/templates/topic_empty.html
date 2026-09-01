@@ -57,9 +57,14 @@
 
 {% if view.note.asks %}
 <section class="tool">
-  <h2>확인할 것</h2>
-  <ul class="checkpoints">
-    {% for ask in view.note.asks %}<li>{{ ask }}</li>{% endfor %}
+  <h2>확인할 것 {{ view.note.asked }} / {{ view.note.asks|length }}</h2>
+  <p class="meta">답할 수 있으면 체크한다. 기록과 다른 값이다.</p>
+  <ul class="checkpoints asks">
+    {% for ask in view.note.asks %}
+      {% with slug = view.topic_slug, back = "/t/" ~ view.topic_slug %}
+        {% include "_ask.html" %}
+      {% endwith %}
+    {% endfor %}
   </ul>
 </section>
 {% endif %}

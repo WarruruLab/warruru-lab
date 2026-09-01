@@ -46,6 +46,18 @@ def _group(row: dict) -> dict:
     }
 
 
+def ask_hash(text: str) -> str:
+    """질문 문구의 해시. **색인이 아니라 문구로 잡는다.**
+
+    질문은 노트 파일에 있어서 순서가 바뀐다. 색인으로 잡으면 한 줄만 끼워
+    넣어도 체크가 통째로 밀린다. 문구를 고치면 체크가 풀리는데 그건 맞는
+    동작이다 — 고친 것은 다른 질문이다.
+    """
+    import hashlib
+
+    return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
+
+
 def topic_note(ctx, topic_slug: str) -> dict:
     """주제별 참고 노트. 없으면 빈 값이다 — 노트는 있으면 좋은 것이지 관문이 아니다."""
     from warruru_local.daemon import careerview
@@ -60,9 +72,21 @@ def topic_note(ctx, topic_slug: str) -> dict:
         "refs": careerview.parse_links(meta.get("refs")),
         # 면접에서 묻는 형태의 질문. **앞머리에 둔다** — 묶음 화면이 이걸
         # 구조로 모아 한 장으로 만든다. 본문 산문이면 모을 수가 없다.
-        "asks": [str(item).strip() for item in (meta.get("asks") or []) if str(item).strip()],
+        "asks": [
+            {"text": text, "hash": ask_hash(text)}
+            for text in (str(item).strip() for item in (meta.get("asks") or []))
+            if text
+        ],
         "html": tistory_clipboard.to_html(body),
     }
+
+
+def _note_with_checks(ctx, topic_slug: str) -> dict:
+    note = topic_note(ctx, topic_slug)
+    checked = ctx.records.checked_asks(topic_slug)
+    note["asks"] = [dict(ask, checked=ask["hash"] in checked) for ask in note["asks"]]
+    note["asked"] = sum(1 for ask in note["asks"] if ask["checked"])
+    return note
 
 
 def _build_empty(ctx, topic_slug: str) -> dict:
@@ -84,7 +108,7 @@ def _build_empty(ctx, topic_slug: str) -> dict:
         "certs": [{"key": key, "name": name} for key, name in topics.certs_of(topic_slug)],
         "companies": careerview.demand(careerview.list_companies(ctx)).get(topic_slug, []),
         "recommended": topics.is_recommended(topic_slug),
-        "note": topic_note(ctx, topic_slug),
+        "note": _note_with_checks(ctx, topic_slug),
     }
 
 
@@ -139,7 +163,7 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         "draft_id": (draft or {}).get("draft_id"),
         "draft_status": (draft or {}).get("status"),
         # 기록이 쌓인 뒤에도 참고는 남는다. 면접 준비로 되읽을 때 필요하다.
-        "note": topic_note(ctx, topic_slug),
+        "note": _note_with_checks(ctx, topic_slug),
     }
 
 
