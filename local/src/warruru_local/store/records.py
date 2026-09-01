@@ -246,6 +246,36 @@ class RecordRepository:
         )
         return True
 
+    # ── 자격증 커리큘럼 진도 (v4) ────────────────────────────────
+
+    def cert_progress(self, cert_key: str) -> dict[str, int]:
+        rows = self._conn.execute(
+            "SELECT item_hash, done FROM cert_progress WHERE cert_key = ?",
+            (cert_key,),
+        ).fetchall()
+        return {row["item_hash"]: row["done"] for row in rows}
+
+    def bump_cert_item(self, cert_key: str, item_hash: str, item_text: str,
+                       delta: int, total: int, now_iso: str) -> int:
+        """진도를 올리고 내린다. **0 아래로도 전체 위로도 안 간다.**
+
+        되돌릴 수 없으면 잘못 누른 한 번이 숫자를 영영 틀리게 만들고,
+        틀린 숫자가 보이기 시작하면 그 화면 전체를 안 믿게 된다.
+        """
+        row = self._conn.execute(
+            "SELECT done FROM cert_progress WHERE cert_key = ? AND item_hash = ?",
+            (cert_key, item_hash),
+        ).fetchone()
+        done = max(0, min(total, (row["done"] if row else 0) + delta))
+        self._conn.execute(
+            "INSERT INTO cert_progress (cert_key, item_hash, item_text, done, updated_at)"
+            " VALUES (?, ?, ?, ?, ?)"
+            " ON CONFLICT(cert_key, item_hash) DO UPDATE SET"
+            " done = excluded.done, updated_at = excluded.updated_at",
+            (cert_key, item_hash, item_text[:200], done, now_iso),
+        )
+        return done
+
     def material_rows(self) -> list[dict]:
         """재료 막대용 최소 컬럼. 슬러그와 네 필드뿐이다.
 

@@ -379,7 +379,8 @@ def _cert_note(ctx, key: str, today: str) -> dict:
     path = paths.cert_dir(ctx.settings.home) / f"{key}.md"
     if not path.is_file():
         return {
-            "exams": [], "links": [], "stages": [], "next": None, "status": "미시작",
+            "exams": [], "links": [], "stages": [], "curriculum": [],
+            "next": None, "status": "미시작",
             "done": False, "html": "", "markdown": "", "meta": {},
         }
 
@@ -404,6 +405,27 @@ def _cert_note(ctx, key: str, today: str) -> dict:
 
     links = parse_links(meta.get("links"))
 
+    # 커리큘럼. **하루 분량을 계산하는 것이 목적이다** — "3주 남았네" 가
+    # "오늘 반 회분" 이 되어야 오늘 손이 움직인다.
+    from warruru_local.daemon.topicview import ask_hash
+
+    progress = ctx.records.cert_progress(key)
+    curriculum = []
+    for item in meta.get("curriculum") or []:
+        stage, title, amount = _fields(item, 3)
+        if not title:
+            continue
+        try:
+            total = int(amount)
+        except ValueError:
+            total = 0
+        done = progress.get(ask_hash(title), 0)
+        curriculum.append({
+            "stage": stage, "title": title, "hash": ask_hash(title),
+            "total": total, "done": done, "left": max(0, total - done),
+            "percent": round(done * 100 / total) if total else 0,
+        })
+
     # 단계(필기·실기 · 1차·2차). **이 화면의 주인공이다** — 자격증은 슬러그
     # 목록이 아니라 시험이고, 시험은 단계마다 유형도 공부법도 다르다.
     stages = []
@@ -413,11 +435,21 @@ def _cert_note(ctx, key: str, today: str) -> dict:
             stages.append({"name": name, "state": state or "미시작",
                            "done": state == _CERT_DONE})
     for stage in stages:
+        # 키 이름이 `items` 면 Jinja 가 dict 의 메서드를 먼저 집는다(두 번째다).
+        stage["plan"] = [row for row in curriculum if row["stage"] == stage["name"]]
         stage["next"] = next(
             (row for row in exams
              if not row["past"] and row["mine"] and row["stage"] == stage["name"]),
             None,
         )
+        # **항목마다 따로 센다.** 회차와 문항과 회독은 단위가 달라서, 더하면
+        # "오늘 2.2만큼" 처럼 아무 뜻도 없는 숫자가 나온다.
+        days = max(1, stage["next"]["days"]) if stage["next"] else 0
+        for row in stage["plan"]:
+            # 남은 날을 모르면(일정 미정) 하루 분량을 말하지 않는다.
+            # 모르는 것을 그럴듯한 숫자로 채우면 그 숫자를 믿게 된다.
+            row["per_day"] = round(row["left"] / days, 1) if days and row["left"] else 0
+        stage["left_items"] = sum(1 for row in stage["plan"] if row["left"])
 
     return {
         "meta": meta,
@@ -429,6 +461,7 @@ def _cert_note(ctx, key: str, today: str) -> dict:
         "exams": exams,
         "links": links,
         "stages": stages,
+        "curriculum": curriculum,
         # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —
         # 지워 버리면 "이번에 놓쳤다" 는 사실까지 사라진다.
         "next": next(
