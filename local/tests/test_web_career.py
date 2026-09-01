@@ -856,3 +856,84 @@ def test_바깥으로_되돌리지_않는다(client, home):
         follow_redirects=False,
     )
     assert posted.headers["location"] == "/career/stack"
+
+
+# ── 자격증 커리큘럼 (2026-09-01) ─────────────────────────────────────
+
+CURRICULUM = """---
+status: 준비중
+stages:
+  - 실기 | 준비중
+curriculum:
+  - 실기 | 기출 3개년 | 12
+  - 실기 | 서브네팅 연습 | 10
+exams:
+  - 2026-07-30 | 실기 접수 | | | 실기
+---
+
+# 준비
+"""
+
+
+def _cert_hash(text):
+    from warruru_local.daemon.topicview import ask_hash
+
+    return ask_hash(text)
+
+
+def test_항목마다_오늘_분량을_따로_센다(ctx, home):
+    """회차와 문항은 단위가 달라 더하면 아무 뜻도 없는 숫자가 나온다."""
+    _cert(home, "jeongcheogi", CURRICULUM)
+    stage, = careerview.build_cert(ctx, "jeongcheogi")["stages"]
+    plans = {row["title"]: row["per_day"] for row in stage["plan"]}
+    assert plans["기출 3개년"] == 1.5           # 12 / 8일
+    assert plans["서브네팅 연습"] == 1.2        # 10 / 8일 = 1.25 → 반올림
+
+
+def test_진도를_올리면_오늘_분량이_준다(client, ctx, home):
+    _cert(home, "jeongcheogi", CURRICULUM)
+    token = client.app.state.ctx.settings.token
+    client.post("/web/certs/jeongcheogi/progress",
+                data={"_token": token, "item": _cert_hash("기출 3개년"),
+                      "text": "기출 3개년", "total": 12, "delta": 1},
+                follow_redirects=False)
+    row, = [r for r in careerview.build_cert(ctx, "jeongcheogi")["curriculum"]
+            if r["title"] == "기출 3개년"]
+    assert row["done"] == 1 and row["left"] == 11
+
+
+def test_전체를_넘거나_0_아래로_안_간다(client, ctx, home):
+    """잘못 누른 한 번이 숫자를 영영 틀리게 만들면 그 화면을 안 믿게 된다."""
+    _cert(home, "jeongcheogi", CURRICULUM)
+    token = client.app.state.ctx.settings.token
+    data = {"_token": token, "item": _cert_hash("기출 3개년"),
+            "text": "기출 3개년", "total": 12}
+    for _ in range(15):
+        client.post("/web/certs/jeongcheogi/progress",
+                    data=dict(data, delta=1), follow_redirects=False)
+    row, = [r for r in careerview.build_cert(ctx, "jeongcheogi")["curriculum"]
+            if r["title"] == "기출 3개년"]
+    assert row["done"] == 12
+
+    for _ in range(20):
+        client.post("/web/certs/jeongcheogi/progress",
+                    data=dict(data, delta=-1), follow_redirects=False)
+    row, = [r for r in careerview.build_cert(ctx, "jeongcheogi")["curriculum"]
+            if r["title"] == "기출 3개년"]
+    assert row["done"] == 0
+
+
+def test_일정을_모르면_오늘_분량을_말하지_않는다(ctx, home):
+    """모르는 것을 그럴듯한 숫자로 채우면 그 숫자를 믿게 된다."""
+    _cert(home, "aws-saa", CURRICULUM.replace(
+        "exams:\n  - 2026-07-30 | 실기 접수 | | | 실기\n", ""))
+    stage, = careerview.build_cert(ctx, "aws-saa")["stages"]
+    assert all(row["per_day"] == 0 for row in stage["plan"])
+
+
+def test_진도_변경도_토큰을_요구한다(client, home):
+    _cert(home, "jeongcheogi", CURRICULUM)
+    assert client.post(
+        "/web/certs/jeongcheogi/progress",
+        data={"item": _cert_hash("기출 3개년"), "total": 12},
+    ).status_code == 401

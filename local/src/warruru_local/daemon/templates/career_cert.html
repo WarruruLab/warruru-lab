@@ -28,6 +28,21 @@
       <span class="meta">{{ stage.next.date }}</span>
     </div>
     {% if stage.next.note %}<p class="meta">{{ stage.next.note }}</p>{% endif %}
+    {% if stage.plan %}
+    <ul class="checkpoints">
+      {% for item in stage.plan %}
+      <li>
+        <span class="{{ 'quiet' if not item.left }}">{{ item.title }}</span>
+        {% if item.per_day %}
+          <span class="badge warn">오늘 {{ item.per_day }}</span>
+        {% elif not item.left %}
+          <span class="badge ok">끝</span>
+        {% endif %}
+        <span class="when">{{ item.done }}/{{ item.total }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% elif stage.done %}
     <p class="meta quiet">끝났다.</p>
     {% else %}
@@ -45,6 +60,44 @@
     <span class="meta">{{ view.next.date }}</span>
   </div>
   {% if view.next.note %}<p class="meta">{{ view.next.note }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if view.curriculum %}
+<section class="tool">
+  <h2>커리큘럼</h2>
+  <p class="meta">
+    남은 분량을 다음 일정까지 남은 날로 나눈 것이 <strong>오늘 분량</strong>이다.
+    오늘 안 하면 내일 분량이 는다.
+  </p>
+  <ul class="checkpoints">
+    {% for item in view.curriculum %}
+    <li>
+      <div class="work-head">
+        {% if item.stage %}<span class="badge">{{ item.stage }}</span>{% endif %}
+        <strong>{{ item.title }}</strong>
+        <span class="badge {{ 'ok' if item.done == item.total and item.total else '' }}">
+          {{ item.done }} / {{ item.total }}
+        </span>
+        <span class="when">
+          {% for delta, sign in [(-1, '−'), (1, '+')] %}
+          <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+            <input type="hidden" name="_token" value="{{ token }}">
+            <input type="hidden" name="item" value="{{ item.hash }}">
+            <input type="hidden" name="text" value="{{ item.title }}">
+            <input type="hidden" name="total" value="{{ item.total }}">
+            <input type="hidden" name="delta" value="{{ delta }}">
+            <button class="tick" type="submit" aria-label="{{ item.title }} {{ sign }}1">{{ sign }}</button>
+          </form>
+          {% endfor %}
+        </span>
+      </div>
+      <span class="cover" role="img" aria-label="{{ item.percent }}%">
+        <i style="width: {{ item.percent }}%"></i>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
 </section>
 {% endif %}
 

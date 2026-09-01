@@ -4,6 +4,9 @@ v2 는 학습 기록 두 테이블을 더한다. `topic` 원문과 `topic_slug` 
 원문은 사람이 적은 말이라 화면에 그대로 보여야 하고 집계는 표기 변형에 흔들리면
 안 되기 때문이다. 집계·필터·글 생성은 예외 없이 slug 기준이다.
 
+v4 는 `cert_progress` 를 더한다. 시험 범위가 로드맵과 안 겹치는 기간에도
+셀 것이 있어야 화면이 움직인다.
+
 v3 는 `ask_check` 하나를 더한다. 면접 질문 체크는 화면에서 3초 만에 눌리는
 값이라 파일이 아니라 DB 로 간다 — 파일이면 에디터를 열어야 하고, 그 순간
 아무도 안 누른다.
@@ -17,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 3
+CURRENT_VERSION = 4
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -215,7 +218,25 @@ CREATE TABLE IF NOT EXISTS ask_check (
 CREATE INDEX IF NOT EXISTS ix_ask_check_slug ON ask_check (topic_slug);
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3}
+# v4 — 자격증 커리큘럼 진도.
+#
+# 시험 범위와 로드맵이 안 겹치는 기간(정처기 실기 3주)에는 화면이 통째로
+# 안 움직인다. 3주간 안 움직이는 화면은 3주 뒤에 안 열린다. 그래서 슬러그와
+# 무관한 진도를 따로 센다 — 기출 회독 수 같은 것.
+#
+# 항목도 노트 파일에 있어서 `ask_check` 와 같은 이유로 **문구 해시**를 쓴다.
+_V4 = """
+CREATE TABLE IF NOT EXISTS cert_progress (
+    cert_key   TEXT NOT NULL,
+    item_hash  TEXT NOT NULL,
+    item_text  TEXT NOT NULL,
+    done       INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (cert_key, item_hash)
+);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

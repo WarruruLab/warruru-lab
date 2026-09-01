@@ -415,8 +415,13 @@ def test_v2_테이블이_생긴다(tmp_path):
     assert {"learning_record", "draft"} <= _tables(conn)
 
 
-def test_현재_버전은_3_다():
-    assert migrations.CURRENT_VERSION == 3
+def test_스크립트가_버전_상수까지_빠짐없이_있다():
+    """버전을 올리고 스크립트를 안 등록하면 조용히 안 만들어진다.
+    상수를 다시 베끼는 대신 **둘이 맞는지**를 본다.
+    """
+    assert sorted(migrations._SCRIPTS) == list(
+        range(1, migrations.CURRENT_VERSION + 1)
+    )
 
 
 def test_v1_데이터가_최신으로_올라가도_보존된다(tmp_path):
@@ -525,3 +530,16 @@ def test_같은_질문을_두_번_체크해도_한_줄이다(tmp_path):
     except sqlite3.IntegrityError:
         pass
     assert conn.execute("SELECT COUNT(*) AS n FROM ask_check").fetchone()["n"] == 1
+
+
+def test_v4_가_커리큘럼_진도_테이블을_만든다(tmp_path):
+    """시험 범위가 로드맵과 안 겹치는 기간에도 셀 것이 있어야 화면이 움직인다."""
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    conn.execute(
+        "INSERT INTO cert_progress (cert_key, item_hash, item_text, done, updated_at)"
+        " VALUES ('jeongcheogi', 'abc', '기출 3개년', 3, ?)", (NOW,)
+    )
+    assert conn.execute(
+        "SELECT done FROM cert_progress WHERE cert_key = 'jeongcheogi'"
+    ).fetchone()["done"] == 3

@@ -165,7 +165,10 @@ async def career_cert(request: Request, key: str):
         )
     return templates.TemplateResponse(
         request, "career_cert.html",
-        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
+        {
+            "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
+        },
     )
 
 
@@ -242,6 +245,26 @@ async def toggle_ask_form(
     # 있어서, 어디서 눌렀는지 서버가 짐작하면 다른 화면으로 튕긴다.
     target = back if back.startswith("/") and not back.startswith("//") else "/career/stack"
     return RedirectResponse(target, status_code=302)
+
+
+@router.post("/web/certs/{cert_key}/progress")
+async def bump_cert_form(
+    request: Request,
+    cert_key: str,
+    item: str = Form(...),
+    text: str = Form(""),
+    total: int = Form(0),
+    delta: int = Form(1),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """커리큘럼 한 항목의 진도를 올리고 내린다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    ctx.records.bump_cert_item(
+        cert_key, item, text, max(-1, min(1, delta)), total,
+        to_iso(ctx.clock.now()),
+    )
+    return RedirectResponse(f"/career/cert/{cert_key}", status_code=302)
 
 
 @router.post("/web/drafts/{draft_id}/published")
