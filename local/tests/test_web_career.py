@@ -761,3 +761,98 @@ def test_왼쪽_박스와_구획_이름이_성격을_말한다(client):
     assert "프로젝트 주제" in page
     assert "마감이 있는 것" in page and "면접에서 묻는 것" in page
     assert "만들면서 겪는 것" in page
+
+
+# ── 면접 질문 체크 (2026-09-01) ──────────────────────────────────────
+
+def _ask_note(home, slug, asks):
+    from warruru_local import paths
+
+    root = paths.topic_note_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"  - {a}" for a in asks)
+    (root / f"{slug}.md").write_text(
+        f"---\nlabel: 해시\nasks:\n{body}\n---\n\n# 무엇을 기록하나\n\n본문.\n",
+        encoding="utf-8",
+    )
+
+
+def _hash(text):
+    from warruru_local.daemon.topicview import ask_hash
+
+    return ask_hash(text)
+
+
+def test_질문을_체크하면_켜진다(client, home):
+    """3초짜리다. 기록(5분)과 같은 문턱에 두면 아무것도 안 눌린다."""
+    _ask_note(home, "ds-hash", ["충돌은 어떻게 해결하나?"])
+    token = client.app.state.ctx.settings.token
+    posted = client.post(
+        "/web/topics/ds-hash/asks",
+        data={"_token": token, "ask": _hash("충돌은 어떻게 해결하나?"),
+              "text": "충돌은 어떻게 해결하나?", "back": "/career/stack/ds"},
+        follow_redirects=False,
+    )
+    assert posted.status_code == 302
+    assert posted.headers["location"] == "/career/stack/ds"
+    assert "1 / 1" in client.get("/career/stack/ds").text
+
+
+def test_다시_누르면_꺼진다(client, home):
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    token = client.app.state.ctx.settings.token
+    data = {"_token": token, "ask": _hash("충돌은?"), "text": "충돌은?"}
+    client.post("/web/topics/ds-hash/asks", data=data, follow_redirects=False)
+    client.post("/web/topics/ds-hash/asks", data=data, follow_redirects=False)
+    assert "0 / 1" in client.get("/career/stack/ds").text
+
+
+def test_체크는_토큰을_요구한다(client, home):
+    """상태를 바꾸는 폼이다."""
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    assert client.post(
+        "/web/topics/ds-hash/asks", data={"ask": _hash("충돌은?")}
+    ).status_code == 401
+
+
+def test_체크와_기록은_다른_값이다(client, home):
+    """체크는 '답할 수 있다', 기록은 '내 말로 정리했다' 다."""
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    token = client.app.state.ctx.settings.token
+    client.post("/web/topics/ds-hash/asks",
+                data={"_token": token, "ask": _hash("충돌은?"), "text": "충돌은?"},
+                follow_redirects=False)
+    page = client.get("/career/stack/ds").text
+    assert "답 1/1" in page
+    assert "기록 0건" in page
+
+
+def test_질문_문구를_고치면_체크가_풀린다(client, home):
+    """고친 것은 다른 질문이다. 색인이 아니라 문구로 잡는 이유이기도 하다."""
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    token = client.app.state.ctx.settings.token
+    client.post("/web/topics/ds-hash/asks",
+                data={"_token": token, "ask": _hash("충돌은?"), "text": "충돌은?"},
+                follow_redirects=False)
+    _ask_note(home, "ds-hash", ["충돌을 어떻게 해결하나?"])
+    assert "0 / 1" in client.get("/career/stack/ds").text
+
+
+def test_주제_화면에서도_체크할_수_있다(client, home):
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    page = client.get("/t/ds-hash").text
+    assert "확인할 것 0 / 1" in page
+    assert '/web/topics/ds-hash/asks' in page
+
+
+def test_바깥으로_되돌리지_않는다(client, home):
+    """`back` 은 폼이 주는 값이라 그대로 믿지 않는다."""
+    _ask_note(home, "ds-hash", ["충돌은?"])
+    token = client.app.state.ctx.settings.token
+    posted = client.post(
+        "/web/topics/ds-hash/asks",
+        data={"_token": token, "ask": _hash("충돌은?"), "text": "충돌은?",
+              "back": "https://example.com/훔치기"},
+        follow_redirects=False,
+    )
+    assert posted.headers["location"] == "/career/stack"

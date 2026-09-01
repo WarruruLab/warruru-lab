@@ -207,6 +207,45 @@ class RecordRepository:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    # ── 면접 질문 체크 (v3) ─────────────────────────────────────
+
+    def checked_asks(self, topic_slug: str | None = None) -> set[str]:
+        """체크된 질문의 해시. 슬러그를 주면 그 주제만."""
+        if topic_slug:
+            rows = self._conn.execute(
+                "SELECT ask_hash FROM ask_check WHERE topic_slug = ?", (topic_slug,)
+            ).fetchall()
+        else:
+            rows = self._conn.execute("SELECT ask_hash FROM ask_check").fetchall()
+        return {row["ask_hash"] for row in rows}
+
+    def check_counts(self) -> dict[str, int]:
+        """슬러그별 체크 수. 묶음 화면이 한 번에 읽는다."""
+        rows = self._conn.execute(
+            "SELECT topic_slug, COUNT(*) AS n FROM ask_check GROUP BY topic_slug"
+        ).fetchall()
+        return {row["topic_slug"]: row["n"] for row in rows}
+
+    def toggle_ask(self, topic_slug: str, ask_hash: str, ask_text: str,
+                   now_iso: str) -> bool:
+        """켜져 있으면 끄고 꺼져 있으면 켠다. 켜진 뒤 상태를 돌려준다."""
+        row = self._conn.execute(
+            "SELECT 1 FROM ask_check WHERE topic_slug = ? AND ask_hash = ?",
+            (topic_slug, ask_hash),
+        ).fetchone()
+        if row:
+            self._conn.execute(
+                "DELETE FROM ask_check WHERE topic_slug = ? AND ask_hash = ?",
+                (topic_slug, ask_hash),
+            )
+            return False
+        self._conn.execute(
+            "INSERT INTO ask_check (topic_slug, ask_hash, ask_text, checked_at)"
+            " VALUES (?, ?, ?, ?)",
+            (topic_slug, ask_hash, ask_text[:500], now_iso),
+        )
+        return True
+
     def material_rows(self) -> list[dict]:
         """재료 막대용 최소 컬럼. 슬러그와 네 필드뿐이다.
 

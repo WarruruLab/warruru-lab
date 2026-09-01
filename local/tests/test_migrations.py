@@ -415,18 +415,18 @@ def test_v2_테이블이_생긴다(tmp_path):
     assert {"learning_record", "draft"} <= _tables(conn)
 
 
-def test_현재_버전은_2_다():
-    assert migrations.CURRENT_VERSION == 2
+def test_현재_버전은_3_다():
+    assert migrations.CURRENT_VERSION == 3
 
 
-def test_v1_데이터가_v2_로_올라가도_보존된다(tmp_path):
+def test_v1_데이터가_최신으로_올라가도_보존된다(tmp_path):
     """이미 쓰고 있는 DB 를 올리는 것이므로, 기존 행이 한 줄도 상하면 안 된다."""
     path = tmp_path / "warruru.db"
     conn = db.connect(path)
     _seed_v1(conn)
     assert migrations.current_version(conn) == 1
 
-    assert migrations.migrate(conn, NOW) == 2
+    assert migrations.migrate(conn, NOW) == migrations.CURRENT_VERSION
 
     assert conn.execute(
         "SELECT title FROM checkpoint WHERE checkpoint_id = ?", ("ckp_기존",)
@@ -494,3 +494,34 @@ def test_measurement_와_tech_option_은_만들지_않는다(tmp_path):
     conn = db.connect(tmp_path / "warruru.db")
     migrations.migrate(conn, NOW)
     assert not ({"measurement", "tech_option"} & _tables(conn))
+
+
+def test_v3_가_질문_체크_테이블을_만든다(tmp_path):
+    """체크는 화면에서 3초 만에 눌리는 값이라 파일이 아니라 DB 로 간다."""
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    conn.execute(
+        "INSERT INTO ask_check (topic_slug, ask_hash, ask_text, checked_at)"
+        " VALUES ('ds-hash', 'abc', '충돌은?', ?)", (NOW,)
+    )
+    assert conn.execute("SELECT COUNT(*) AS n FROM ask_check").fetchone()["n"] == 1
+
+
+def test_같은_질문을_두_번_체크해도_한_줄이다(tmp_path):
+    """폼을 두 번 눌러도(뒤로 가기·새로고침) 상태가 어긋나지 않아야 한다."""
+    import sqlite3
+
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    conn.execute(
+        "INSERT INTO ask_check (topic_slug, ask_hash, ask_text, checked_at)"
+        " VALUES ('ds-hash', 'abc', '충돌은?', ?)", (NOW,)
+    )
+    try:
+        conn.execute(
+            "INSERT INTO ask_check (topic_slug, ask_hash, ask_text, checked_at)"
+            " VALUES ('ds-hash', 'abc', '충돌은?', ?)", (NOW,)
+        )
+    except sqlite3.IntegrityError:
+        pass
+    assert conn.execute("SELECT COUNT(*) AS n FROM ask_check").fetchone()["n"] == 1

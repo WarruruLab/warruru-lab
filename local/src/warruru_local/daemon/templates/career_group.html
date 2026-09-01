@@ -35,10 +35,11 @@
 {# 이 화면의 주인공은 질문이다. "답할 수 있나" 를 점검하러 오는 자리라
    건수는 맨 아래로 내렸다(2026-09-01 확정). #}
 <section class="tool">
-  <h2>면접에서 묻는 것 {{ view.asks_total }}개</h2>
+  <h2>면접에서 묻는 것 {{ view.asked_total }} / {{ view.asks_total }}</h2>
   <p class="meta">
-    답이 막히는 주제가 곧 다음에 볼 것이다. 답할 수 있게 되면
-    <code>record topic=…</code> 로 남긴다 — <strong>내 말로</strong>.
+    <strong>답할 수 있으면 체크한다.</strong> 3초짜리다 —
+    기록(<code>record topic=…</code>)은 내 말로 정리했을 때고, 둘은 다른 값이다.
+    막히는 것이 곧 다음에 볼 것이다.
   </p>
 
   {% for item in view.slugs %}
@@ -46,12 +47,18 @@
     <div class="work-head">
       <strong><a href="/t/{{ item.slug }}">{{ item.label }}</a></strong>
       <code class="quiet">{{ item.slug }}</code>
-      <span class="badge {{ 'ok' if item.count else 'warn' }}">{{ item.count }}건</span>
+      <span class="badge {{ 'ok' if item.asked == item.asks|length and item.asks else '' }}">
+        답 {{ item.asked }}/{{ item.asks|length }}</span>
+      <span class="badge {{ 'ok' if item.count else 'warn' }}">기록 {{ item.count }}건</span>
       {% for name in item.companies %}<span class="badge">{{ name }}</span>{% endfor %}
     </div>
     {% if item.asks %}
-    <ul class="checkpoints">
-      {% for ask in item.asks %}<li>{{ ask }}</li>{% endfor %}
+    <ul class="checkpoints asks">
+      {% for ask in item.asks %}
+        {% with slug = item.slug, back = "/career/stack/" ~ view.key %}
+          {% include "_ask.html" %}
+        {% endwith %}
+      {% endfor %}
     </ul>
     {% endif %}
     {% if item.refs %}

@@ -95,7 +95,9 @@ def test_health_는_상수가_아니라_실제_DB_버전을_보고한다(home, m
         payload = made.get("/v1/health").json()
 
     assert payload["schema_version"] == 1
-    assert migrations.CURRENT_VERSION == 2  # 상수였다면 위에서 2 가 나왔을 것이다
+    # 상수였다면 위에서 최신 버전이 나왔을 것이다. 버전이 오를 때마다 이 줄을
+    # 고쳐야 한다면 그건 테스트가 상수를 다시 베낀 것이다 — 비교만 한다.
+    assert migrations.CURRENT_VERSION > 1
 
 
 def test_스키마_버전이_어긋나면_경고를_남긴다(home, monkeypatch):

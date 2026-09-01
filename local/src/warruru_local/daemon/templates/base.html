@@ -512,6 +512,20 @@
   a.badge { text-decoration: none; }
   a.badge:hover { background: var(--gap); color: var(--ground); }
 
+  /* ── 질문 체크 ─────────────────────────────────────────
+     3초 만에 눌려야 하는 자리라 버튼을 크게 둔다. 작으면 안 누른다. */
+  ul.checkpoints.asks > li {
+    display: flex; gap: .55rem; align-items: baseline;
+  }
+  button.tick {
+    width: 1.5rem; height: 1.5rem; padding: 0;
+    display: inline-grid; place-items: center;
+    border-radius: 5px; font-size: var(--t-sm); line-height: 1;
+  }
+  button.tick.on {
+    background: var(--full-soft); border-color: var(--full); color: var(--full);
+  }
+
   .quiet { color: var(--ink-faint); }
   .empty { color: var(--ink-soft); }
   .empty-today { color: var(--gap); font-weight: 600; }

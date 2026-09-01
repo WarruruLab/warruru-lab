@@ -4,6 +4,10 @@ v2 는 학습 기록 두 테이블을 더한다. `topic` 원문과 `topic_slug` 
 원문은 사람이 적은 말이라 화면에 그대로 보여야 하고 집계는 표기 변형에 흔들리면
 안 되기 때문이다. 집계·필터·글 생성은 예외 없이 slug 기준이다.
 
+v3 는 `ask_check` 하나를 더한다. 면접 질문 체크는 화면에서 3초 만에 눌리는
+값이라 파일이 아니라 DB 로 간다 — 파일이면 에디터를 열어야 하고, 그 순간
+아무도 안 누른다.
+
 `measurement` / `tech_option` 정규화 테이블은 만들지 않는다. 정규화가 값을 하는 건
 비교·집계 화면이 있을 때인데 MVP 에 그런 화면이 없다. 측정값과 기술 후보는
 `body`·`outcome` 안의 텍스트로 받는다. 필요해지면 v3 스크립트 하나를 더하면 된다.
@@ -13,7 +17,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 2
+CURRENT_VERSION = 3
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -189,7 +193,29 @@ CREATE INDEX IF NOT EXISTS ix_draft_slug
     ON draft (topic_slug, updated_at DESC);
 """
 
-_SCRIPTS = {1: _V1, 2: _V2}
+# v3 — 면접 질문 체크. **기록과 다른 것이다.**
+#
+# 체크는 "이 질문에 답할 수 있다", 기록은 "내 말로 정리했다" 다. 둘을 한
+# 값으로 묶으면 3초짜리 확인과 5분짜리 기록이 같은 문턱이 되고, 그러면
+# 아무것도 안 눌린다. 채우는 데 5분이 드는 축은 혼자 준비하는 사람에게
+# 며칠이면 죽는다.
+#
+# 질문 원문이 아니라 **해시**를 열쇠로 쓴다. 질문은 노트 파일에 있어서
+# 순서가 바뀌고, 색인으로 잡으면 한 줄만 끼워 넣어도 체크가 통째로 밀린다.
+# 문구를 고치면 체크가 풀리는데 그건 맞는 동작이다 — 다른 질문이다.
+_V3 = """
+CREATE TABLE IF NOT EXISTS ask_check (
+    topic_slug TEXT NOT NULL,
+    ask_hash   TEXT NOT NULL,
+    ask_text   TEXT NOT NULL,
+    checked_at TEXT NOT NULL,
+    PRIMARY KEY (topic_slug, ask_hash)
+);
+
+CREATE INDEX IF NOT EXISTS ix_ask_check_slug ON ask_check (topic_slug);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3}
 
 
 def current_version(conn: sqlite3.Connection) -> int:
