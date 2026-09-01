@@ -18,14 +18,15 @@
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
   / `record_learning` / `get_topic_records` / `save_draft`)
 - 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
-- SQLite `~/.warruru/warruru.db` — 스키마 v2, 테이블 6개
+- SQLite `~/.warruru/warruru.db` — 스키마 v4, 테이블 8개
   (`machine` / `client_instance` / `work_session` / `checkpoint`
-  / `learning_record` / `draft`)
+  / `learning_record` / `draft` / `ask_check` / `cert_progress`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 회사별 준비 노트 `~/.warruru/career/*.md` · 자격증 노트
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
   `~/.warruru/career/topics/*.md` · 묶음 머리말
-  `~/.warruru/career/groups/*.md` — 저장소 바깥이다.
+  `~/.warruru/career/groups/*.md` · 물어보고 받은 답
+  `~/.warruru/career/answers/{주제}/*.md` — 저장소 바깥이다.
   `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
 - 에이전트 플러그인 `agent-plugin/` — 스킬 2개(`warruru-recording`
   · `career-prep`) + MCP 연결.

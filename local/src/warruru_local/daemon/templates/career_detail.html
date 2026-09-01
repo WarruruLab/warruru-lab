@@ -35,6 +35,19 @@
 </section>
 {% endif %}
 
+{% if view.traits %}
+<section class="tool">
+  <h2>이 회사가 보는 것</h2>
+  <p class="meta">
+    공고와 설명회에서 확인한 것만 적는다. 기술만 맞추고 이쪽을 모르면
+    자소서와 면접에서 그대로 드러난다.
+  </p>
+  <p>
+    {% for value in view.traits %}<span class="badge">{{ value }}</span> {% endfor %}
+  </p>
+</section>
+{% endif %}
+
 <section class="tool">
   <h2>준비도</h2>
   {% if view.deadline %}
