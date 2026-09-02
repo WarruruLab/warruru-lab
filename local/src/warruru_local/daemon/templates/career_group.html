@@ -11,6 +11,20 @@
   <a href="/career/stack">내가 채울 것 전체</a>
 </p>
 
+{% if view.axis == "book" %}
+<section class="tool">
+  <h2>이 책이 덮는 주제 {{ view.have }} / {{ view.total }}</h2>
+  <p>{% with coverage = {"covered": view.have, "total": view.total,
+        "percent": (view.have * 100 // view.total) if view.total else 0} %}
+    {% include "_coverage.html" %}{% endwith %}</p>
+  <p class="meta quiet">
+    <strong>장(章) 단위가 아니라 책 단위다.</strong> 목차를 확인하지 않고 장
+    번호를 적으면 그 순간 이 화면을 못 믿게 된다. 아래는 "이 책을 읽으면 이
+    질문들에 답할 수 있게 된다" 는 판단이고, 틀리면 고치면 된다.
+  </p>
+</section>
+{% endif %}
+
 {% if view.axis == "roadmap" %}
 {# 로드맵 화면이 답할 것은 "어디까지 왔는가" 다(2026-09-01 확정).
    그래서 진도가 맨 위에 오고, 아래 목록은 **로드맵 순서**로 선다. #}
@@ -70,7 +84,7 @@
   {% endfor %}
 </section>
 
-{% if view.axis != "roadmap" %}
+{% if view.axis == "cs" %}
 <section class="tool">
   <h2>내 기록 {{ view.have }} / {{ view.total }}</h2>
   <p>{% with coverage = {"covered": view.have, "total": view.total,

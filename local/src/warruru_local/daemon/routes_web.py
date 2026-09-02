@@ -131,11 +131,13 @@ async def career_index(request: Request):
     """
     ctx = request.app.state.ctx
     companies = careerview.list_companies(ctx)
+    stack = careerview.build_stack(ctx)
     return templates.TemplateResponse(
         request, "career.html",
         {
             "companies": companies,
-            "stack": careerview.build_stack(ctx),
+            "stack": stack,
+            "books": stack["books"],
             "certs": careerview.build_certs(ctx),
             "today": local_date_of(to_iso(ctx.clock.now())),
         },
@@ -176,10 +178,34 @@ async def career_cert(request: Request, key: str):
 async def career_group(request: Request, key: str):
     ctx = request.app.state.ctx
     view = careerview.build_group(ctx, key)
+    # 책은 `/career/book/` 아래다. 두 주소가 같은 것을 열면 어느 쪽인지 모른다.
+    if view is not None and view["axis"] == "book":
+        view = None
     if view is None:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 묶음이 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_group.html",
+        {
+            "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
+        },
+    )
+
+
+@router.get("/career/book/{key}")
+async def career_book(request: Request, key: str):
+    """책 한 권이 덮는 주제. 묶음 화면과 같은 모양을 쓴다 —
+    "이 책을 읽으면 어느 질문에 답할 수 있게 되는가" 가 같은 질문이라서다.
+    """
+    ctx = request.app.state.ctx
+    view = careerview.build_group(ctx, key)
+    if view is None or view["axis"] != "book":
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 책이 없습니다"},
         )
     return templates.TemplateResponse(
         request, "career_group.html",

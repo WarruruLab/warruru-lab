@@ -558,6 +558,103 @@ CS_SLUGS: tuple[str, ...] = tuple(
 )
 
 
+# 갖고 있는 책이 덮는 주제. **장(章) 단위가 아니라 책 단위다.**
+#
+# 목차를 확인하지 않고 장 번호를 적으면 그 순간 이 화면을 못 믿게 된다.
+# 여기 적힌 것은 "이 책을 읽으면 이 주제들에 답할 수 있게 된다" 는 판단이고,
+# 판단한 것은 사람이 아니라 에이전트다 — 틀리면 고쳐라(2026-09-02).
+#
+# 자격증처럼 **겹쳐도 된다.** `db-index` 는 Real MySQL 이자 면접 CS 노트다.
+BOOK_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("net-topdown", "컴퓨터 네트워킹 하향식 접근", (
+        "net-tcp", "net-udp", "net-http", "net-tls", "net-dns", "net-socket",
+        "net-subnet-nat", "net-load-balancing", "web-http-method",
+        "web-http-status", "load-balancing",
+    )),
+    ("dinosaur", "운영체제 (공룡책)", (
+        "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+        "os-virtual-memory", "os-io", "os-deadlock", "race-condition",
+        "java-concurrency",
+    )),
+    ("honja-cs", "혼자 공부하는 컴퓨터구조 + 운영체제", (
+        "arch-cpu", "arch-cache-memory", "arch-memory-hierarchy",
+        "arch-floating-point", "arch-von-neumann",
+        "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+        "os-virtual-memory", "os-io", "os-deadlock",
+    )),
+    ("design-pattern-java", "Java 언어로 배우는 디자인패턴 입문", (
+        "pattern-singleton", "pattern-factory", "pattern-strategy",
+        "pattern-observer", "pattern-template-method", "pattern-proxy",
+        "oop-polymorphism", "oop-inheritance-composition",
+    )),
+    ("ddd-start", "도메인 주도 개발 시작하기", (
+        "domain-erd", "entity-association", "package-structure",
+        "tx-boundary", "dto-separation", "oop-inheritance-composition",
+        "optimistic-vs-pessimistic-lock",
+    )),
+    ("jpa-kim", "자바 ORM 표준 JPA 프로그래밍", (
+        "jpa-persistence-context", "jpa-lazy-loading", "jpa-n-plus-one",
+        "jpa-fetch-join", "jpa-batch-size", "entity-association", "querydsl",
+        "optimistic-vs-pessimistic-lock", "spring-transactional",
+    )),
+    ("toby-spring", "토비의 스프링 vol.1", (
+        "spring-di", "spring-mvc", "spring-transactional", "tx-boundary",
+        "oop-solid", "pattern-template-method", "pattern-strategy",
+        "pattern-proxy", "test-strategy", "mockito-unit-test",
+    )),
+    ("real-mysql", "Real MySQL 1 · 2", (
+        "db-index", "db-transaction", "db-isolation", "db-lock",
+        "db-execution-plan", "db-join", "composite-index",
+        "optimistic-vs-pessimistic-lock", "ds-btree",
+    )),
+    ("system-design", "가상 면접 사례로 배우는 대규모 시스템 설계 기초", (
+        "dist-cap", "dist-replication", "dist-sharding",
+        "dist-consistent-hashing", "cache-aside", "cache-invalidation",
+        "cache-target-selection", "load-balancing", "latency-p95",
+        "sync-to-async", "task-queue-vs-event-stream", "idempotency",
+    )),
+    ("it-infra", "그림으로 배우는 IT 인프라 구조", (
+        "os-io", "arch-memory-hierarchy", "net-socket", "net-load-balancing",
+        "nginx-reverse-proxy", "load-balancing", "db-index", "cache-aside",
+    )),
+    ("this-is-java", "이것이 자바다", (
+        "lang-collection", "lang-exception", "lang-call-by-value",
+        "lang-string-pool", "java-concurrency", "oop-polymorphism",
+    )),
+    ("effective-java", "이펙티브 자바", (
+        "oop-immutable", "oop-inheritance-composition", "oop-polymorphism",
+        "lang-serialization", "lang-string-pool", "lang-exception",
+        "lang-collection", "java-concurrency",
+    )),
+    ("modern-java", "모던 자바 인 액션", (
+        "lang-collection", "java-concurrency", "sync-to-async",
+    )),
+    ("clean-code", "클린 코드", (
+        "package-structure", "test-strategy", "mockito-unit-test",
+        "lang-exception",
+    )),
+    ("clean-arch", "클린 아키텍처", (
+        "package-structure", "oop-solid", "oop-inheritance-composition",
+        "dto-separation", "domain-erd",
+    )),
+    ("cs-note", "면접을 위한 CS 전공 노트", (
+        "ds-array-linkedlist", "ds-stack-queue", "ds-hash", "ds-tree-bst",
+        "ds-heap", "ds-graph", "algo-complexity", "algo-sorting",
+        "algo-binary-search", "algo-dfs-bfs", "algo-dp",
+        "net-tcp", "net-udp", "net-http", "net-dns",
+        "os-process-thread", "os-scheduling", "os-deadlock",
+        "db-index", "db-transaction", "db-normalization", "db-join",
+        "pattern-singleton", "pattern-factory", "oop-solid",
+        "web-cookie-session", "web-rest", "web-jwt", "web-csrf-xss",
+        "web-was-vs-webserver",
+    )),
+    ("object-oriented", "객체지향의 사실과 오해", (
+        "oop-polymorphism", "oop-inheritance-composition", "oop-solid",
+        "domain-erd",
+    )),
+)
+
+
 # 자격증마다 **로드맵 주제와 겹치는 부분**. 시험 범위 자체가 아니다.
 #
 # 이 목록은 "이 자격증을 딸 때 공부하는 것 중, 이 프로젝트에 기록으로 남길
