@@ -7,7 +7,12 @@
   },
   "repository": "https://github.com/WarruruLab/warruru-lab",
   "license": "MIT",
-  "keywords": ["learning-record", "local-first", "interview-prep"],
+  "keywords": [
+    "learning-record",
+    "local-first",
+    "interview-prep"
+  ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks.json"
 }
