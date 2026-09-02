@@ -33,6 +33,16 @@
     {% endfor %}
   </ul>
 
+  <h3 class="sub">책 <span class="quiet">갖고 있는 것 · 읽으면 채워지는 주제</span></h3>
+  <ul class="picks">
+    {% for book in books %}
+    <li>
+      <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+      <span class="badge {{ 'ok' if book.have == book.total else '' }}">{{ book.have }}/{{ book.total }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
   <h3 class="sub">CS 지식 <span class="quiet">면접에서 묻는 것 · {{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
   <ul class="picks">
     {% for group in stack.cs_groups %}

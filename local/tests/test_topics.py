@@ -363,3 +363,22 @@ def test_이름이_없으면_슬러그를_그대로_쓴다():
 
     assert label_of("db-index") == "인덱스"
     assert label_of("spool-durability") == "spool-durability"
+
+
+def test_책이_덮는_슬러그가_전부_목록_위에_있다():
+    """목록 밖 슬러그를 적으면 그 줄은 어느 화면에서도 안 보인다."""
+    from warruru_local.topics import BOOK_GROUPS, CS_SLUGS, RECOMMENDED_SLUGS
+
+    known = set(RECOMMENDED_SLUGS) | set(CS_SLUGS)
+    for _, title, slugs in BOOK_GROUPS:
+        assert set(slugs) <= known, title
+        assert len(slugs) == len(set(slugs)), title
+
+
+def test_책_열쇠가_묶음_열쇠와_겹치지_않는다():
+    from warruru_local.topics import BOOK_GROUPS, CS_GROUPS, SLUG_GROUPS
+
+    books = {k for k, _, _ in BOOK_GROUPS}
+    groups = {k for k, _, _ in SLUG_GROUPS} | {k for k, _, _ in CS_GROUPS}
+    assert not (books & groups)
+    assert len(books) == len(BOOK_GROUPS)

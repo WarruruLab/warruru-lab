@@ -964,3 +964,40 @@ def test_뷰_키가_dict_메서드를_가리지_않는다(ctx, home):
     walk(careerview.build_cert(ctx, "network-2"))
     walk(careerview.build_group(ctx, "ds"))
     walk(careerview.build_stack(ctx))
+
+
+# ── 책 (2026-09-02) ──────────────────────────────────────────────────
+
+def test_허브에_책이_선다(client):
+    page = client.get("/career").text
+    assert 'href="/career/book/real-mysql"' in page
+    assert "Real MySQL" in page
+
+
+def test_책_화면이_덮는_주제를_보여준다(client):
+    page = client.get("/career/book/real-mysql").text
+    assert "이 책이 덮는 주제" in page
+    assert "인덱스" in page and "실행 계획" in page
+    assert "DFS" not in page          # 다른 책의 주제는 안 섞인다
+
+
+def test_책_화면도_질문과_체크를_쓴다(client, home):
+    """'이 책을 읽으면 어느 질문에 답할 수 있게 되는가' 가 같은 질문이라
+    묶음 화면과 같은 모양을 쓴다."""
+    _topic_note(home, "ds-btree", ["인덱스가 왜 B+트리인가?"])
+    page = client.get("/career/book/real-mysql").text
+    assert "인덱스가 왜 B+트리인가?" in page
+    assert "/web/topics/ds-btree/asks" in page
+
+
+def test_묶음_열쇠로는_책_화면이_안_열린다(client):
+    """`/career/book/db` 가 열리면 어느 쪽인지 알 수 없다."""
+    assert client.get("/career/book/db").status_code == 404
+    assert client.get("/career/stack/real-mysql").status_code == 404
+
+
+def test_책은_기록_구획을_따로_두지_않는다(client):
+    """맨 위 막대가 이미 그 숫자다. 두 번 세면 어느 쪽이 맞는지 헷갈린다."""
+    page = client.get("/career/book/clean-code").text
+    assert page.count("이 책이 덮는 주제") == 1
+    assert "<h2>내 기록" not in page

@@ -349,6 +349,7 @@ def build_stack(ctx) -> dict:
     wanted = demand(list_companies(ctx))
     groups = _group_rows(topics.SLUG_GROUPS, counts, wanted, ordered=True)
     cs_groups = _group_rows(topics.CS_GROUPS, counts, wanted)
+    books = _group_rows(topics.BOOK_GROUPS, counts, wanted)
 
     every = [item for group in groups for item in group["slugs"]]
     # 먼저 할 것 — **요구하는 회사가 많은데 기록이 0건인 것.** 하나를 채우면
@@ -367,6 +368,7 @@ def build_stack(ctx) -> dict:
     return {
         "groups": groups,
         "cs_groups": cs_groups,
+        "books": books,
         "first": first,
         "ahead": ahead,
         "coverage": _tally(groups),
@@ -541,10 +543,14 @@ def build_group(ctx, key: str) -> dict | None:
     from warruru_local.daemon import topicview
 
     stack = build_stack(ctx)
-    for group in stack["groups"] + stack["cs_groups"]:
+    for group in stack["groups"] + stack["cs_groups"] + stack["books"]:
         if group["key"] != key:
             continue
-        group["axis"] = "roadmap" if group in stack["groups"] else "cs"
+        group["axis"] = (
+            "roadmap" if group in stack["groups"]
+            else "book" if group in stack["books"]
+            else "cs"
+        )
         checked = ctx.records.checked_asks()
         for row in group["slugs"]:
             note = topicview.topic_note(ctx, row["slug"])
