@@ -96,6 +96,16 @@ def group_note_dir(home: Path) -> Path:
     return career_dir(home) / "groups"
 
 
+def book_note_dir(home: Path) -> Path:
+    """책 한 권마다 한 장. **덮는 주제는 코드에, 내 사정은 여기에.**
+
+    `topics.BOOK_GROUPS` 는 "이 책이 어느 주제를 덮는가" 라 사람이 바뀌어도
+    같은 값이지만, 빌렸는지 · 언제까지인지 · 어디까지 읽었는지는 나만의
+    값이고 매주 바뀐다. 상수로 두면 반납일을 고치려고 코드를 건드리게 된다.
+    """
+    return career_dir(home) / "books"
+
+
 def answer_dir(home: Path) -> Path:
     """주제별로 물어보고 받은 답. **기록도 참고도 아니다.**
 

@@ -102,3 +102,13 @@ def test_CS_슬러그도_빠짐없이_실려_있다():
 
     listed = re.findall(r"`([a-z0-9-]+)`", SKILL.read_text(encoding="utf-8"))
     assert set(CS_SLUGS) - set(listed) == set()
+
+
+def test_AI_슬러그도_빠짐없이_실려_있다():
+    """`topics.py` 에만 있고 스킬에 없으면, 다른 저장소에서 에이전트가
+    `mcp` 같은 즉석 슬러그를 만들어 낸다. 그 기록은 어느 화면에도 안 뜬다.
+    """
+    from warruru_local.topics import AI_SLUGS
+
+    listed = re.findall(r"`([a-z0-9-]+)`", SKILL.read_text(encoding="utf-8"))
+    assert set(AI_SLUGS) - set(listed) == set()

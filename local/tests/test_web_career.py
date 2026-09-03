@@ -1001,3 +1001,74 @@ def test_책은_기록_구획을_따로_두지_않는다(client):
     page = client.get("/career/book/clean-code").text
     assert page.count("이 책이 덮는 주제") == 1
     assert "<h2>내 기록" not in page
+
+
+# ── AI 는 세 번째 축이다 (2026-09-04 추가) ──────────────────────────
+
+def test_허브에_AI_묶음이_선다(client):
+    """로드맵도 CS 도 아닌 자리. 허브에 안 서면 있는 줄도 모른다."""
+    page = client.get("/career").text
+    assert 'href="/career/stack/mcp"' in page
+    assert "MCP · 에이전트 확장" in page
+
+
+def test_AI_묶음_화면이_열린다(client):
+    """`/career/stack/{열쇠}` 하나가 세 축을 다 받는다."""
+    page = client.get("/career/stack/multi-agent").text
+    assert page.count("핸드오프") >= 1
+    assert "오케스트레이션" in page
+
+
+def test_AI_축이_다른_두_축과_따로_세어진다(ctx):
+    """한 막대로 합치면 어느 쪽이 비었는지 알 수 없다."""
+    view = careerview.build_stack(ctx)
+    assert view["ai_coverage"]["total"] == 31
+    assert view["ai_coverage"]["total"] != view["cs_coverage"]["total"]
+
+
+# ── 빌린 책에는 기한이 있다 (2026-09-04 추가) ───────────────────────
+
+def _book_note(home, key: str, text: str):
+    root = paths.book_note_dir(home)
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{key}.md").write_text(text, encoding="utf-8")
+
+
+def test_빌린_책에_반납_D_day_가_붙는다(client, home):
+    """기한이 안 보이면 빌린 책은 그냥 반납일에 사라진다."""
+    _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 2026-08-04\n---\n")
+    page = client.get("/career").text
+    assert "D-13" in page
+
+
+def test_반납일이_지나도_지우지_않는다(client, home):
+    """연장했는지 반납했는지는 사람만 안다. 화면이 임의로 지우면
+    그 사실이 조용히 사라진다."""
+    _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 2026-07-20\n---\n")
+    page = client.get("/career").text
+    assert "반납 2일 지남" in page
+
+
+def test_노트가_없는_책도_그대로_선다(client):
+    """대부분의 책은 노트가 없다. 없다고 화면이 깨지면 안 된다."""
+    page = client.get("/career").text
+    assert 'href="/career/book/effective-java"' in page
+    assert "D-" not in page.split("이펙티브 자바")[1][:200]
+
+
+def test_책_화면이_기한과_진도를_보여준다(client, home):
+    _book_note(
+        home, "real-mysql",
+        "---\nstate: 빌림\ndue: 2026-08-04\nat: 8장\n---\n\n인덱스 장부터.\n",
+    )
+    page = client.get("/career/book/real-mysql").text
+    assert "D-13" in page and "2026-08-04까지" in page
+    assert "지금 8장" in page
+    assert "인덱스 장부터" in page
+
+
+def test_망가진_반납일은_없는_것으로_친다(client, home):
+    """틀린 D-day 는 없는 것보다 나쁘다 — 그걸 믿고 일정을 짠다."""
+    _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 곧\n---\n")
+    page = client.get("/career").text
+    assert "D-" not in page.split("Real MySQL")[1][:200]

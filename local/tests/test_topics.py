@@ -349,9 +349,9 @@ def test_CS_열쇠가_로드맵_묶음_열쇠와_겹치지_않는다():
 
 def test_모든_슬러그에_한글_이름이_있다():
     """배지에 `ds-hash` 가 그대로 뜨면 훑을 때 안 읽힌다."""
-    from warruru_local.topics import CS_SLUGS, RECOMMENDED_SLUGS, SLUG_LABELS
+    from warruru_local.topics import AI_SLUGS, CS_SLUGS, RECOMMENDED_SLUGS, SLUG_LABELS
 
-    every = set(RECOMMENDED_SLUGS) | set(CS_SLUGS)
+    every = set(RECOMMENDED_SLUGS) | set(CS_SLUGS) | set(AI_SLUGS)
     assert every - set(SLUG_LABELS) == set()
     assert set(SLUG_LABELS) - every == set()   # 안 쓰는 이름도 남기지 않는다
     assert all(name.strip() for name in SLUG_LABELS.values())
@@ -367,18 +367,54 @@ def test_이름이_없으면_슬러그를_그대로_쓴다():
 
 def test_책이_덮는_슬러그가_전부_목록_위에_있다():
     """목록 밖 슬러그를 적으면 그 줄은 어느 화면에서도 안 보인다."""
-    from warruru_local.topics import BOOK_GROUPS, CS_SLUGS, RECOMMENDED_SLUGS
+    from warruru_local.topics import (
+        AI_SLUGS, BOOK_GROUPS, CS_SLUGS, RECOMMENDED_SLUGS,
+    )
 
-    known = set(RECOMMENDED_SLUGS) | set(CS_SLUGS)
+    known = set(RECOMMENDED_SLUGS) | set(CS_SLUGS) | set(AI_SLUGS)
     for _, title, slugs in BOOK_GROUPS:
         assert set(slugs) <= known, title
         assert len(slugs) == len(set(slugs)), title
 
 
 def test_책_열쇠가_묶음_열쇠와_겹치지_않는다():
-    from warruru_local.topics import BOOK_GROUPS, CS_GROUPS, SLUG_GROUPS
+    from warruru_local.topics import AI_GROUPS, BOOK_GROUPS, CS_GROUPS, SLUG_GROUPS
 
     books = {k for k, _, _ in BOOK_GROUPS}
-    groups = {k for k, _, _ in SLUG_GROUPS} | {k for k, _, _ in CS_GROUPS}
+    groups = ({k for k, _, _ in SLUG_GROUPS} | {k for k, _, _ in CS_GROUPS}
+              | {k for k, _, _ in AI_GROUPS})
     assert not (books & groups)
     assert len(books) == len(BOOK_GROUPS)
+
+
+def test_AI_슬러그가_다른_두_축과_겹치지_않는다():
+    """겹치면 한 주제가 두 축에 세어져 어느 쪽 막대도 못 믿게 된다.
+
+    CS 때와 같은 이유다 — 축이 셋으로 늘었으니 검사도 셋을 본다.
+    """
+    from warruru_local.topics import AI_SLUGS, CS_SLUGS, RECOMMENDED_SLUGS
+
+    assert not (set(AI_SLUGS) & set(RECOMMENDED_SLUGS))
+    assert not (set(AI_SLUGS) & set(CS_SLUGS))
+    assert len(AI_SLUGS) == len(set(AI_SLUGS))
+
+
+def test_AI_열쇠가_다른_묶음_열쇠와_겹치지_않는다():
+    """한 라우트(`/career/stack/{열쇠}`)가 셋을 다 받는다."""
+    from warruru_local.topics import AI_GROUPS, CS_GROUPS, SLUG_GROUPS
+
+    ai = {k for k, _, _ in AI_GROUPS}
+    assert not (ai & {k for k, _, _ in SLUG_GROUPS})
+    assert not (ai & {k for k, _, _ in CS_GROUPS})
+
+
+def test_AI_슬러그가_전부_어느_재료엔가_붙어_있다():
+    """읽을 것이 없는 주제를 세우면 그 칸은 영원히 0 이다.
+
+    AI 축은 재료(공식문서 2 · 책 2)를 먼저 손에 쥐고 연 축이라, 재료가
+    안 붙는 슬러그가 있으면 그건 내가 지어낸 것이다.
+    """
+    from warruru_local.topics import AI_SLUGS, BOOK_GROUPS
+
+    covered = {slug for _, _, slugs in BOOK_GROUPS for slug in slugs}
+    assert set(AI_SLUGS) - covered == set()

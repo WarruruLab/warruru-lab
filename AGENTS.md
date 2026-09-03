@@ -10,9 +10,9 @@
 
 ## 1. 지금 이 저장소에 있는 것
 
-**실제로 도는 코드는 `local/` 하나다.** 소스 2,918줄(`.py` 기준, 템플릿 포함 3,093),
-테스트 파일 24개(`conftest.py` 별도), 테스트 248개가 이 머신에서 전원 통과한다
-(2026-08-18 실측, Python 3.12.14). `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
+**실제로 도는 코드는 `local/` 하나다.** 소스 8,070줄(`.py` 기준, 템플릿 포함 10,210),
+테스트 파일 44개(`conftest.py` 별도), 테스트 800개가 이 머신에서 전원 통과한다
+(2026-09-04 실측, Python 3.12.14). `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
 
 - MCP stdio 어댑터 `warruru-mcp` — 툴 7개
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
@@ -26,7 +26,8 @@
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
   `~/.warruru/career/topics/*.md` · 묶음 머리말
   `~/.warruru/career/groups/*.md` · 물어보고 받은 답
-  `~/.warruru/career/answers/{주제}/*.md` — 저장소 바깥이다.
+  `~/.warruru/career/answers/{주제}/*.md` · 책 한 권의 내 사정(빌렸는지 ·
+  언제까지인지) `~/.warruru/career/books/*.md` — 저장소 바깥이다.
   `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
 - 에이전트 플러그인 `agent-plugin/` — 스킬 2개(`warruru-recording`
   · `career-prep`) + MCP 연결.
@@ -35,7 +36,7 @@
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
   · `/career`(허브 — 내가 채울 것 / 채용공고) · `/career/stack`
-  · `/career/stack/{묶음}`
+  · `/career/stack/{묶음}` — 축 셋(로드맵 · CS · AI)이 같은 주소를 쓴다
   · `/career/cert/{자격증}` · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
@@ -272,4 +273,4 @@ RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_opt
 
 ---
 
-**Last Updated:** 2026-08-31
+**Last Updated:** 2026-09-04
