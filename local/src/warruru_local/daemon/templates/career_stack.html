@@ -9,10 +9,11 @@
 <p class="meta"><a href="/career">← 포트폴리오</a></p>
 
 <section class="tool">
-  <h2>두 축</h2>
+  <h2>세 축</h2>
   <p class="meta">
     프로젝트 주제는 <strong>만들면서 겪는 것</strong>, CS 는
-    <strong>따로 앉아 공부하는 것</strong>이다. 한 막대로 합치지 않는다 —
+    <strong>따로 앉아 공부하는 것</strong>, AI 는
+    <strong>이 도구를 만들며 쓰는 것</strong>이다. 한 막대로 합치지 않는다 —
     합치면 어느 쪽이 비었는지 알 수 없다.
   </p>
   <p>
@@ -22,6 +23,10 @@
   <p>
     <span class="badge">CS</span>
     {% with coverage = view.cs_coverage %}{% include "_coverage.html" %}{% endwith %}
+  </p>
+  <p>
+    <span class="badge">AI</span>
+    {% with coverage = view.ai_coverage %}{% include "_coverage.html" %}{% endwith %}
   </p>
 </section>
 
@@ -33,6 +38,30 @@
     <a href="https://github.com/gyoogle/tech-interview-for-developer">tech-interview-for-developer</a>.
   </p>
   {% for group in view.cs_groups %}
+  <article class="work">
+    <div class="work-head">
+      <strong><a href="/career/stack/{{ group.key }}">{{ group.label }}</a></strong>
+      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }} / {{ group.total }}</span>
+    </div>
+    <p class="meta">
+      {% for item in group.slugs %}
+      <a class="badge {{ 'ok' if item.count else 'warn' }}" href="/t/{{ item.slug }}"
+         title="{{ item.slug }}">
+        {{ item.label }}{% if item.count %} {{ item.count }}{% endif %}
+      </a>
+      {% endfor %}
+    </p>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="tool">
+  <h2>AI · 에이전트</h2>
+  <p class="meta">
+    로드맵에도 CS 에도 없다. <strong>이 도구를 만들며 매일 부딪히는 것</strong>이라
+    재료가 이미 손에 있다 — Codex · Claude Code 공식문서와 책 2권이다.
+  </p>
+  {% for group in view.ai_groups %}
   <article class="work">
     <div class="work-head">
       <strong><a href="/career/stack/{{ group.key }}">{{ group.label }}</a></strong>

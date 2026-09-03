@@ -22,6 +22,33 @@
     번호를 적으면 그 순간 이 화면을 못 믿게 된다. 아래는 "이 책을 읽으면 이
     질문들에 답할 수 있게 된다" 는 판단이고, 틀리면 고치면 된다.
   </p>
+  {% if view.state or view.due or view.at %}
+  <p class="meta">
+    {% if view.state %}<span class="badge">{{ view.state }}</span>{% endif %}
+    {% if view.days is not none %}
+      <span class="badge {{ 'warn' if view.days <= 7 else '' }}">
+        {% if view.days < 0 %}반납 {{ -view.days }}일 지남{% else %}D-{{ view.days }}{% endif %}
+      </span>
+      <span class="quiet">{{ view.due }}까지</span>
+    {% endif %}
+    {% if view.at %}· 지금 {{ view.at }}{% endif %}
+  </p>
+  {% endif %}
+  {% if view.note %}<div class="preview">{{ view.note|safe }}</div>{% endif %}
+</section>
+{% endif %}
+
+{% if view.axis == "ai" %}
+<section class="tool">
+  <h2>어디까지 왔나 {{ view.have }} / {{ view.total }}</h2>
+  <p>{% with coverage = {"covered": view.have, "total": view.total,
+        "percent": (view.have * 100 // view.total) if view.total else 0} %}
+    {% include "_coverage.html" %}{% endwith %}</p>
+  <p class="meta quiet">
+    로드맵 밖이다. <strong>재료가 이미 손에 있는 축</strong>이라 —
+    이 도구를 만들며 MCP·훅·플러그인을 이미 건드렸다 — 읽고 나서가 아니라
+    부딪힌 그 자리에서 남기는 것이 맞다.
+  </p>
 </section>
 {% endif %}
 

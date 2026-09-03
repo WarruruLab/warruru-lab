@@ -459,6 +459,37 @@ SLUG_LABELS: dict[str, str] = {
     "dist-replication": "복제",
     "dist-sharding": "샤딩",
     "dist-consistent-hashing": "일관성 해싱",
+    "llm-token-context": "토큰 · 컨텍스트 윈도",
+    "llm-prompt-design": "프롬프트 설계",
+    "llm-structured-output": "구조화 출력",
+    "llm-sampling": "샘플링 파라미터",
+    "llm-cost-latency": "비용 · 지연",
+    "llm-streaming": "스트리밍 응답",
+    "llm-prompt-cache": "프롬프트 캐싱",
+    "llm-eval": "평가",
+    "agent-loop": "에이전트 루프",
+    "agent-tool-use": "툴 호출",
+    "agent-context-window": "컨텍스트 관리",
+    "agent-memory": "에이전트 메모리",
+    "agent-planning": "계획 · 분해",
+    "agent-guardrail": "가드레일 · 권한",
+    "agent-failure-recovery": "실패 복구",
+    "multi-agent-orchestration": "오케스트레이션",
+    "multi-agent-handoff": "핸드오프",
+    "multi-agent-shared-state": "공유 상태",
+    "multi-agent-cost": "토큰 비용",
+    "multi-agent-necessity": "멀티가 필요한가",
+    "mcp-stdio-transport": "stdio 트랜스포트",
+    "mcp-tool-schema": "툴 스키마",
+    "mcp-client-handshake": "클라이언트 식별",
+    "mcp-server-lifecycle": "서버 수명주기",
+    "agent-hook": "훅",
+    "agent-skill": "스킬",
+    "agent-plugin": "플러그인 배포",
+    "rag-chunking": "청킹",
+    "rag-embedding": "임베딩",
+    "rag-vector-search": "벡터 검색",
+    "rag-reranking": "리랭킹",
 }
 
 
@@ -491,7 +522,7 @@ def is_known(slug: str) -> bool:
 
 def group_of(slug: str) -> tuple[str, str] | None:
     """이 슬러그가 속한 묶음. `(열쇠, 라벨)` 이다."""
-    for key, label, slugs in SLUG_GROUPS + CS_GROUPS:
+    for key, label, slugs in SLUG_GROUPS + CS_GROUPS + AI_GROUPS:
         if slug in slugs:
             return key, label
     return None
@@ -555,6 +586,43 @@ CS_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 CS_SLUGS: tuple[str, ...] = tuple(
     slug for _, _, slugs in CS_GROUPS for slug in slugs
+)
+
+
+# 세 번째 축이다. 로드맵도 CS 도 아니고, **지금 이 도구를 만들며 매일
+# 부딪히는 것**이다(2026-09-04 추가). MCP 서버·훅·플러그인은 이미 만들어
+# 놓고도 남길 자리가 없어서 `spool-durability` 처럼 목록 밖으로 샜다.
+#
+# 재료는 넷이다 — Codex 공식문서 · Claude Code 공식문서 ·
+# 『AI 에이전트 엔지니어링』 · 『AI 앱 개발 올인원 가이드』.
+#
+# **`RECOMMENDED_SLUGS` 에 합치지 않는다.** CS 와 같은 이유다(위 주석 참조).
+# 로드맵은 문서가 원본이고, 이쪽은 문서 밖에서 새로 연 자리다.
+AI_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("llm", "LLM 다루기", (
+        "llm-token-context", "llm-prompt-design", "llm-structured-output",
+        "llm-sampling", "llm-cost-latency", "llm-streaming",
+        "llm-prompt-cache", "llm-eval",
+    )),
+    ("agent", "에이전트", (
+        "agent-loop", "agent-tool-use", "agent-context-window", "agent-memory",
+        "agent-planning", "agent-guardrail", "agent-failure-recovery",
+    )),
+    ("multi-agent", "멀티 에이전트", (
+        "multi-agent-orchestration", "multi-agent-handoff",
+        "multi-agent-shared-state", "multi-agent-cost", "multi-agent-necessity",
+    )),
+    ("mcp", "MCP · 에이전트 확장", (
+        "mcp-stdio-transport", "mcp-tool-schema", "mcp-client-handshake",
+        "mcp-server-lifecycle", "agent-hook", "agent-skill", "agent-plugin",
+    )),
+    ("rag", "RAG", (
+        "rag-chunking", "rag-embedding", "rag-vector-search", "rag-reranking",
+    )),
+)
+
+AI_SLUGS: tuple[str, ...] = tuple(
+    slug for _, _, slugs in AI_GROUPS for slug in slugs
 )
 
 
@@ -651,6 +719,68 @@ BOOK_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("object-oriented", "객체지향의 사실과 오해", (
         "oop-polymorphism", "oop-inheritance-composition", "oop-solid",
         "domain-erd",
+    )),
+
+    # 2026-09-04 에 빌린 3권. 반납일은 코드에 없다 —
+    # `~/.warruru/career/books/{열쇠}.md` 의 `due` 가 원본이다.
+    ("docker-k8s-start", "시작하세요! 도커/쿠버네티스", (
+        "dockerfile-multistage", "docker-compose", "docker-image-optimization",
+        "k8s-pod-deployment", "k8s-service-ingress", "k8s-configmap-secret",
+        "k8s-probe", "k8s-hpa", "k8s-necessity", "prometheus-grafana",
+    )),
+    ("aws-network", "따라 하며 배우는 AWS 네트워크 입문", (
+        "aws-vpc", "public-private-subnet", "nat-gateway",
+        "security-group-nacl", "net-subnet-nat", "net-dns",
+        "net-load-balancing", "load-balancing",
+    )),
+    ("kafka-practice", "실전 카프카 개발부터 운영까지", (
+        "kafka-basics", "kafka-partition-offset", "kafka-consumer-group",
+        "kafka-partition-throughput", "kafka-delivery-semantics",
+        "kafka-offset-commit", "kafka-rebalancing", "message-persistence",
+        "consumer-failure", "consumer-restart", "idempotency",
+    )),
+
+    ("redis-practice", "실전 레디스", (
+        "redis-data-types", "redis-ttl-eviction", "cache-target-selection",
+        "cache-aside", "cache-invalidation", "cache-ttl-policy",
+        "redis-cache-effect", "dist-replication", "dist-sharding",
+    )),
+    ("http-guide", "HTTP 완벽 가이드", (
+        "net-http", "net-tcp", "net-tls", "net-dns", "web-http-method",
+        "web-http-status", "web-cookie-session", "web-was-vs-webserver",
+        "nginx-reverse-proxy",
+    )),
+    # 문화·프로세스 책이라 슬러그가 적게 붙는다. **적은 것이 맞다** —
+    # 억지로 늘리면 이 화면의 숫자가 뜻을 잃는다.
+    ("google-swe", "구글 엔지니어는 이렇게 일한다", (
+        "test-strategy", "mockito-unit-test", "spring-integration-test",
+        "github-actions-pipeline",
+    )),
+
+    # AI 축의 재료. **공식문서도 여기 둔다** — 종이인지 아닌지가 아니라
+    # "읽으면 어느 주제가 채워지는가" 가 이 목록의 기준이다.
+    ("ai-agent-eng", "AI 에이전트 엔지니어링", (
+        "agent-loop", "agent-tool-use", "agent-context-window", "agent-memory",
+        "agent-planning", "agent-guardrail", "agent-failure-recovery",
+        "multi-agent-orchestration", "multi-agent-handoff",
+        "multi-agent-shared-state", "multi-agent-cost", "multi-agent-necessity",
+        "llm-structured-output", "llm-eval",
+    )),
+    ("ai-app-guide", "AI 앱 개발 올인원 가이드", (
+        "llm-token-context", "llm-prompt-design", "llm-sampling",
+        "llm-structured-output", "llm-streaming", "llm-cost-latency",
+        "llm-prompt-cache", "rag-chunking", "rag-embedding",
+        "rag-vector-search", "rag-reranking",
+    )),
+    ("claude-code-docs", "Claude Code 공식문서", (
+        "agent-hook", "agent-skill", "agent-plugin", "agent-tool-use",
+        "agent-guardrail", "agent-context-window", "multi-agent-orchestration",
+        "mcp-tool-schema", "mcp-stdio-transport", "mcp-server-lifecycle",
+    )),
+    ("codex-docs", "Codex 공식문서", (
+        "agent-hook", "agent-plugin", "agent-guardrail",
+        "mcp-stdio-transport", "mcp-tool-schema", "mcp-client-handshake",
+        "mcp-server-lifecycle",
     )),
 )
 

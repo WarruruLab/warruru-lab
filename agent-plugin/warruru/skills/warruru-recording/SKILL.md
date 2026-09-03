@@ -120,6 +120,27 @@ description: Record development learnings into the local Warruru daemon through 
 출처는 [TeachYourselfCS-KR](https://github.com/minnsane/TeachYourselfCS-KR) 과
 [tech-interview-for-developer](https://github.com/gyoogle/tech-interview-for-developer) 다.
 
+## 에이전트를 만들며 배운 것은 이쪽 목록이다
+
+MCP 서버 · 훅 · 플러그인 · 프롬프트 · 멀티 에이전트는 로드맵에도 CS 에도
+없다. 그런데 **이 도구 자체가 그것으로 만들어져 있어서** 매일 부딪힌다.
+목록이 없으면 그 기록이 `mcp` 같은 즉석 슬러그로 흩어진다.
+
+| 묶음 | 슬러그 |
+|---|---|
+| LLM 다루기 | `llm-token-context` `llm-prompt-design` `llm-structured-output` `llm-sampling` `llm-cost-latency` `llm-streaming` `llm-prompt-cache` `llm-eval` |
+| 에이전트 | `agent-loop` `agent-tool-use` `agent-context-window` `agent-memory` `agent-planning` `agent-guardrail` `agent-failure-recovery` |
+| 멀티 에이전트 | `multi-agent-orchestration` `multi-agent-handoff` `multi-agent-shared-state` `multi-agent-cost` `multi-agent-necessity` |
+| MCP · 에이전트 확장 | `mcp-stdio-transport` `mcp-tool-schema` `mcp-client-handshake` `mcp-server-lifecycle` `agent-hook` `agent-skill` `agent-plugin` |
+| RAG | `rag-chunking` `rag-embedding` `rag-vector-search` `rag-reranking` |
+
+여기 것도 `recommended: true` 가 아니다 — CS 목록과 같은 이유다.
+
+에이전트 자신이 겪은 것을 남기는 자리이기도 하다. 훅이 안 붙었던 이유,
+`stdio` 핸드셰이크로 클라이언트를 알아낸 방법, 서브에이전트를 몇 개까지
+띄웠을 때 비용이 어떻게 됐는지 — **그 자리에서 남겨라.** 사용자가 나중에
+되짚을 때 재료가 되는 것은 그것뿐이다.
+
 ## 글로 만들 때
 
 - 하루 끝에 `http://127.0.0.1:8787/t` 를 열면 그날 기록이 주제로 묶여 있다.

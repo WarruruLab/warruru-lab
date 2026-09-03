@@ -338,6 +338,39 @@ def _tally(groups: list[dict]) -> dict:
     }
 
 
+def _book_notes(ctx, today: str) -> dict[str, dict]:
+    """책마다의 내 사정. **없는 책이 대부분이고, 없어도 화면은 뜬다.**
+
+    앞머리는 셋뿐이다 — `state`(빌림/소장/전자책/문서) · `due`(반납일) ·
+    `at`(어디까지). 반납일이 지난 것을 지우지 않는다. 연장했는지 반납했는지는
+    사람만 알고, 화면이 임의로 지우면 그 사실이 조용히 사라진다.
+    """
+    root = paths.book_note_dir(ctx.settings.home)
+    if not root.is_dir():
+        return {}
+    made: dict[str, dict] = {}
+    for path in root.glob("*.md"):
+        if not SLUG.match(path.stem):
+            continue
+        meta, body = parse_front_matter(
+            path.read_text(encoding="utf-8", errors="replace")
+        )
+        due = (meta.get("due") or "").strip() if isinstance(meta.get("due"), str) else ""
+        left = None
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", due):
+            left = _days(due) - _days(today)
+        else:
+            due = ""
+        made[path.stem] = {
+            "state": (meta.get("state") or "").strip() if isinstance(meta.get("state"), str) else "",
+            "due": due,
+            "days": left,
+            "at": (meta.get("at") or "").strip() if isinstance(meta.get("at"), str) else "",
+            "note": tistory_clipboard.to_html(body) if body.strip() else "",
+        }
+    return made
+
+
 def build_stack(ctx) -> dict:
     """기술스택 화면.
 
@@ -349,7 +382,18 @@ def build_stack(ctx) -> dict:
     wanted = demand(list_companies(ctx))
     groups = _group_rows(topics.SLUG_GROUPS, counts, wanted, ordered=True)
     cs_groups = _group_rows(topics.CS_GROUPS, counts, wanted)
+    ai_groups = _group_rows(topics.AI_GROUPS, counts, wanted)
     books = _group_rows(topics.BOOK_GROUPS, counts, wanted)
+    notes = _book_notes(ctx, local_date_of(to_iso(ctx.clock.now())))
+    for book in books:
+        # 노트가 없는 책이 대부분이다. **빈 값을 먼저 채운다** — 템플릿에서
+        # `book.days` 가 Undefined 면 비교하는 순간 화면이 통째로 500 이 된다.
+        book.update({"state": "", "due": "", "days": None, "at": "", "note": ""})
+        book.update(notes.get(book["key"], {}))
+    # **반납일이 있는 것이 맨 위다.** 빌린 책은 기한이 지나면 그냥 사라지고,
+    # 소장한 책은 언제든 다시 펴면 된다. 둘을 같은 순서로 두면 그 차이가
+    # 화면에서 없어진다.
+    books.sort(key=lambda b: (b.get("days") is None, b.get("days", 0), b["label"]))
 
     every = [item for group in groups for item in group["slugs"]]
     # 먼저 할 것 — **요구하는 회사가 많은데 기록이 0건인 것.** 하나를 채우면
@@ -358,7 +402,8 @@ def build_stack(ctx) -> dict:
         [item for item in every if not item["count"] and item["companies"]],
         key=lambda item: (-len(item["companies"]), item["slug"]),
     )
-    known = {item["slug"] for item in every} | set(topics.CS_SLUGS)
+    known = ({item["slug"] for item in every}
+             | set(topics.CS_SLUGS) | set(topics.AI_SLUGS))
     # **다음에 할 것.** 로드맵 순서에서 아직 0건인 첫 주제들이다.
     # "먼저 할 것"(회사가 많이 요구하는 것)과 다른 값이다 — 이쪽은 순서를,
     # 저쪽은 겹침을 본다.
@@ -368,11 +413,13 @@ def build_stack(ctx) -> dict:
     return {
         "groups": groups,
         "cs_groups": cs_groups,
+        "ai_groups": ai_groups,
         "books": books,
         "first": first,
         "ahead": ahead,
         "coverage": _tally(groups),
         "cs_coverage": _tally(cs_groups),
+        "ai_coverage": _tally(ai_groups),
         # 어느 목록에도 없는 주제. 기록은 있는데 갈 곳이 없는 것들이다.
         "outside": sorted(slug for slug in counts if slug not in known),
     }
@@ -543,12 +590,15 @@ def build_group(ctx, key: str) -> dict | None:
     from warruru_local.daemon import topicview
 
     stack = build_stack(ctx)
-    for group in stack["groups"] + stack["cs_groups"] + stack["books"]:
+    every = (stack["groups"] + stack["cs_groups"]
+             + stack["ai_groups"] + stack["books"])
+    for group in every:
         if group["key"] != key:
             continue
         group["axis"] = (
             "roadmap" if group in stack["groups"]
             else "book" if group in stack["books"]
+            else "ai" if group in stack["ai_groups"]
             else "cs"
         )
         checked = ctx.records.checked_asks()

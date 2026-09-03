@@ -33,11 +33,19 @@
     {% endfor %}
   </ul>
 
-  <h3 class="sub">책 <span class="quiet">갖고 있는 것 · 읽으면 채워지는 주제</span></h3>
+  <h3 class="sub">책 <span class="quiet">읽으면 채워지는 주제 · 반납 가까운 순</span></h3>
   <ul class="picks">
     {% for book in books %}
     <li>
       <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+      {# 빌린 책만 D-day 가 붙는다. 소장한 책은 기한이 없는 것이 사실이다. #}
+      {% if book.days is not none %}
+        <span class="badge {{ 'warn' if book.days <= 7 else '' }}">
+          {% if book.days < 0 %}반납 {{ -book.days }}일 지남{% else %}D-{{ book.days }}{% endif %}
+        </span>
+      {% elif book.state %}
+        <span class="meta quiet">{{ book.state }}</span>
+      {% endif %}
       <span class="badge {{ 'ok' if book.have == book.total else '' }}">{{ book.have }}/{{ book.total }}</span>
     </li>
     {% endfor %}
@@ -46,6 +54,16 @@
   <h3 class="sub">CS 지식 <span class="quiet">면접에서 묻는 것 · {{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
   <ul class="picks">
     {% for group in stack.cs_groups %}
+    <li>
+      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
+      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h3 class="sub">AI · 에이전트 <span class="quiet">만들면서 쓰는 것 · {{ stack.ai_coverage.covered }}/{{ stack.ai_coverage.total }}</span></h3>
+  <ul class="picks">
+    {% for group in stack.ai_groups %}
     <li>
       <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
       <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
