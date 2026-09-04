@@ -817,6 +817,19 @@ CERTIFICATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
         "os-virtual-memory", "os-io", "os-deadlock",
     )),
+    # TOPCIT 은 합격/불합격이 아니라 **점수(0~1000) 와 수준(1~5)** 이다.
+    # 그래서 이 목록의 뜻이 다른 자격증과 미묘하게 다르다 — "따려면 공부할 것"
+    # 이 아니라 "이미 아는 만큼 점수가 나오는 것" 이라, 준비도 막대가 곧
+    # 예상 수준에 가깝다. 다만 비즈니스 영역 175점은 로드맵에 없어서
+    # **여기 안 들어온다.** 그 몫은 이 화면이 답하지 못한다.
+    ("topcit", "TOPCIT", (
+        "db-normalization", "db-index", "db-transaction", "db-join",
+        "db-isolation", "db-execution-plan", "domain-erd", "entity-association",
+        "package-structure", "test-strategy", "mockito-unit-test",
+        "os-process-thread", "os-scheduling", "os-memory",
+        "net-tcp", "net-udp", "net-http", "net-dns", "net-tls",
+        "net-subnet-nat", "load-balancing",
+    )),
     ("aws-saa", "AWS SAA", (
         "aws-vpc", "public-private-subnet", "nat-gateway", "security-group-nacl",
         "ec2-vs-ecs", "aws-rds", "aws-elasticache", "aws-deploy", "load-balancing",

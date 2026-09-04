@@ -418,3 +418,19 @@ def test_AI_슬러그가_전부_어느_재료엔가_붙어_있다():
 
     covered = {slug for _, _, slugs in BOOK_GROUPS for slug in slugs}
     assert set(AI_SLUGS) - covered == set()
+
+
+def test_TOPCIT_은_인프라_자격증이_아니다():
+    """TOPCIT 의 기술 영역은 SW개발 · 데이터 · 시스템아키텍처 · 정보보안이다.
+
+    클라우드·컨테이너·메시지큐는 시험 범위가 아니라, 여기 섞으면 준비도
+    막대가 "TOPCIT 을 얼마나 준비했나" 를 답하지 못하게 된다.
+    이 목록은 **시험 범위 중 로드맵과 겹치는 것**만 담는다.
+    """
+    from warruru_local.topics import CERTIFICATIONS
+
+    slugs = next(s for k, _, s in CERTIFICATIONS if k == "topcit")
+    금지 = ("aws-", "k8s-", "docker", "kafka-", "rabbitmq-", "redis-",
+            "terraform-", "jpa-", "spring-")
+    assert not [s for s in slugs if s.startswith(금지)]
+    assert len(slugs) == len(set(slugs))
