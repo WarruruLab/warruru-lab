@@ -184,3 +184,22 @@ def test_스킬끼리_담당을_서로_가리킨다():
         text = (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
         for 남 in 가리켜야:
             assert 남 in text, (name, 남)
+
+
+def test_물어본_답_규칙이_공부_스킬에_있다():
+    """`ask topic=…` 은 **공부하다 나오는 행동**이다.
+
+    2026-09-05 까지 이 규칙이 `career-prep` 에만 있었고, 그 스킬은 회사 공고
+    대조에만 붙는다. 그래서 주제를 물어보는 자리에서는 규칙이 한 번도 안
+    읽혔고, `~/.warruru/career/answers/` 에 파일이 **0개**였다.
+    기능이 없어서가 아니라 규칙이 엉뚱한 스킬에 있어서였다.
+    """
+    study = (SKILLS_DIR / "study-session" / "SKILL.md").read_text(encoding="utf-8")
+    assert "ask topic=" in study
+    assert "career/answers/" in study
+    # 답하기 **전에** 쌓인 것을 읽는 순서가 이 규칙의 핵심이다.
+    assert "답하기 전에 읽는다" in study
+
+    career = (SKILLS_DIR / "career-prep" / "SKILL.md").read_text(encoding="utf-8")
+    assert "study-session" in career, "옮겼으면 어디로 갔는지 가리켜야 한다"
+    assert "asked:" not in career, "옮긴 것이지 복사한 것이 아니다"
