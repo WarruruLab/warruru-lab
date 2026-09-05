@@ -511,6 +511,10 @@ def _cert_note(ctx, key: str, today: str) -> dict:
         "status": meta.get("status") or "미시작",
         "done": (meta.get("status") or "") == _CERT_DONE,
         "issuer": meta.get("issuer") or "",
+        # 목표. **점수제 시험에만 뜻이 있다** — 합격/불합격이면 목표는
+        # 하나뿐이라 적을 것이 없고, TOPCIT 처럼 점수가 나오는 시험은
+        # 목표를 안 정하면 무엇을 버릴지 못 고른다.
+        "goal": meta.get("goal") or "",
         "site": meta.get("site") or "",
         "checked": meta.get("checked") or "",
         "exams": exams,

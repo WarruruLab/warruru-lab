@@ -1072,3 +1072,37 @@ def test_망가진_반납일은_없는_것으로_친다(client, home):
     _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 곧\n---\n")
     page = client.get("/career").text
     assert "D-" not in page.split("Real MySQL")[1][:200]
+
+
+# ── 점수제 시험은 목표를 적는다 (2026-09-05 추가) ────────────────────
+
+def test_목표가_있으면_맨_위에_뜬다(client, home):
+    """TOPCIT 처럼 점수가 나오는 시험은 목표를 안 정하면 무엇을 버릴지
+    못 고른다. 목표는 화면을 열 때마다 먼저 보여야 한다."""
+    _cert(home, "topcit", "---\nstatus: 준비중\ngoal: 수준 5 (850점 이상)\n---\n\n# 메모\n")
+    page = client.get("/career/cert/topcit").text
+    assert "목표 — 수준 5 (850점 이상)" in page
+
+
+def test_목표가_없으면_그_줄이_아예_없다(client, home):
+    """합격/불합격 시험은 목표가 하나뿐이라 적을 것이 없다.
+    빈 줄을 남기면 '안 적었다' 로 읽혀서 없는 숙제가 생긴다."""
+    _cert(home, "sqld", "---\nstatus: 미시작\n---\n\n# 메모\n")
+    assert "목표 —" not in client.get("/career/cert/sqld").text
+
+
+def test_단계가_다르면_하루_분량이_시험일을_기준으로_잡힌다(client, home):
+    """접수 마감과 시험일이 같은 단계에 있으면 커리큘럼이 접수일까지로
+    나뉜다. 접수는 하루면 끝나는 일이라 그 분량은 거짓말이 된다."""
+    _cert(home, "topcit", (
+        "---\nstatus: 준비중\n"
+        "stages:\n  - 접수 | 준비중\n  - 정기평가 | 준비중\n"
+        "curriculum:\n  - 정기평가 | 손으로 쓰기 | 60\n"
+        "exams:\n"
+        "  - 2026-07-25 | 접수 마감 | | | 접수\n"
+        "  - 2026-08-21 | 정기평가 | | | 정기평가\n"
+        "---\n\n# 메모\n"
+    ))
+    page = client.get("/career/cert/topcit").text
+    assert "D-3" in page and "D-30" in page
+    assert "오늘 2.0" in page          # 60 / 30일. 접수일(3일)로 나누지 않는다

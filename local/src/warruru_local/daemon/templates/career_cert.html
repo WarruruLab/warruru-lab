@@ -12,6 +12,10 @@
   <span class="badge {{ 'ok' if view.done else '' }}">{{ view.status }}</span>
 </p>
 
+{% if view.goal %}
+<p class="meta"><strong>목표 — {{ view.goal }}</strong></p>
+{% endif %}
+
 {% if view.stages %}
 {# 단계가 이 화면의 주인공이다. 필기와 실기는 유형도 공부법도 다른 시험이라
    같은 칸에 놓으면 어느 쪽 이야기인지 흐려진다. #}
