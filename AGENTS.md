@@ -29,8 +29,11 @@
   `~/.warruru/career/answers/{주제}/*.md` · 책 한 권의 내 사정(빌렸는지 ·
   언제까지인지) `~/.warruru/career/books/*.md` — 저장소 바깥이다.
   `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
-- 에이전트 플러그인 `agent-plugin/` — 스킬 2개(`warruru-recording`
-  · `career-prep`) + MCP 연결.
+- 에이전트 플러그인 `agent-plugin/` — **스킬 5개** + MCP 연결 + 훅.
+  `warruru-recording`(기록) · `study-session`(공부) · `exam-schedule`(자격증 일정)
+  · `blog-post`(글) · `career-prep`(회사 대조).
+  **한 세션에 한 스킬**이고, 스킬끼리 남의 규칙을 다시 적지 않는다 —
+  `local/tests/test_agent_plugin.py` 가 그 중복을 막는다.
   **Codex 와 Claude Code 가 매니페스트 한 벌을 같이 읽는다.** 한 번 설치하면
   다른 저장소를 열어도 기록 규칙과 툴이 따라온다.
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다

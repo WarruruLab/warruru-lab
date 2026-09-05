@@ -112,3 +112,75 @@ def test_AI_슬러그도_빠짐없이_실려_있다():
 
     listed = re.findall(r"`([a-z0-9-]+)`", SKILL.read_text(encoding="utf-8"))
     assert set(AI_SLUGS) - set(listed) == set()
+
+
+# ── 세션마다 스킬 한 장 (2026-09-05 추가) ────────────────────────────
+
+SKILLS_DIR = PLUGIN / "skills"
+# 규칙 목록의 **원본을 들고 있는** 스킬. 각자 대조 테스트가 있다
+# (`test_agent_plugin.py` · `test_career_skill.py`).
+_원본 = {"warruru-recording", "career-prep"}
+
+
+def _front(path: Path) -> dict:
+    """앞머리의 `name` 과 `description` 만 본다."""
+    text = path.read_text(encoding="utf-8")
+    body = text.split("---")[1] if text.startswith("---") else ""
+    made = {}
+    for line in body.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and not key.startswith(" "):
+            made[key.strip()] = value.strip()
+    return made
+
+
+def test_스킬마다_이름이_디렉터리와_같다():
+    """`name` 이 어긋나면 두 CLI 중 한쪽에서만 안 뜬다 — 어느 쪽인지도
+    모르는 채로 '스킬이 안 붙네' 가 된다."""
+    found = sorted(p.parent.name for p in SKILLS_DIR.glob("*/SKILL.md"))
+    assert found == ["blog-post", "career-prep", "exam-schedule",
+                     "study-session", "warruru-recording"]
+    for path in SKILLS_DIR.glob("*/SKILL.md"):
+        front = _front(path)
+        assert front.get("name") == path.parent.name, path
+        assert len(front.get("description", "")) > 80, path
+
+
+def test_기록_규칙은_한_스킬에만_있다():
+    """`kind` 네 개를 나열한 파일이 둘이면 그 순간부터 갈라진다.
+
+    이 프로젝트가 한 번 크게 실패한 방식이 '같은 것을 두 문서가 말하는 것'
+    이었다(AGENTS.md §6). 스킬에서 같은 실패를 반복하지 않는다.
+    """
+    kinds = ("EXPERIMENT", "TROUBLESHOOTING", "TECH_CHOICE", "CONCEPT")
+    가진_스킬 = [
+        path.parent.name for path in SKILLS_DIR.glob("*/SKILL.md")
+        if all(kind in path.read_text(encoding="utf-8") for kind in kinds)
+    ]
+    assert 가진_스킬 == ["warruru-recording"]
+
+
+def test_새_스킬은_슬러그_목록을_복사하지_않는다():
+    """목록을 실으면 원본과 대조하는 테스트가 있어야 하는데, 없으면
+    다른 저장소에서만 어긋나서 여기서는 영영 안 보인다."""
+    for path in SKILLS_DIR.glob("*/SKILL.md"):
+        if path.parent.name in _원본:
+            continue
+        listed = re.findall(r"`([a-z0-9-]+)`", path.read_text(encoding="utf-8"))
+        겹침 = set(listed) & set(RECOMMENDED_SLUGS)
+        assert len(겹침) <= 5, (path.parent.name, sorted(겹침))
+
+
+def test_스킬끼리_담당을_서로_가리킨다():
+    """다섯 장이 되면 '어느 스킬이 이 일을 하는가' 가 흐려진다.
+    각 스킬이 남의 일을 자기 것으로 삼지 않도록 경계를 본문에 적어 둔다.
+    """
+    for name, 가리켜야 in {
+        "study-session": ("warruru-recording", "exam-schedule", "career-prep",
+                          "blog-post"),
+        "exam-schedule": ("career-prep", "study-session"),
+        "blog-post": ("warruru-recording",),
+    }.items():
+        text = (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+        for 남 in 가리켜야:
+            assert 남 in text, (name, 남)
