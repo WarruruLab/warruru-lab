@@ -79,6 +79,11 @@ MVP 전체가 `local/src/warruru_local/` 안에서 산다.
   셋 다 스위퍼 안의 함수이고, 데몬이 뜰 때 한 번씩 더 돈다. cron 도
   launchd 도 쓰지 않는다. `local/scripts/warruru.command` 는 예외가 아니라
   그 데몬의 시동 버튼일 뿐이다 — 스스로 아무 판단도 하지 않는다
+- `local/scripts/polish.command` 도 같은 성격의 버튼이다. 초안 화면이 준
+  `polish topic=… draft=…` 한 줄을 **구독 요금제의 Codex/Claude Code** 에
+  넘길 뿐이다(API 키를 쓰지 않는다). **데몬은 이 파일을 모른다** —
+  데몬 안의 LLM 호출은 여전히 0 이고, 에이전트는 `read-only` 로 돌아
+  MCP 툴로만 읽고 쓴다
 
 **새 프로세스·새 포트·새 저장소·새 런타임 의존성을 만들지 않는다.**
 필요해 보이면 그건 기존 것 안에 함수로 들어갈 자리를 못 찾은 것이다.
