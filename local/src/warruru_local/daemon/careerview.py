@@ -81,13 +81,29 @@ def parse_front_matter(text: str) -> tuple[dict, str]:
         if item and key:
             meta.setdefault(key, [])
             if isinstance(meta[key], list):
-                meta[key].append(item.group(1).strip())
+                meta[key].append(_unquote(item.group(1)))
             continue
         scalar = _SCALAR.match(line)
         if scalar:
-            key, value = scalar.group(1), scalar.group(2).strip()
+            key, value = scalar.group(1), _unquote(scalar.group(2))
             meta[key] = value if value else []
     return meta, "\n".join(lines[end + 1:])
+
+
+def _unquote(value: str) -> str:
+    """값 전체를 감싼 따옴표를 벗긴다.
+
+    **옵시디언 때문이다**(2026-09-07). 프로퍼티 UI 로 한 번만 건드리면
+    `deadline: 2026-10-02` 가 `deadline: "2026-10-02"` 로 저장되는데,
+    그러면 날짜 정규식에 안 맞아 **D-day 가 조용히 사라진다.**
+    화면이 아무 말도 없이 마감을 잊는 것이 이 파일에서 가장 나쁜 결말이다.
+
+    한쪽만 있는 따옴표는 값의 일부로 본다 — 벗기면 없던 값이 만들어진다.
+    """
+    text = value.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in ("\"", "'"):
+        return text[1:-1].strip()
+    return text
 
 
 def _pair(item: str) -> tuple[str, str]:

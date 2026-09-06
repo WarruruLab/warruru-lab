@@ -1106,3 +1106,25 @@ def test_단계가_다르면_하루_분량이_시험일을_기준으로_잡힌�
     page = client.get("/career/cert/topcit").text
     assert "D-3" in page and "D-30" in page
     assert "오늘 2.0" in page          # 60 / 30일. 접수일(3일)로 나누지 않는다
+
+
+# ── 옵시디언과 같은 볼트를 쓴다 (2026-09-07) ─────────────────────
+
+def test_옵시디언이_감싼_따옴표를_벗긴다(client, home):
+    """프로퍼티 UI 로 한 번만 건드리면 값이 따옴표로 감싸여 저장된다.
+    그러면 `deadline` 이 날짜 정규식에 안 맞아 **D-day 가 조용히 사라진다.**
+    화면이 아무 말 없이 마감을 잊는 것이 이 파일에서 가장 나쁜 결말이다.
+    """
+    _write(home, "sk-ax.md",
+           '---\ncompany: "SK AX"\ndeadline: "2026-07-30"\n'
+           'gates:\n  - "어학 | 미충족"\n---\n# 메모\n')
+    page = client.get("/career/c/sk-ax").text
+    assert "SK AX" in page and '"SK AX"' not in page
+    assert "D-8" in page                    # 따옴표를 안 벗기면 이 줄이 통째로 없다
+    assert "자격" in page
+
+
+def test_한쪽만_있는_따옴표는_값의_일부다(ctx, home):
+    """벗기면 없던 값이 만들어진다."""
+    _write(home, "sk-ax.md", '---\ncompany: 그는 "말했다\n---\n# 메모\n')
+    assert careerview.build_company(ctx, "sk-ax")["company"] == '그는 "말했다'
