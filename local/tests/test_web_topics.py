@@ -551,3 +551,164 @@ def test_답은_기록이_아니라고_말한다(client, home):
 
 def test_답이_없어도_주제_화면은_열린다(client):
     assert client.get("/t/algo-dp").status_code == 200
+
+
+# ── 주제 화면에서 묻는다 (명세 §2.6 · §3.7, 2026-09-06) ─────────────
+
+import json as _json
+import stat as _stat
+
+
+def _fake_cli(tmp_path, lines):
+    """JSONL 을 뱉는 가짜. **진짜 CLI 를 부르는 테스트는 만들지 않는다** —
+    네트워크와 구독 한도에 기대면 아침마다 다르게 실패한다."""
+    path = tmp_path / "fake-cli"
+    body = "\n".join(_json.dumps(line, ensure_ascii=False) for line in lines)
+    path.write_text(f"#!/bin/sh\ncat <<'EOF'\n{body}\nEOF\n", encoding="utf-8")
+    path.chmod(path.stat().st_mode | _stat.S_IEXEC)
+    return str(path)
+
+
+ANSWER = [
+    {"type": "thread.started", "thread_id": "th_0001"},
+    {"type": "item.completed",
+     "item": {"type": "agent_message", "text": "B+트리는 범위 검색 때문이다."}},
+    {"type": "turn.completed", "usage": {"input_tokens": 900, "output_tokens": 100}},
+]
+
+
+@pytest.fixture
+def fake_ask(monkeypatch, tmp_path):
+    """`Ask` 가 언제나 가짜를 부르게 한다."""
+    from warruru_local.daemon import asking
+
+    program = _fake_cli(tmp_path, ANSWER)
+    real = asking.Ask.argv
+
+    def argv(self):
+        object.__setattr__(self, "program", program)
+        return real(self)
+
+    monkeypatch.setattr(asking.Ask, "argv", argv)
+    return program
+
+
+def _ask(client, slug, prompt="B+트리를 왜 쓰나", **extra):
+    body = {"prompt": prompt, "_token": client.app.state.ctx.settings.token}
+    body.update(extra)
+    return client.post(f"/web/topics/{slug}/ask", data=body)
+
+
+def _events(text):
+    made = []
+    for block in text.split("\n\n"):
+        name = data = None
+        for line in block.splitlines():
+            if line.startswith("event: "):
+                name = line[7:]
+            if line.startswith("data: "):
+                data = _json.loads(line[6:])
+        if name:
+            made.append((name, data))
+    return made
+
+
+def test_물으면_답이_이벤트로_흐른다(client, fake_ask):
+    res = _ask(client, "db-index")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/event-stream")
+    names = [name for name, _ in _events(res.text)]
+    assert names == ["started", "message", "done"]
+
+
+def test_답이_주제별_파일에_이어_쓰인다(client, fake_ask, home):
+    from warruru_local import paths
+
+    _ask(client, "db-index", "첫 질문")
+    _ask(client, "db-index", "두 번째 질문")
+    files = list((paths.answer_dir(home) / "db-index").glob("*.md"))
+    # 같은 날 여러 번 물으면 **파일이 늘어나는 것이 아니라** 한 장이 길어진다.
+    assert len(files) == 1
+    text = files[0].read_text(encoding="utf-8")
+    assert "asked: 첫 질문" in text
+    assert "## 두 번째 질문" in text
+
+
+def test_두_번째_질문은_같은_스레드로_간다(client, fake_ask):
+    _ask(client, "db-index")
+    again = _events(_ask(client, "db-index").text)
+    started = dict(again)["started"]
+    assert started["resumed"] is True
+    assert client.app.state.ctx.records.ask_thread("db-index")["turns"] == 2
+
+
+def test_주제가_다르면_대화도_다르다(client, fake_ask):
+    _ask(client, "db-index")
+    assert dict(_events(_ask(client, "algo-dp").text))["started"]["resumed"] is False
+
+
+def test_새_대화로_체크하면_스레드를_버린다(client, fake_ask):
+    _ask(client, "db-index")
+    again = _events(_ask(client, "db-index", fresh=1).text)
+    assert dict(again)["started"]["resumed"] is False
+
+
+def test_빈_질문은_거절한다(client, fake_ask):
+    assert _ask(client, "db-index", prompt="   ").status_code == 400
+
+
+def test_토큰이_없으면_묻지_못한다(client, fake_ask):
+    res = client.post("/web/topics/db-index/ask", data={"prompt": "질문"})
+    assert res.status_code == 401
+
+
+def test_답을_못_받으면_스레드를_붙잡지_않는다(client, monkeypatch, tmp_path):
+    """실패한 왕복까지 세면 다음 질문이 없는 대화를 이어받으려 한다."""
+    from warruru_local.daemon import asking
+
+    # 스레드는 열렸는데 답이 없는 경우다.
+    program = _fake_cli(tmp_path, [{"type": "thread.started", "thread_id": "th_9"}])
+    real = asking.Ask.argv
+
+    def argv(self):
+        object.__setattr__(self, "program", program)
+        return real(self)
+
+    monkeypatch.setattr(asking.Ask, "argv", argv)
+    events = _events(_ask(client, "db-index").text)
+    assert dict(events)["done"]["saved"] == ""
+    assert client.app.state.ctx.records.ask_thread("db-index") is None
+
+
+def test_화면에_묻는_칸이_있다(client, fake_ask):
+    page = client.get("/t/db-index").text
+    assert 'id="ask-form"' in page
+    # 터미널용 한 줄도 남는다 — JS 가 꺼져도 물어볼 길은 있어야 한다.
+    assert "ask topic=db-index" in page
+
+
+def test_초안_조립기는_여전히_LLM_을_안_부른다():
+    """이 경로를 열면서 지키려던 경계다(명세 §2.4 · §6).
+
+    조립기가 `asking` 이나 `subprocess` 를 알게 되는 순간 '결정적'이라는
+    말이 거짓이 된다.
+    """
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "src" / "warruru_local"
+    text = (src / "daemon" / "draft.py").read_text(encoding="utf-8")
+    for 금지 in ("asking", "subprocess", "openai", "anthropic"):
+        assert 금지 not in text, 금지
+
+
+def test_여러_줄_질문이_앞머리를_깨지_않는다(client, fake_ask, home):
+    """줄바꿈이나 `---` 가 앞머리에 그대로 들어가면 거기서 닫히고,
+    그 파일은 다음에 읽을 때 본문을 통째로 잃는다."""
+    from warruru_local import paths
+    from warruru_local.daemon import careerview
+
+    _ask(client, "db-index", prompt="첫 줄\n---\n둘째 줄")
+    path = next((paths.answer_dir(home) / "db-index").glob("*.md"))
+    meta, body = careerview.parse_front_matter(path.read_text(encoding="utf-8"))
+    assert meta["asked"] == "첫 줄 --- 둘째 줄"
+    assert "B+트리는 범위 검색" in body

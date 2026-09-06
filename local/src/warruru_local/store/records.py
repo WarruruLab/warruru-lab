@@ -246,6 +246,44 @@ class RecordRepository:
         )
         return True
 
+    # ── 주제별 대화 스레드 (v5) ──────────────────────────────────
+
+    def ask_thread(self, topic_slug: str) -> dict | None:
+        """이 주제에 이어 갈 대화가 있나. 없으면 새로 시작한다는 뜻이다."""
+        row = self._conn.execute(
+            "SELECT * FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def remember_thread(self, topic_slug: str, thread_id: str, cli: str,
+                        now_iso: str) -> int:
+        """스레드를 붙잡고 턴을 하나 센다. 돌려주는 것은 누적 턴 수다.
+
+        **대화 본문은 여기 안 들어온다.** CLI 가 자기 세션 파일에 들고 있고
+        우리는 id 만 든다 — 본문을 복제하면 갱신하는 쪽이 저쪽이라 우리 것이
+        먼저 썩는다.
+        """
+        self._conn.execute(
+            "INSERT INTO ask_thread"
+            " (topic_slug, thread_id, cli, turns, created_at, updated_at)"
+            " VALUES (?, ?, ?, 1, ?, ?)"
+            " ON CONFLICT(topic_slug) DO UPDATE SET"
+            " thread_id = excluded.thread_id, cli = excluded.cli,"
+            " turns = ask_thread.turns + 1, updated_at = excluded.updated_at",
+            (topic_slug, thread_id, cli, now_iso, now_iso),
+        )
+        row = self._conn.execute(
+            "SELECT turns FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
+        ).fetchone()
+        return int(row["turns"])
+
+    def forget_thread(self, topic_slug: str) -> None:
+        """다음 질문을 새 대화로 시작한다. 지우는 것은 id 뿐이고
+        받아 둔 답 파일은 그대로 남는다."""
+        self._conn.execute(
+            "DELETE FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
+        )
+
     # ── 자격증 커리큘럼 진도 (v4) ────────────────────────────────
 
     def cert_progress(self, cert_key: str) -> dict[str, int]:
