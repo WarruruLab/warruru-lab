@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 4
+CURRENT_VERSION = 5
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -236,7 +236,25 @@ CREATE TABLE IF NOT EXISTS cert_progress (
 );
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4}
+# v5 — 주제별 대화 스레드 하나(명세 §3.7, 2026-09-06).
+#
+# **주제당 한 줄이다.** 스레드 목록을 만들지 않는다 — 이 도구의 축이 주제이므로
+# "어느 대화였더라" 를 사람이 고를 일이 없어야 한다.
+#
+# 대화 본문은 여기 없다. CLI 가 자기 세션 파일에 들고 있고 우리는 **id 하나만**
+# 든다. 본문까지 복제하면 두 벌이 되고, 갱신하는 쪽은 CLI 라 우리 것이 먼저 썩는다.
+_V5 = """
+CREATE TABLE IF NOT EXISTS ask_thread (
+    topic_slug TEXT PRIMARY KEY,
+    thread_id  TEXT NOT NULL,
+    cli        TEXT NOT NULL,
+    turns      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

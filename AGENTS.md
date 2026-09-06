@@ -18,9 +18,9 @@
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
   / `record_learning` / `get_topic_records` / `save_draft`)
 - 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
-- SQLite `~/.warruru/warruru.db` — 스키마 v4, 테이블 8개
+- SQLite `~/.warruru/warruru.db` — 스키마 v5, 테이블 9개
   (`machine` / `client_instance` / `work_session` / `checkpoint`
-  / `learning_record` / `draft` / `ask_check` / `cert_progress`)
+  / `learning_record` / `draft` / `ask_check` / `cert_progress` / `ask_thread`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 회사별 준비 노트 `~/.warruru/career/*.md` · 자격증 노트
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
@@ -42,6 +42,8 @@
   · `/career/stack/{묶음}` — 축 셋(로드맵 · CS · AI)이 같은 주소를 쓴다
   · `/career/cert/{자격증}` · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
+  `/t/{slug}` 에서 그 주제로 **물을 수 있다** — 데몬이 구독 CLI 를 자식
+  프로세스로 띄우고 답을 SSE 로 흘린다. 주제마다 대화 하나가 이어진다
   조회는 토큰 불필요, 상태 변경 폼만 토큰.
   JavaScript 는 초안 복사와 일반/다크 모드 전환에만 쓴다.
   둘 다 실패해도 기록 조회·수정·발행 표시 경로는 살아 있다
@@ -90,6 +92,11 @@ MVP 전체가 `local/src/warruru_local/` 안에서 산다.
 
 **새 프로세스·새 포트·새 저장소·새 런타임 의존성을 만들지 않는다.**
 필요해 보이면 그건 기존 것 안에 함수로 들어갈 자리를 못 찾은 것이다.
+
+이 조항이 막는 것은 **상주하는 것**이다. 요청 하나에 떴다가 죽는 자식
+프로세스는 성격이 다르다 — `/web/ask` 가 `codex exec` 를 그렇게 띄운다
+(명세 §2.6 · §3.7, 2026-09-06 개정). 포트도 상주도 없고, 죽어도 그 화면만
+죽는다. **새로 상주시키려는 것이면 여전히 안 된다.**
 파일 하나 쓰려고 프로세스를 만들면, 중간에 멈췄을 때 골격만 남고
 결과물은 없다.
 
@@ -275,10 +282,16 @@ record_learning → 어댑터 → 데몬(8787) → SQLite
 `DKAPTCHA` 가 발행마다 떠서 사람이 풀면 붙여넣기보다 느리다. 우회는 하지 않는다.
 대신 `GitPrivateRepoTarget` 으로 간다. 근거는 발행 경로 ADR 에 있다.
 
-**이번에 하지 않는 것** — 티스토리 자동 발행(위 참조) · 데몬 안의 LLM 호출 ·
+**이번에 하지 않는 것** — 티스토리 자동 발행(위 참조) ·
 RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_option`
 정규화 테이블 · 기록 거절 규칙. 각각의 이유는 이번 MVP 명세에 있다.
 
+**데몬 안의 LLM 호출은 2026-09-06 에 좁게 열렸다.** 데몬이 모델을 부르는
+것이 아니라 이미 로그인된 `codex exec` 를 자식 프로세스로 띄운다 — 새 런타임
+의존성도 포트도 없고, 인증은 CLI 의 OAuth 토큰이라 이 저장소에 비밀이 안
+들어온다. 범위는 §2.6 의 '묻고 답하기' 하나다.
+**초안 조립기의 LLM 호출 0 은 그대로다** — 그것이 원래 지키려던 것이었다.
+
 ---
 
-**Last Updated:** 2026-09-04
+**Last Updated:** 2026-09-06

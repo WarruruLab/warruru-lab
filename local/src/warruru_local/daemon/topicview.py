@@ -106,6 +106,33 @@ def answers(ctx, topic_slug: str) -> list[dict]:
     return made
 
 
+def append_answer(ctx, topic_slug: str, asked: str, text: str,
+                  today: str, tool: str) -> str:
+    """받은 답을 `career/answers/{슬러그}/{날짜}.md` 에 붙인다.
+
+    **새 자리를 만들지 않는다.** 에이전트가 터미널에서 답했을 때와 같은
+    파일이고, 같은 날 여러 번 물으면 이어 쓴다 — 파일이 늘어나는 것이
+    아니라 그날의 대화가 한 장이 된다(`study-session` 스킬과 같은 규칙).
+
+    돌려주는 것은 파일 이름이다. 화면이 "어디에 앉았는지" 를 말할 수 있어야
+    사용자가 나중에 그 파일을 찾는다.
+    """
+    # 질문은 **한 줄로 눌러** 앞머리에 넣는다. 줄바꿈이나 `---` 가 그대로
+    # 들어가면 앞머리가 거기서 닫히고, 그 파일은 다음에 읽을 때 본문을 잃는다.
+    asked = " ".join(asked.split())[:200] or "(질문 없음)"
+    root = paths.answer_dir(ctx.settings.home) / topic_slug
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / f"{today}.md"
+    if path.exists():
+        body = f"\n---\n\n## {asked}\n\n{text}\n"
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(body)
+    else:
+        head = f"---\nasked: {asked}\ntool: {tool}\n---\n\n{text}\n"
+        path.write_text(head, encoding="utf-8")
+    return path.name
+
+
 def _note_with_checks(ctx, topic_slug: str) -> dict:
     note = topic_note(ctx, topic_slug)
     checked = ctx.records.checked_asks(topic_slug)
@@ -135,6 +162,8 @@ def _build_empty(ctx, topic_slug: str) -> dict:
         "recommended": topics.is_recommended(topic_slug),
         "note": _note_with_checks(ctx, topic_slug),
         "answers": answers(ctx, topic_slug),
+        # 이어 갈 대화가 있나. 없으면 다음 물음이 새 대화다.
+        "thread": ctx.records.ask_thread(topic_slug),
     }
 
 
@@ -191,6 +220,8 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         # 기록이 쌓인 뒤에도 참고는 남는다. 면접 준비로 되읽을 때 필요하다.
         "note": _note_with_checks(ctx, topic_slug),
         "answers": answers(ctx, topic_slug),
+        # 이어 갈 대화가 있나. 없으면 다음 물음이 새 대화다.
+        "thread": ctx.records.ask_thread(topic_slug),
     }
 
 

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
-    calendarview, careerview, dayview, drafting, publishing, topicview,
+    asking, calendarview, careerview, dayview, drafting, publishing, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -271,6 +272,81 @@ async def toggle_ask_form(
     # 있어서, 어디서 눌렀는지 서버가 짐작하면 다른 화면으로 튕긴다.
     target = back if back.startswith("/") and not back.startswith("//") else "/career/stack"
     return RedirectResponse(target, status_code=302)
+
+
+@router.post("/web/topics/{topic_slug}/ask")
+async def ask_form(
+    request: Request,
+    topic_slug: str,
+    prompt: str = Form(...),
+    fresh: int = Form(0),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """그 주제에 대해 묻는다. 답은 도착하는 대로 흐른다(명세 §3.7).
+
+    **데몬은 모델을 모른다.** 이미 로그인된 CLI 를 자식 프로세스로 띄우고
+    표준출력을 읽을 뿐이다. 상태를 바꾸므로(답 파일이 생긴다) 토큰을 요구한다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    asked = prompt.strip()
+    if not asked:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "EMPTY_PROMPT", "message": "물어볼 것을 적어 주세요"},
+        )
+
+    if fresh:
+        ctx.records.forget_thread(topic_slug)
+    row = ctx.records.ask_thread(topic_slug)
+    ask = asking.Ask(
+        topic_slug=topic_slug,
+        prompt=asked,
+        home=ctx.settings.home,
+        thread_id=row["thread_id"] if row else None,
+    )
+
+    async def stream():
+        thread_id = ask.thread_id
+        parts: list[str] = []
+        tokens = 0
+        async for name, data in asking.run(ask):
+            if name == "started":
+                thread_id = data["thread_id"]
+                yield _sse("started", {"thread_id": thread_id,
+                                       "resumed": bool(ask.thread_id)})
+                continue
+            if name == "usage":
+                tokens = data["tokens"]
+                continue
+            if name == "message":
+                parts.append(data["text"])
+            yield _sse(name, data)
+
+        # **답을 받았을 때만** 스레드를 붙잡는다. 실패한 왕복까지 세면
+        # 다음 질문이 없는 대화를 이어받으려 한다.
+        saved = ""
+        if parts:
+            now = to_iso(ctx.clock.now())
+            if thread_id:
+                ctx.records.remember_thread(topic_slug, thread_id, ask.cli, now)
+            saved = topicview.append_answer(
+                ctx, topic_slug, asked, "\n\n".join(parts),
+                local_date_of(now), ask.cli,
+            )
+        yield _sse("done", {"tokens": tokens, "saved": saved})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        # 프록시가 없어도 붙여 둔다. 이 줄이 없으면 어떤 브라우저는
+        # 답이 다 올 때까지 아무것도 안 그린다.
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 @router.post("/web/certs/{cert_key}/progress")
