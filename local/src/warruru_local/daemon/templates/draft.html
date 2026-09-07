@@ -19,23 +19,119 @@
 </p>
 {% endif %}
 
-<section class="tool">
-  <h2>다듬기</h2>
-  <p class="meta">
-    아래 한 줄을 에이전트에게 붙여넣는다. 붙여넣지 않아도 초안 파일은 이미 있다 —
-    다듬기는 관문이 아니라 선택지다.
-  </p>
-  <pre class="body">{{ view.ask_line or view.polish_prompt }}</pre>
+{# **화면에서 바로 다듬는다**(2026-09-08). 전에는 `polish topic=… draft=…`
+   한 줄을 복사해 터미널에 붙여넣었는데, 옮겨 적는 수고가 남아 있으면 거기서
+   멈춘다 — 실제로 초안 57건에 발행이 0건이었다.
 
-  {# 요청을 여기 적으면 위 한 줄에 얹힌다. **데몬이 모델을 부르지는 않는다** —
-     MCP 는 에이전트가 데몬을 부르는 단방향이라 반대로 갈 길이 없다.
-     여기서 줄일 수 있는 것은 옮겨 적는 수고까지다. #}
-  <form method="get" action="/drafts/{{ view.draft_id }}">
-    <input type="text" name="ask" value="{{ view.ask or '' }}"
-           placeholder="무엇을 고칠까 — 예: 측정 절에 수치를 앞뒤로 나눠 적어라">
-    <button type="submit">한 줄에 얹기</button>
-  </form>
+   **덮어쓰지 않는다.** 받은 글을 아래에 보여주고 [이 글로 바꾸기] 를 눌러야
+   저장된다. 다듬은 결과가 원문보다 나쁠 수 있고, 그때 원문이 이미 사라졌으면
+   되돌릴 방법이 없다. #}
+<section class="tool" id="polish">
+  <div class="work-head">
+    <h2>다듬기</h2>
+    <span class="meta">codex 또는 claude 가 고친다 · 재료는 안 늘린다</span>
+  </div>
+
+  <div class="ask-row">
+    <input type="text" id="polish-ask" class="grow-1"
+           placeholder="무엇을 고칠까 — 비우면 전체를 다듬는다 (예: 측정 절에 수치를 앞뒤로 나눠 적어라)">
+  </div>
+  <div class="ask-row">
+    <select id="polish-cli" aria-label="어느 에이전트로">
+      <option value="codex">Codex</option>
+      <option value="claude">Claude</option>
+    </select>
+    <button type="button" id="polish-go" class="primary">다듬기</button>
+    <button type="button" id="polish-rewrite">처음부터 다시 쓰기</button>
+    <span class="meta quiet" id="polish-status"></span>
+  </div>
+
+  <div id="polish-out" hidden>
+    <p class="meta">
+      <strong>아직 저장 안 됐다.</strong> 원문은 그대로 있고, 아래를 눌러야 바뀐다.
+    </p>
+    <form method="post" action="/web/drafts/{{ view.draft_id }}/edit">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <textarea name="markdown" id="polish-text" class="body" rows="18"></textarea>
+      <div class="ask-row">
+        <button type="submit" class="primary">이 글로 바꾸기</button>
+        <button type="button" id="polish-cancel">버린다</button>
+      </div>
+    </form>
+  </div>
+
+  <details class="rest">
+    <summary>터미널에서 하려면</summary>
+    <pre class="body">{{ view.ask_line or view.polish_prompt }}</pre>
+  </details>
 </section>
+
+<script>
+(function () {
+  var go = document.getElementById("polish-go");
+  if (!go || !window.fetch) return;
+  var rewrite = document.getElementById("polish-rewrite");
+  var ask = document.getElementById("polish-ask");
+  var cli = document.getElementById("polish-cli");
+  var status = document.getElementById("polish-status");
+  var out = document.getElementById("polish-out");
+  var text = document.getElementById("polish-text");
+
+  document.getElementById("polish-cancel").addEventListener("click", function () {
+    out.hidden = true; text.value = ""; status.textContent = "버렸다. 원문 그대로다.";
+  });
+
+  async function run(mode) {
+    if (go.disabled) return;
+    go.disabled = rewrite.disabled = true;
+    status.textContent = mode === "rewrite" ? "다시 쓰는 중…" : "다듬는 중…";
+    out.hidden = false; text.value = "";
+
+    var body = new URLSearchParams();
+    body.set("_token", {{ token|tojson }});
+    body.set("mode", mode);
+    body.set("ask", ask.value);
+    body.set("cli", cli.value);
+
+    var 모은글 = "";
+    try {
+      var res = await fetch("/web/drafts/{{ view.draft_id }}/polish",
+                            { method: "POST", body: body });
+      if (!res.ok) {
+        status.textContent = "보내지 못했습니다 (" + res.status + ")";
+        go.disabled = rewrite.disabled = false; return;
+      }
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var blocks = buf.split("\n\n"); buf = blocks.pop();
+        blocks.forEach(function (block) {
+          var name = "", data = "";
+          block.split("\n").forEach(function (line) {
+            if (line.indexOf("event: ") === 0) name = line.slice(7);
+            if (line.indexOf("data: ") === 0) data = line.slice(6);
+          });
+          if (!name) return;
+          var payload = {};
+          try { payload = JSON.parse(data); } catch (e) { return; }
+          if (name === "message") { 모은글 += payload.text; text.value = 모은글; }
+          if (name === "error") status.textContent =
+            payload.message + (payload.fix ? " — " + payload.fix : "");
+          if (name === "done") status.textContent = 모은글
+            ? "받았다 — 아직 저장 안 됐다"
+            : "답을 받지 못했습니다";
+        });
+      }
+    } catch (err) { status.textContent = "끊겼습니다: " + err; }
+    go.disabled = rewrite.disabled = false;
+  }
+
+  go.addEventListener("click", function () { run("polish"); });
+  rewrite.addEventListener("click", function () { run("rewrite"); });
+}());
+</script>
 
 <section class="tool">
   <h2>발행</h2>

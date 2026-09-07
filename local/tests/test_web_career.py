@@ -1045,7 +1045,7 @@ def test_아래_요약은_기록_갈래에_있다(client):
     assert 'class="entries"' not in 허브
     줄 = client.get("/t").text
     줄 = 줄[줄.index('class="entries"'):]
-    assert "그날 기록" in 줄 and "초안" in 줄 and "달력" in 줄
+    assert "그날 자세히" in 줄 and "그날 노트" in 줄 and "달력" in 줄
 
 
 def test_AI_묶음_화면이_열린다(client):
