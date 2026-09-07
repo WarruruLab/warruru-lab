@@ -386,8 +386,28 @@
   .badge.alert { background: var(--alert-soft); color: var(--alert); }
   .grow-1 { flex: 1; min-width: 16rem; }
   /* 열 줄이 넘으면 그 안에서 스크롤한다 — 고르는 자리와 누르는 자리가
-     한 화면에 있어야 흐름이 안 끊긴다. `li` 하나가 대략 2.7rem 이다. */
-  ul.asks.scroll-10 { max-height: 27rem; overflow-y: auto; }
+     한 화면에 있어야 흐름이 안 끊긴다. `li` 하나가 대략 2.7rem 이다.
+
+     **막대와 글 사이를 띄운다.** 그냥 `overflow-y:auto` 만 주면 스크롤바가
+     글자에 바로 붙어서, 오른쪽 배지가 잘린 것처럼 보인다. `scrollbar-gutter`
+     로 자리를 미리 잡아 두면 목록이 짧을 때와 길 때 줄 끝이 안 움직인다. */
+  ul.asks.scroll-10 {
+    max-height: 27rem; overflow-y: auto;
+    scrollbar-gutter: stable; padding-right: 1rem;
+  }
+  ul.asks.scroll-10::-webkit-scrollbar { width: 10px; }
+  ul.asks.scroll-10::-webkit-scrollbar-track { background: transparent; }
+  ul.asks.scroll-10::-webkit-scrollbar-thumb {
+    background: var(--rule); border-radius: 999px;
+    /* 트랙 안쪽에 여백을 만드는 관용 수법 — 막대가 벽에 안 붙는다. */
+    border: 3px solid var(--panel); background-clip: padding-box;
+  }
+  ul.asks.scroll-10::-webkit-scrollbar-thumb:hover { background: var(--ink-faint);
+    border: 3px solid var(--panel); background-clip: padding-box; }
+  /* 파란 카드(오늘 할 것 · 글로 만들기) 안에서는 트랙 색이 다르다. */
+  .todo ul.asks.scroll-10::-webkit-scrollbar-thumb {
+    border-color: var(--key-soft);
+  }
   .pick-box { display: inline-flex; align-items: center; flex: none; }
   .pick-box input { width: 17px; height: 17px; accent-color: var(--key-fill);
                     cursor: pointer; }
