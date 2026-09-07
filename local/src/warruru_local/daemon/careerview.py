@@ -379,6 +379,7 @@ def _book_notes(ctx, today: str) -> dict[str, dict]:
             due = ""
         made[path.stem] = {
             "state": (meta.get("state") or "").strip() if isinstance(meta.get("state"), str) else "",
+            "reading": (meta.get("reading") or "").strip() if isinstance(meta.get("reading"), str) else "",
             "due": due,
             "days": left,
             "at": (meta.get("at") or "").strip() if isinstance(meta.get("at"), str) else "",
@@ -392,13 +393,29 @@ def _book_notes(ctx, today: str) -> dict[str, dict]:
 BOOK_STATES = ("읽는 중", "다음에", "중단", "다 읽음")
 
 
+def reading_state(book: dict) -> str:
+    """읽기 상태. **소장 형태(`state`)와 다른 축이다.**
+
+    `state` 는 빌림·전자책·공식문서 — 어떻게 갖고 있나.
+    `reading` 은 읽는 중·다음에·중단·다 읽음 — 지금 읽고 있나.
+    한 필드에 넣으면 "빌렸지만 아직 안 읽는 책" 을 못 적는다(2026-09-08 실측).
+
+    안 적었으면 **반납일이 있는 책은 읽는 중**으로 본다. 빌려 놓고 목록
+    맨 아래에 처박히면 그 책이 안 읽힌다.
+    """
+    적힌것 = (book.get("reading") or "").strip()
+    if 적힌것 in BOOK_STATES:
+        return 적힌것
+    return "읽는 중" if book.get("days") is not None else "안 정한 것"
+
+
 def set_book_state(ctx, key: str, state: str) -> None:
     """앞머리의 `state` 만 고친다. 본문과 나머지 필드는 그대로 둔다 —
     사람이 손으로 적어 둔 것을 화면이 지우면 안 된다."""
     path = paths.book_note_dir(ctx.settings.home) / f"{key}.md"
     text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
     meta, body = parse_front_matter(text)
-    meta["state"] = state
+    meta["reading"] = state
     줄 = []
     for name, value in meta.items():
         if isinstance(value, list):
@@ -445,7 +462,7 @@ def build_books(ctx) -> dict:
 
     통 = {"읽는 중": [], "다음에": [], "중단": [], "다 읽음": [], "안 정한 것": []}
     for row in made:
-        통[row["state"] if row["state"] in BOOK_STATES else "안 정한 것"].append(row)
+        통[reading_state(row)].append(row)
     통["읽는 중"].sort(key=급한순)
     통["다음에"].sort(key=요구순)
     통["안 정한 것"].sort(key=요구순)
@@ -515,7 +532,8 @@ def build_stack(ctx) -> dict:
     for book in books:
         # 노트가 없는 책이 대부분이다. **빈 값을 먼저 채운다** — 템플릿에서
         # `book.days` 가 Undefined 면 비교하는 순간 화면이 통째로 500 이 된다.
-        book.update({"state": "", "due": "", "days": None, "at": "", "note": ""})
+        book.update({"state": "", "reading": "", "due": "", "days": None,
+                     "at": "", "note": ""})
         book.update(notes.get(book["key"], {}))
     # **반납일이 있는 것이 맨 위다.** 빌린 책은 기한이 지나면 그냥 사라지고,
     # 소장한 책은 언제든 다시 펴면 된다. 둘을 같은 순서로 두면 그 차이가

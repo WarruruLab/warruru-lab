@@ -6,7 +6,7 @@
   {% include "_nav.html" %}
 </header>
 
-{% macro 줄(book, 버튼) %}
+{% macro 줄(book, 라벨) %}
 <li>
   <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
   {% for cert in book.certs %}<span class="badge">{{ cert }}</span>{% endfor %}
@@ -23,7 +23,7 @@
     {%- endfor -%}
   </span>
   <span class="gauge-read">{{ book.progress.covered }}/{{ book.progress.total }}</span>
-  {{ 버튼 }}
+  <a class="btn" href="/career/book/{{ book.key }}/today">{{ 라벨 }}</a>
 </li>
 {% endmacro %}
 
@@ -34,7 +34,7 @@
   {% if view.groups["읽는 중"] %}
   <ul class="picks">
     {% for book in view.groups["읽는 중"] %}
-      {{ 줄(book, '<a class="btn" href="/career/book/' ~ book.key ~ '/today">오늘 읽기</a>'|safe) }}
+      {{ 줄(book, "오늘 읽기") }}
     {% endfor %}
   </ul>
   {% else %}
@@ -47,7 +47,7 @@
   <p class="meta">공고가 요구하는 주제를 많이 덮는 순. 자격증과 겹치면 배지가 붙는다.</p>
   <ul class="picks">
     {% for book in (view.groups["다음에"] + view.groups["안 정한 것"])[:6] %}
-      {{ 줄(book, '<a class="btn" href="/career/book/' ~ book.key ~ '/today">읽기 시작</a>'|safe) }}
+      {{ 줄(book, "읽기 시작") }}
     {% endfor %}
   </ul>
 </section>
