@@ -78,6 +78,64 @@
 
 
 
+{% if view.axis == "cs" %}
+{# **오늘 볼 것이 맨 위다**(명세 §2.10 a). 27개를 다 보면 아무것도 안 하고
+   5개면 한다. 체크가 0개였던 이유는 눌러도 아무 일이 안 생겨서였다. #}
+<section class="tool todo">
+  <div class="work-head">
+    <h2>오늘 볼 {{ view.picks|length }}개</h2>
+    <span class="meta">막히는 것 · 오래된 것에서</span>
+    {% if view.stale %}<span class="badge warn">다시 볼 것 {{ view.stale }}</span>{% endif %}
+  </div>
+  {% if view.picks %}
+  <ul class="asks">
+    {% for pick in view.picks %}
+    <li>
+      <form class="inline" method="post" action="/web/topics/{{ pick.slug }}/asks">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="ask" value="{{ pick.hash }}">
+        <input type="hidden" name="text" value="{{ pick.text }}">
+        <input type="hidden" name="back" value="/career/stack/{{ view.key }}">
+        <button class="tick {{ 'stale' if pick.stale }}" type="submit"
+                aria-label="답할 수 있으면 체크"
+                title="답할 수 있으면 누른다">{{ '↻' if pick.stale else '○' }}</button>
+      </form>
+      <span class="ask-text">{{ pick.text }}</span>
+      {% if pick.stale %}
+      <span class="meta quiet">{{ pick.checked_at[:10] }} 에 체크함</span>
+      {% endif %}
+      <a class="badge" href="/t/{{ pick.slug }}">{{ pick.label }}</a>
+      <button type="button" class="try" data-ask="{{ pick.hash }}"
+              data-slug="{{ pick.slug }}" data-text="{{ pick.text }}">답해보기</button>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta quiet">
+    <strong>체크는 3초</strong> — 답할 수 있으면 누른다. 제대로 볼 땐 [답해보기].
+    체크한 것은 <strong>3개월 뒤 다시 묻는다.</strong>
+  </p>
+  {% else %}
+  <p class="empty">이 과목은 오늘 볼 것이 없다. 아래에서 골라 보거나 다른 과목으로.</p>
+  {% endif %}
+</section>
+
+{% if view.books %}
+<section class="tool">
+  <h2>막히면 이 책</h2>
+  <p class="meta">이 과목을 덮는 책. 빌린 것이 위에 온다.</p>
+  <ul class="picks">
+    {% for book in view.books[:4] %}
+    <li>
+      <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+      <span class="gauge-read">{{ book.count }}주제</span>
+      <a class="btn" href="/career/book/{{ book.key }}/today">오늘 읽기</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}
+
 {% if view.intro %}
 <section class="tool">
   <div class="preview">{{ view.intro|safe }}</div>
@@ -115,7 +173,10 @@
     {% endif %}
     {% if item.refs %}
     <nav aria-label="참고">
-      {% for ref in item.refs %}<a href="{{ ref.url }}">{{ ref.label }}</a>{% endfor %}
+      {# 구분자가 없어 링크 셋이 한 덩어리로 붙어 있었다(2026-09-08 실측). #}
+      참고 ·
+      {% for ref in item.refs %}<a href="{{ ref.url }}">{{ ref.label }}</a>
+      {%- if not loop.last %} · {% endif %}{% endfor %}
     </nav>
     {% endif %}
   </article>

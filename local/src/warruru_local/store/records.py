@@ -219,6 +219,22 @@ class RecordRepository:
             rows = self._conn.execute("SELECT ask_hash FROM ask_check").fetchall()
         return {row["ask_hash"] for row in rows}
 
+    def check_ages(self, topic_slug: str | None = None) -> dict[str, str]:
+        """체크한 **날짜**까지 준다. 3개월이 지났는지를 화면이 판단한다.
+
+        `ask_check.checked_at` 이 처음부터 있었다 — 새 컬럼이 필요 없다.
+        """
+        if topic_slug is not None:
+            rows = self._conn.execute(
+                "SELECT ask_hash, checked_at FROM ask_check WHERE topic_slug = ?",
+                (topic_slug,),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT ask_hash, checked_at FROM ask_check"
+            ).fetchall()
+        return {row["ask_hash"]: row["checked_at"] for row in rows}
+
     def check_counts(self) -> dict[str, int]:
         """슬러그별 체크 수. 묶음 화면이 한 번에 읽는다."""
         rows = self._conn.execute(
