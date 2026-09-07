@@ -76,6 +76,15 @@
       {% if view.draft_status == "PUBLISHED" %}<span class="badge ok">발행함</span>{% endif %}
     {% endif %}
     {% with material = view.material %}{% include "_gauge.html" %}{% endwith %}
+  </p>
+  {# **막대의 뜻을 적어 둔다**(2026-09-08). 전에는 `재료 3/4` 라고만 있고
+     그게 무슨 뜻인지 어디에도 없었다 — 화면이 안 읽힌 큰 이유였다. #}
+  <p class="meta quiet">
+    <strong>재료 넷</strong>이 다 차야 6단 초안에 빈 절이 안 생긴다 —
+    왜 그렇게 판단했나(rationale) · 그래서 어떻게 됐나(outcome) ·
+    어디까지만 맞나(limitation) · <strong>면접에서 어떻게 말할까</strong>(interview).
+  </p>
+  <p class="meta">
     {# 막대만 보고 누르면 빈 절을 만난다. 그 사실을 옆에 붙인다. #}
     {% if view.empty_sections %}
       <span class="meta">이 재료로는

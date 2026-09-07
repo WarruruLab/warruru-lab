@@ -542,6 +542,20 @@ class RecordRepository:
         ).fetchone()
         return dict(row) if row else None
 
+    def list_drafts(self, limit: int = 20) -> list[dict]:
+        """최근에 만든 초안. **화면이 '만든 글' 로 읽는 목록이다.**
+
+        초안이 57건인데 목록 화면이 없어서 주제를 거쳐야만 닿았다 —
+        만든 것을 못 찾으면 만든 적이 없는 것과 같다.
+        """
+        rows = self._conn.execute(
+            "SELECT draft_id, topic, topic_slug, title, status, published_url,"
+            " updated_at FROM draft WHERE deleted_at IS NULL"
+            " ORDER BY updated_at DESC, draft_id DESC LIMIT ?",
+            (max(1, min(limit, 200)),),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_draft(self, draft_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT * FROM draft WHERE draft_id = ?", (draft_id,)
