@@ -390,6 +390,20 @@ class RecordRepository:
         ).fetchall()
         return [row["occurred_at"] for row in rows]
 
+    def first_record_day(self) -> str | None:
+        """가장 오래된 기록의 날. **왼쪽 화살표가 여기서 멈춘다** —
+        끝없이 뒤로 가면 빈 날만 이어지고, 그건 길이 아니라 구멍이다.
+
+        `occurred_at` 은 ISO 문자열이라 앞 열 글자가 곧 날짜다. 다만
+        시각대 경계는 `clock.local_day_bounds` 가 정하므로, 이 값은
+        **더 갈 수 있나** 를 묻는 데만 쓴다.
+        """
+        row = self._conn.execute(
+            "SELECT MIN(occurred_at) AS first FROM learning_record"
+            " WHERE deleted_at IS NULL"
+        ).fetchone()
+        return row["first"][:10] if row and row["first"] else None
+
     def slug_summary(
         self, *, since: str | None = None, until: str | None = None
     ) -> list[dict]:

@@ -286,6 +286,21 @@
      이 화면이 답할 것은 **오늘 뭐 하지** 하나다. 남긴 것은 맨 아래로
      내렸다 — 아침에 여는 사람에게 "어제 뭘 했나" 는 답이 아니다. */
 
+  /* 날짜 이동 — **이름 아래 한 줄**이라 '같은 화면의 다른 날' 로 읽힌다.
+     날짜가 제목이면 옮기는 것이 '다른 화면으로 가는 일' 처럼 보인다. */
+  .day-move { display: flex; align-items: baseline; gap: .6rem;
+              margin: -.4rem 0 1rem; font-family: var(--mono); }
+  .day-move b { font-size: var(--t-lg); letter-spacing: -.02em; }
+  .day-move .wd { font-family: var(--sans); color: var(--ink-faint);
+                  font-size: var(--t-sm); }
+  .day-move a { color: var(--ink-soft); padding: 0 .2rem; }
+  .day-move a:hover { color: var(--key); }
+  /* 갈 수 없는 쪽은 **자리를 지키되 꺼져 있다.** 없애면 화살표가 좌우로
+     튀어서, 날을 넘길 때마다 눌러야 할 자리가 움직인다. */
+  .day-move .stop { color: var(--rule); padding: 0 .2rem; }
+  .day-move .back-today { font-family: var(--sans); font-size: var(--t-sm);
+                          color: var(--key); }
+
   .weekday { font-size: var(--t-lg); color: var(--ink-faint); font-weight: 500;
              margin-left: .3rem; }
   .due-strip { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }

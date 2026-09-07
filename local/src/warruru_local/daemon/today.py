@@ -139,3 +139,32 @@ def build(ctx, today: str) -> dict:
         "todo": 할것[:MAX_ITEMS],
         "more_due": max(0, len(급한것) - MAX_DUE),
     }
+
+
+def day_summary(ctx, day: str) -> dict:
+    """그날 무엇을 했나. **주제로 묶어 보여준다** — 건수 하나로는
+    "그날 뭘 했더라" 에 답이 안 된다.
+
+    홈이 날짜 축을 갖는 이유가 이것이다(2026-09-08). 어제 무엇을 했는지
+    보려고 다른 화면을 찾아가야 하면, 매일 무엇을 했는지가 안 쌓인다.
+    """
+    from warruru_local import topics
+    from warruru_local.clock import local_day_bounds
+
+    start, end = local_day_bounds(day)
+    rows = ctx.records.slug_summary(since=start, until=end)
+    made = []
+    for row in rows:
+        slug = row["topic_slug"]
+        # **한글 이름이 있으면 그것을 쓴다.** 없으면 사람이 적은 원문,
+        # 그것도 슬러그와 같으면 슬러그 하나만 남긴다 — 같은 글자를 두 번
+        # 그리면 줄이 길어지기만 하고 새로 아는 것이 없다.
+        이름 = topics.label_of(slug)
+        if 이름 == slug:
+            이름 = row["topic"] or slug
+        made.append({
+            "slug": slug, "label": 이름,
+            "same": 이름 == slug,
+            "count": row["count"],
+        })
+    return {"topics": made, "count": sum(row["count"] for row in made)}

@@ -1,12 +1,80 @@
 {% extends "base.html" %}
-{% block title %}오늘 — Warruru Local{% endblock %}
+{% block title %}{% if is_past %}{{ day }}{% else %}오늘{% endif %} — 와르르랩{% endblock %}
 {% block content %}
+{# **왼쪽은 이름이고, 날짜는 그 아래다**(2026-09-08 확정). 날짜가 제목이면
+   이 도구의 이름이 화면 어디에도 안 나오고, 날짜를 옮기는 것이 '다른 화면으로
+   가는 일' 처럼 보인다. 이름 아래 한 줄이면 **같은 화면의 다른 날**이다. #}
 <header>
-  <h1>{{ today }} <span class="weekday">{{ weekday }}</span></h1>
+  <h1>와르르랩</h1>
   {% include "_nav.html" %}
 </header>
 
-{# **마감은 위에 따로 선다.** 공부거리와 같은 줄에 두면 D-0 이 묻힌다. #}
+<nav class="day-move" aria-label="날짜 이동">
+  {% if prev_day %}
+  <a href="/?date={{ prev_day }}" aria-label="전날">←</a>
+  {% else %}
+  <span class="stop" aria-hidden="true">←</span>
+  {% endif %}
+
+  <b>{{ day }}</b><span class="wd">{{ weekday }}</span>
+  {% if is_past %}<a class="back-today" href="/">오늘로</a>{% endif %}
+
+  {# **다음 화살표는 지난날에만 있다.** 오늘에서 앞으로 갈 곳이 없다 —
+     아직 안 온 날에 할 것도 한 것도 없어서 그 화면은 거짓이 된다. #}
+  {% if next_day %}
+  <a href="/?date={{ next_day }}" aria-label="다음날">→</a>
+  {% else %}
+  <span class="stop" aria-hidden="true">→</span>
+  {% endif %}
+</nav>
+
+{% if is_past %}
+{# ── 지난날 — 그날 한 것 ── #}
+<section class="tool">
+  <div class="work-head">
+    <h2>이 날 한 것</h2>
+    <span class="meta">기록 {{ past.count }}건 · 주제 {{ past.topics|length }}개</span>
+  </div>
+  {% if past.topics %}
+  {# 많이 남긴 것 여덟만 세우고 나머지는 접는다. 다른 화면을 다 '오늘 볼
+     N개' 로 좁혀 놓고 여기만 목록이면 같은 실수를 되풀이하는 것이다. #}
+  <ul class="asks">
+    {% for row in past.topics[:8] %}
+    <li>
+      <a class="ask-text" href="/t/{{ row.slug }}">{{ row.label }}</a>
+      {% if not row.same %}<code class="quiet">{{ row.slug }}</code>{% endif %}
+      <span class="when">{{ row.count }}건</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if past.topics|length > 8 %}
+  <details class="rest">
+    <summary>나머지 {{ past.topics|length - 8 }}개</summary>
+    <ul class="asks">
+      {% for row in past.topics[8:] %}
+      <li>
+        <a class="ask-text" href="/t/{{ row.slug }}">{{ row.label }}</a>
+        {% if not row.same %}<code class="quiet">{{ row.slug }}</code>{% endif %}
+        <span class="when">{{ row.count }}건</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  <p class="meta">
+    <a href="/d/{{ day }}">그날 자세히</a> ·
+    <a href="/notes/{{ day }}">그날 쓴 노트</a>
+  </p>
+  {% else %}
+  <p class="empty">
+    이 날에는 남긴 것이 없다. ← 로 더 앞으로 가 보거나
+    <a href="/">오늘</a>로 돌아온다.
+  </p>
+  {% endif %}
+</section>
+
+{% else %}
+{# ── 오늘 ── #}
 {% if view.due %}
 <section class="due-strip">
   {% for row in view.due %}
@@ -22,7 +90,6 @@
 </section>
 {% endif %}
 
-{# **축마다 하나씩, 최대 여섯.** 한 축이 화면을 독점하면 다시 목록이 된다. #}
 <section class="tool todo">
   <div class="work-head">
     <h2>오늘 할 것</h2>
@@ -63,23 +130,23 @@
   </p>
   {% else %}
   <p class="empty">
-    오늘 세울 것이 없다. <a href="/career">포트폴리오</a>에서 축을 열어 두면
+    오늘 세울 것이 없다. <a href="/career">취업 준비</a>에서 축을 열어 두면
     여기 선다.
   </p>
   {% endif %}
 </section>
+{% endif %}
 
-{# 남긴 것은 아래다. **홈이 답할 것은 "뭘 남겼나" 가 아니라 "뭐 하지" 다** —
-   그날 기록은 `/d/{날짜}` 에 그대로 있다. #}
+{# 남긴 것은 아래다. 지난날에도 같은 줄을 쓴다 — 그 날과 그 전날을 견준다. #}
 <section class="tool made">
-  <a class="made-n {{ 'zero' if not made }}" href="/d/{{ today }}">
-    <b>{{ made }}</b><span>오늘 기록</span>
+  <a class="made-n {{ 'zero' if not made }}" href="/d/{{ day }}">
+    <b>{{ made }}</b><span>{% if is_past %}이 날 기록{% else %}오늘 기록{% endif %}</span>
   </a>
-  <span class="made-vs quiet">어제 {{ made_before }}건</span>
+  <span class="made-vs quiet">전날 {{ made_before }}건</span>
   <span class="made-links">
     <a href="/t">주제 전체</a> ·
-    <a href="/notes/{{ today }}">오늘 노트</a> ·
-    <a href="/c/{{ today[:7] }}">달력</a>
+    <a href="/notes/{{ day }}">그날 노트</a> ·
+    <a href="/c/{{ day[:7] }}">달력</a>
   </span>
 </section>
 {% endblock %}
