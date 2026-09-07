@@ -35,76 +35,82 @@
 #}
 <style>
   /* ────────────────────────────────────────────────────────────────
-     종이와 잉크, 그리고 인주 (2026-09-08 색 재작업)
+     깔끔한 카드 (2026-09-08 토스 방향으로 재작업)
 
-     **색으로 상태를 말하지 않는다. 형태로 말한다.**
-     격자는 이미 채움을 solid, 빔을 outline 으로 구별하고 있었다.
-     거기에 색을 또 얹으면 색이 정보를 더하지 않는 장식이 되고,
-     장식이 된 색은 화면 전체를 못 믿게 만든다.
+     사용자가 방향을 정했다. 표면 처리를 바꾸되 **정보 설계는 그대로 둔다** —
+     빈칸 격자도 마감 레인도 0 인 지표도 남는다. 바뀌는 것은 그것들이
+     어떻게 보이는가이지 무엇을 말하는가가 아니다.
 
-     그래서 **색은 하나뿐이다 — 인주(印朱).**
-     접수증과 원서에 도장이 찍히는 그 붉은색이고, 이 도구의 주제가
-     마감·접수·제출이라 그 자리에만 쓴다. 화면에서 붉은 것이 보이면
-     그곳이 곧 지금 손이 필요한 자리다.
-
-     이전 판(청록 + 주황 + 붉은색)은 두 가지로 실패했다.
-     ① 주황과 붉은색이 정상 시각에서도 ΔE 10.5 로 구별이 안 됐다
-        (`dataviz` 검사기 실측, 15 미만은 하드 FAIL).
-     ② 색이 셋이면 어느 것도 신호가 되지 못한다.
-
-     중립색은 인주 쪽으로 아주 살짝 기울인 따뜻한 회색이다.
-     완전한 중성 회색은 고르지 않은 것처럼 보이고, 크림색은
-     이 도구의 성격과 무관하다.
+     규칙 넷:
+     ① **테두리 대신 여백과 면.** 회색 바닥 위에 흰 카드를 띄운다.
+        1px 선을 그어 칸을 나누면 칸이 많을수록 화면이 시끄러워진다.
+     ② **모서리를 크게.** 카드 16px, 누르는 것 10px.
+     ③ **글자 계층을 셋으로 뚜렷하게.** 진한 것 · 중간 것 · 연한 것.
+        중간 단계를 여럿 두면 어느 것이 중요한지 흐려진다.
+     ④ **색은 둘.** 파랑은 눌리는 것과 채워진 것, 빨강은 마감과 0.
+        이전 판의 '인주 하나' 규칙은 여기서 접는다 — 그 규칙은 종이·잉크
+        위에서 성립했고, 흰 카드 위에서는 파랑이 '누를 수 있다' 를
+        맡아야 상태와 조작이 갈린다.
      ──────────────────────────────────────────────────────────────── */
 
   :root {
     color-scheme: light;
 
-    --ground:    #F2F0EE;
+    --ground:    #F2F4F6;
     --panel:     #FFFFFF;
-    --panel-2:   #F7F5F3;
-    --ink:       #1C1A18;
-    --ink-soft:  #5E5852;
-    --ink-faint: #726A63;
-    --rule:      #DEDAD5;
-    --rule-soft: #EAE7E3;
+    --panel-2:   #F7F8FA;
+    --ink:       #191F28;
+    --ink-soft:  #4E5968;
+    --ink-faint: #6B7684;
+    --rule:      #E5E8EB;
+    --rule-soft: #F0F2F4;
 
-    /* 유일한 색. 손이 필요한 자리에만.
-       두 모드 모두 본문 대비 4.5:1 을 넘긴다 — 흐린 글자는 장식이 아니라
-       날짜와 건수라, 안 읽히면 그 자리가 없는 것과 같다. */
-    --seal:      #B32B23;
-    --seal-soft: #F6E7E4;
+    /* 파랑을 **두 단**으로 나눈다. 면(칸·버튼)과 글자는 요구 대비가 달라서,
+       한 값으로 둘 다 쓰면 어느 한쪽이 반드시 기준을 못 넘긴다.
+       #3182F6 은 흰 바탕에서 3.71:1 이라 글자로 쓸 수 없다. */
+    --key:       #2272E0;   /* 면 · 글자 겸용. 흰 바탕 4.61:1 */
+    --key-fill:  #3182F6;   /* 칸을 채우는 면. 글자로 쓰지 않는다 */
+    --key-soft:  #E8F3FF;
+    --alert:     #E02D3C;   /* 마감이 닥쳤다 · 0 이다 */
+    --alert-soft:#FEECEE;
 
-    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-            "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Pretendard",
+            "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
             "D2Coding", monospace;
 
-    --t-xs: .69rem;
-    --t-sm: .78rem;
-    --t-md: .86rem;
+    --t-xs: .72rem;
+    --t-sm: .81rem;
+    --t-md: .88rem;
     --t-base: .95rem;
-    --t-lg: 1.1rem;
-    --t-xl: 1.5rem;
-    --t-num: 2.1rem;
+    --t-lg: 1.15rem;
+    --t-xl: 1.6rem;
+    --t-num: 2.2rem;
 
-    --radius: 5px;
-    --pad: 1.15rem;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --pad: 1.5rem;
+    --shadow: 0 1px 2px rgba(25, 31, 40, .04), 0 4px 16px rgba(25, 31, 40, .05);
   }
 
   [data-theme="dark"] {
     color-scheme: dark;
-    --ground:    #191716;
-    --panel:     #211E1C;
-    --panel-2:   #262220;
-    --ink:       #EBE7E3;
-    --ink-soft:  #A29B94;
-    --ink-faint: #8B8379;
-    --rule:      #322D2A;
-    --rule-soft: #262220;
+    --ground:    #16171A;
+    --panel:     #1E2024;
+    --panel-2:   #26282D;
+    --ink:       #EDEFF2;
+    --ink-soft:  #B0B8C1;
+    --ink-faint: #8B95A1;
+    --rule:      #2E3138;
+    --rule-soft: #26282D;
 
-    --seal:      #DE5C54;
-    --seal-soft: #34211F;
+    --key:       #6BA6F8;
+    --key-fill:  #4A8DEE;
+    --key-soft:  #1B2B42;
+    --alert:     #F4707B;
+    --alert-soft:#3A2226;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .22);
   }
 
   * { box-sizing: border-box; }
@@ -116,7 +122,7 @@
     font-size: var(--t-base);
     line-height: 1.6;
     margin: 0;
-    padding: 1.5rem 1.25rem 5rem;
+    padding: 2rem 1.25rem 6rem;
     word-break: keep-all;          /* 한글을 어절 단위로 끊는다 */
     overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
@@ -127,31 +133,30 @@
 
   /* ── 표제 ─────────────────────────────────────────────────── */
 
+  /* 표제는 산세다. 모노는 **숫자에만** 남긴다 — 계기판의 얼굴은 숫자이지
+     제목이 아니고, 제목까지 모노면 화면이 터미널처럼 빽빽해진다. */
   h1 {
-    font-family: var(--mono);
     font-size: var(--t-xl);
-    font-weight: 600;
-    letter-spacing: -.02em;
+    font-weight: 700;
+    letter-spacing: -.03em;
     margin: 0;
     text-wrap: balance;
   }
   h2 {
-    font-family: var(--mono);
     font-size: var(--t-lg);
-    font-weight: 600;
-    letter-spacing: -.01em;
-    margin: 0 0 .5rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin: 0 0 .75rem;
   }
   h3, h3.sub {
-    font-family: var(--mono);
-    font-size: var(--t-sm);
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin: 1.5rem 0 .55rem;
+    font-size: var(--t-md);
+    font-weight: 700;
+    letter-spacing: -.01em;
+    text-transform: none;
+    color: var(--ink);
+    margin: 1.75rem 0 .6rem;
   }
-  h3 .quiet { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  h3 .quiet { font-weight: 400; font-size: var(--t-sm); }
 
   header {
     display: flex; flex-wrap: wrap; align-items: baseline;
@@ -163,28 +168,30 @@
   p { margin: 0 0 .6rem; }
   p:last-child { margin-bottom: 0; }
 
-  a { color: var(--ink); text-underline-offset: .18em; text-decoration-thickness: 1px; }
-  a:hover { color: var(--seal); }
+  a { color: var(--ink); text-decoration: none; }
+  a:hover { color: var(--key); }
+  .preview a, p a { color: var(--key); }
   a:focus-visible, button:focus-visible, summary:focus-visible,
   input:focus-visible, textarea:focus-visible {
-    outline: 2px solid var(--seal); outline-offset: 2px; border-radius: 3px;
+    outline: 2px solid var(--key); outline-offset: 2px; border-radius: 3px;
   }
 
   /* ── 판 ───────────────────────────────────────────────────── */
 
   .tool {
     background: var(--panel);
-    border: 1px solid var(--rule);
+    border: 0;
     border-radius: var(--radius);
     padding: var(--pad);
-    margin-bottom: .85rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
   }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; align-items: start; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
 
   .meta { color: var(--ink-soft); font-size: var(--t-md); }
   .quiet { color: var(--ink-faint); }
   .empty { color: var(--ink-soft); }
-  .empty-today { color: var(--seal); font-weight: 600; }
+  .empty-today { color: var(--alert); font-weight: 600; }
   .when { color: var(--ink-faint); font-family: var(--mono); font-size: var(--t-xs); }
 
   /* ── 숫자가 표제다 ────────────────────────────────────────── */
@@ -197,7 +204,7 @@
     letter-spacing: -.04em;
     color: var(--ink);
   }
-  .dday.near { color: var(--seal); }
+  .dday.near { color: var(--alert); }
   .dday .unit { font-size: var(--t-sm); font-weight: 400; color: var(--ink-faint);
                 letter-spacing: 0; margin-left: .12rem; }
 
@@ -206,28 +213,28 @@
      이 도구가 매번 답하려는 질문은 후자다. */
 
   .grid-gauge {
-    display: flex; flex-wrap: wrap; gap: 3px;
-    margin: .5rem 0 .35rem;
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin: .6rem 0 .4rem;
   }
   .grid-gauge .cell {
-    width: 10px; height: 10px; border-radius: 2px;
-    border: 1px solid var(--rule);
-    background: transparent;
+    width: 11px; height: 11px; border-radius: 3px;
+    border: 0;
+    background: var(--rule);
     display: block;
   }
   /* 채움은 **잉크가 찍힌 것**이다. 색이 아니라 밀도로 말한다. */
-  .grid-gauge .cell.on { background: var(--ink); border-color: var(--ink); }
+  .grid-gauge .cell.on { background: var(--key-fill); }
   /* 공고가 요구하는데 0건인 자리. **여기만 붉다** — 같은 빈칸이라도
      그 자리가 먼저이고, 붉은 칸의 개수가 곧 할 일의 양이다. */
-  .grid-gauge .cell.want { border-color: var(--seal); }
-  a.cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 1px; }
+  .grid-gauge .cell.want { background: var(--alert-soft); box-shadow: inset 0 0 0 1.5px var(--alert); }
+  a.cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 2px; }
 
   /* 숫자를 태그로 감싸 강조하지 않는다. 테스트가 "0 / 4 슬러그" 를
      이어진 글자로 보기 때문이다 — 화면은 같은데 테스트만 깨지는 종류의
      변경이라, 강조는 서체와 색으로 한다. */
   .gauge-read {
-    font-family: var(--mono); font-size: var(--t-sm);
-    color: var(--ink); letter-spacing: -.01em; white-space: nowrap;
+    font-family: var(--mono); font-size: var(--t-sm); font-weight: 500;
+    color: var(--ink-soft); letter-spacing: -.02em; white-space: nowrap;
   }
 
   /* 재료 막대 — 준비도 격자와 **다른 것**이다.
@@ -239,11 +246,11 @@
               font-family: var(--mono); font-size: var(--t-xs); }
   .material .gauge { display: inline-flex; gap: 2px; }
   .material .seg {
-    width: 1.1rem; height: 7px; border-radius: 2px;
-    border: 1px solid var(--rule); overflow: hidden; display: block;
+    width: 1.15rem; height: 7px; border-radius: 4px;
+    background: var(--rule); overflow: hidden; display: block;
   }
-  .material .seg i { display: block; height: 100%; background: var(--ink); }
-  .material .seg.none { border-style: dashed; }
+  .material .seg i { display: block; height: 100%; background: var(--key-fill); }
+  .material .seg.none { background: var(--rule); opacity: .5; }
   .material .ready { color: var(--ink); }
   .material .short { color: var(--ink-faint); }
 
@@ -252,9 +259,9 @@
   .lane { display: flex; flex-direction: column; gap: 0; }
   .lane-row {
     display: grid;
-    grid-template-columns: 4.6rem minmax(8rem, 1fr) minmax(0, 1.4fr) auto;
-    gap: .9rem; align-items: center;
-    padding: .7rem 0;
+    grid-template-columns: 4.8rem minmax(8rem, 1fr) minmax(0, 1.4fr) auto;
+    gap: 1rem; align-items: center;
+    padding: .95rem 0;
     border-top: 1px solid var(--rule-soft);
   }
   .lane-row:first-child { border-top: 0; }
@@ -266,35 +273,35 @@
 
   /* ── 지표 칸 ──────────────────────────────────────────────── */
 
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
-           background: var(--rule); border: 1px solid var(--rule);
-           border-radius: var(--radius); overflow: hidden; }
-  .stat { background: var(--panel); padding: .8rem .9rem; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+           margin-bottom: 1rem; }
+  .stat { background: var(--panel); padding: 1.1rem 1.2rem;
+          border-radius: var(--radius); box-shadow: var(--shadow); }
   .stat .n {
-    font-family: var(--mono); font-size: 1.35rem; font-weight: 600;
-    line-height: 1.1; letter-spacing: -.03em; display: block;
+    font-family: var(--mono); font-size: 1.5rem; font-weight: 600;
+    line-height: 1.2; letter-spacing: -.04em; display: block;
   }
-  .stat .k { font-size: var(--t-xs); color: var(--ink-faint); letter-spacing: .03em; }
+  .stat .k { font-size: var(--t-sm); color: var(--ink-faint); }
   /* 0 인 칸. 배경을 칠하지 않는다 — 칠하면 네 칸 중 둘이 색면이 되어
      붉은색이 신호가 아니라 배경이 된다. 숫자만 붉게 둔다. */
-  .stat.zero .n, .stat.zero .k { color: var(--seal); }
+  .stat.zero .n { color: var(--alert); }
 
   /* ── 배지 ─────────────────────────────────────────────────── */
 
   .badge {
     display: inline-flex; align-items: center; gap: .25rem;
-    font-family: var(--mono); font-size: var(--t-xs);
-    padding: .12rem .4rem;
-    border: 1px solid var(--rule); border-radius: 3px;
-    color: var(--ink-soft); background: var(--panel-2);
+    font-size: var(--t-xs); font-weight: 600;
+    padding: .2rem .5rem;
+    border: 0; border-radius: 999px;
+    color: var(--ink-soft); background: var(--rule-soft);
     text-decoration: none; white-space: nowrap;
     letter-spacing: -.01em;
   }
   /* 배지도 형태로 가른다. 86 곳에 붙는 것이라 색을 쓰면 신호가 죽는다. */
-  .badge.ok   { color: var(--panel); background: var(--ink); border-color: var(--ink); }
-  .badge.warn { border-style: dashed; color: var(--ink-soft); background: transparent; }
-  .badge.due  { color: var(--seal);  border-color: var(--seal); background: var(--seal-soft); }
-  a.badge:hover { border-color: var(--ink-soft); }
+  .badge.ok   { color: var(--key);   background: var(--key-soft); }
+  .badge.warn { color: var(--ink-faint); background: var(--rule-soft); }
+  .badge.due  { color: var(--alert); background: var(--alert-soft); }
+  a.badge:hover { filter: brightness(.96); }
 
   /* ── 목록 ─────────────────────────────────────────────────── */
 
@@ -303,8 +310,8 @@
     display: flex; flex-direction: column;
   }
   ul.picks > li {
-    display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
-    padding: .5rem 0; border-top: 1px solid var(--rule-soft);
+    display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+    padding: .7rem 0; border-top: 1px solid var(--rule-soft);
   }
   ul.picks > li:first-child { border-top: 0; }
   ul.picks > li > a:first-child { flex: 1 1 8rem; font-size: var(--t-md); text-decoration: none; }
@@ -327,14 +334,14 @@
 
   pre.body, .body {
     font-family: var(--mono); font-size: var(--t-sm); line-height: 1.6;
-    background: var(--panel-2); border: 1px solid var(--rule);
-    border-radius: var(--radius); padding: .7rem .85rem;
+    background: var(--panel-2); border: 0;
+    border-radius: var(--radius-sm); padding: .85rem 1rem;
     overflow-x: auto; margin: .5rem 0; white-space: pre-wrap;
   }
   code { font-family: var(--mono); font-size: .9em; }
   p code, li code, td code {
-    background: var(--panel-2); border: 1px solid var(--rule);
-    border-radius: 3px; padding: 0 .25rem;
+    background: var(--panel-2); border: 0;
+    border-radius: 5px; padding: .1rem .3rem;
   }
 
   .preview {
@@ -345,20 +352,20 @@
   .preview h3 { text-transform: none; letter-spacing: 0; color: var(--ink); }
   .preview table { width: 100%; border-collapse: collapse; font-size: var(--t-sm);
                    margin: .6rem 0; }
-  .preview th, .preview td { border: 1px solid var(--rule); padding: .35rem .5rem;
-                             text-align: left; }
+  .preview th, .preview td { border: 0; border-bottom: 1px solid var(--rule);
+                             padding: .5rem .6rem; text-align: left; }
   .preview pre { overflow-x: auto; }
 
   /* ── 폼 ───────────────────────────────────────────────────── */
 
   button, .btn {
-    font-family: var(--sans); font-size: var(--t-md);
-    padding: .35rem .7rem; border-radius: var(--radius);
-    border: 1px solid var(--rule); background: var(--panel-2);
+    font-family: var(--sans); font-size: var(--t-md); font-weight: 600;
+    padding: .45rem .85rem; border-radius: var(--radius-sm);
+    border: 0; background: var(--rule-soft);
     color: var(--ink); cursor: pointer;
   }
-  button:hover { border-color: var(--ink-faint); }
-  button.primary { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+  button:hover { filter: brightness(.96); }
+  button.primary { background: var(--key); border-color: var(--key); color: #fff; }
   button.primary:hover { filter: brightness(1.08); }
   button:disabled { opacity: .5; cursor: default; }
 
@@ -367,12 +374,12 @@
     display: inline-grid; place-items: center;
     font-family: var(--mono); font-size: var(--t-sm); line-height: 1;
   }
-  button.tick.on { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+  button.tick.on { background: var(--key); border-color: var(--key); color: #fff; }
 
   input[type="text"], input[type="url"], textarea {
     font-family: var(--sans); font-size: var(--t-md);
-    padding: .4rem .55rem; border-radius: var(--radius);
-    border: 1px solid var(--rule); background: var(--panel);
+    padding: .65rem .8rem; border-radius: var(--radius-sm);
+    border: 0; background: var(--panel-2);
     color: var(--ink); width: 100%;
   }
   form.inline { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
@@ -390,15 +397,15 @@
   table.calendar th { color: var(--ink-faint); font-weight: 400; border: 0; }
   table.calendar td a { display: grid; place-items: center; width: 100%; height: 100%;
                         text-decoration: none; }
-  table.calendar td.has { background: var(--panel-2); }
-  table.calendar td.has a { color: var(--ink); font-weight: 700; }
+  table.calendar td.has { background: var(--key-soft); }
+  table.calendar td.has a { color: var(--key); font-weight: 700; }
 
   /* ── 화면마다 하나씩 있는 것들 ────────────────────────────── */
 
   .theme-toggle { font-family: var(--mono); font-size: var(--t-xs); }
   .date-switcher { display: flex; gap: .5rem; align-items: baseline;
                    font-family: var(--mono); font-size: var(--t-sm); }
-  .today { color: var(--seal); font-weight: 600; }
+  .today { color: var(--alert); font-weight: 600; }
 
   .records { display: flex; flex-direction: column; }
   .row { display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
@@ -406,19 +413,19 @@
           margin-top: .55rem; }
   .title { font-weight: 600; }
   .done { color: var(--ink-faint); text-decoration: line-through; }
-  .marked { color: var(--ink); font-weight: 600; }
-  .danger { color: var(--seal); border-color: var(--seal); }
-  button.danger:hover { background: var(--seal-soft); }
+  .marked { color: var(--key); font-weight: 600; }
+  .danger { color: var(--alert); border-color: var(--alert); }
+  button.danger:hover { background: var(--alert-soft); }
   .go { font-family: var(--mono); font-size: var(--t-sm); }
 
   /* 목록 화면의 준비도 — 표 안에서는 격자가 줄을 밀어내므로 막대로 둔다.
      같은 값을 두 모양으로 그리는 유일한 자리다. */
   .cover {
     display: inline-block; width: 5.5rem; height: 6px; vertical-align: middle;
-    border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
-    background: var(--panel-2);
+    border: 0; border-radius: 999px; overflow: hidden;
+    background: var(--rule);
   }
-  .cover i { display: block; height: 100%; background: var(--ink); }
+  .cover i { display: block; height: 100%; background: var(--key-fill); }
   .cover-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
   .cover-table th, .cover-table td {
     text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--rule-soft);

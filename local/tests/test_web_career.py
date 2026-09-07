@@ -1188,17 +1188,17 @@ def test_준비도가_막대가_아니라_칸이다(client, home):
     assert "0 / 4 슬러그" in page               # 글자는 이어져 있어야 한다
 
 
-def test_색은_인주_하나뿐이다():
-    """**색으로 상태를 말하지 않는다. 형태로 말한다.**
+def test_색이_둘을_넘지_않는다():
+    """상태에 쓰는 색은 **파랑과 빨강 둘뿐**이다.
 
-    이전 판은 청록·주황·붉은색 셋을 썼는데 두 가지로 실패했다 —
-    주황과 붉은색이 정상 시각에서도 ΔE 10.5 로 구별이 안 됐고
-    (`dataviz` 검사기, 15 미만은 하드 FAIL), 색이 셋이면 어느 것도
-    신호가 되지 못했다.
+    2026-09-08 에 사용자가 방향을 정해 '인주 하나' 규칙을 접었다.
+    그 규칙은 종이·잉크 위에서 성립했고, 흰 카드 위에서는 파랑이
+    '누를 수 있다' 를 맡아야 상태와 조작이 갈린다.
 
-    격자는 이미 채움을 solid, 빔을 outline 으로 구별한다. 거기 색을 또
-    얹으면 색이 정보를 더하지 않는 장식이 되고, 장식이 된 색은 화면
-    전체를 못 믿게 만든다.
+    다만 **둘을 넘기지 않는다.** 셋이 되는 순간 어느 것도 신호가 못 된다 —
+    이전 판(청록·주황·붉은색)이 정확히 그렇게 실패했고, 그때는 주황과
+    붉은색이 정상 시각에서도 ΔE 10.5 로 구별조차 안 됐다.
+    `--key-fill` 은 `--key` 와 같은 색상의 다른 단이라 따로 세지 않는다.
     """
     import re
     from pathlib import Path
@@ -1207,13 +1207,20 @@ def test_색은_인주_하나뿐이다():
            "daemon" / "templates" / "base.html").read_text(encoding="utf-8")
     css = css[css.index("<style>"):css.index("</style>")]
     tokens = {name for name in re.findall(r"--([a-z][a-z-]*):", css)}
-    색 = {t for t in tokens if t.startswith(("seal", "full", "gap", "due"))}
-    assert 색 == {"seal", "seal-soft"}, 색
+    색상 = {t.split("-")[0] for t in tokens
+            if t.split("-")[0] not in
+            {"ground", "panel", "ink", "rule", "sans", "mono", "t", "radius",
+             "pad", "shadow"}}
+    assert 색상 == {"key", "alert"}, 색상
 
 
 def test_흐린_글자도_읽힌다():
     """`.quiet` 이 감싸는 것은 장식이 아니라 날짜와 건수다.
     안 읽히면 그 자리가 없는 것과 같아서 본문 기준(4.5:1)을 지킨다.
+
+    **카드 위에서 잰다.** 글자가 실제로 앉는 면은 바닥이 아니라 카드다.
+    이 검사 때문에 파랑을 두 단으로 나눴다 — 토스의 #3182F6 은 흰 바탕에서
+    3.71:1 이라 글자로 쓸 수 없고, 면에만 쓴다.
     """
     import re
     from pathlib import Path
@@ -1233,8 +1240,9 @@ def test_흐린_글자도_읽힌다():
     밝은 = css[css.index(":root {"):css.index('[data-theme="dark"]')]
     어두운 = css[css.index('[data-theme="dark"]'):css.index("* { box-sizing")]
 
-    for 블록, 바닥 in ((밝은, "--ground"), (어두운, "--ground")):
-        땅 = re.search(rf"{바닥}:\s*(#[0-9A-Fa-f]{{6}})", 블록).group(1)
-        for 이름 in ("--ink", "--ink-soft", "--ink-faint", "--seal"):
+    # **카드 위**에서 잰다. 글자가 실제로 앉는 면이 바닥이 아니라 카드다.
+    for 블록 in (밝은, 어두운):
+        땅 = re.search(r"--panel:\s*(#[0-9A-Fa-f]{6})", 블록).group(1)
+        for 이름 in ("--ink", "--ink-soft", "--ink-faint", "--key", "--alert"):
             색 = re.search(rf"{이름}:\s*(#[0-9A-Fa-f]{{6}})", 블록).group(1)
             assert 대비(색, 땅) >= 4.5, (이름, 색, 땅, round(대비(색, 땅), 2))
