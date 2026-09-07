@@ -1,0 +1,188 @@
+{# 답해보기 — **"말할 수 있나"** 를 묻는 자리(명세 §2.10 d).
+
+   체크(`○`)와 다른 판정이다. 체크는 3초짜리 자기 판정이고 여기는 내 문장이
+   나온다. 챗봇이 하는 것은 채점이 아니라 **빠진 것 짚기**다 — 점수를 매기면
+   점수를 올리려고 쓰게 되고, 그러면 남는 것이 모범답안의 사본이다.
+
+   **내 답은 어느 쪽이든 저장된다.** 보낸 순간 파일에 앉고, 짚어준 것은
+   그 뒤에 덧붙는다. 3개월 뒤 같은 질문이 왔을 때 그때 답과 지금 답을
+   나란히 보는 것이 이 저장의 이유다. #}
+<div id="try-box" hidden>
+  <div class="try-card" role="dialog" aria-modal="true" aria-labelledby="try-q">
+    <header class="try-head">
+      <b id="try-q">질문</b>
+      <button type="button" id="try-x" aria-label="닫기">✕</button>
+    </header>
+
+    <p class="meta quiet">
+      <strong>아는 만큼, 말하듯이.</strong> 두세 문장이면 된다 —
+      채점하지 않는다. 빠진 것만 짚어 준다.
+    </p>
+    <textarea id="try-text" rows="6"
+              placeholder="예) 클라이언트가 SYN, 서버가 SYN+ACK, 클라이언트가 ACK…"></textarea>
+
+    <div class="ask-row">
+      <button type="button" id="try-send" class="primary">보내기</button>
+      <select id="try-cli" aria-label="어느 에이전트로">
+        <option value="codex">Codex</option>
+        <option value="claude">Claude</option>
+      </select>
+      <span class="meta quiet" id="try-status"></span>
+    </div>
+
+    <div id="try-review" class="try-review" hidden></div>
+
+    {# 짚어준 것을 읽고 나서 갈라지는 세 갈래. #}
+    <div id="try-next" class="try-next" hidden>
+      <form method="post" id="try-check" action="/web/topics/x/asks">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="ask" value="">
+        <input type="hidden" name="text" value="">
+        <input type="hidden" name="back" value="{{ back }}">
+        <button class="primary" type="submit">답할 수 있다고 체크</button>
+      </form>
+      <button type="button" id="try-promote">기록으로 올리기</button>
+      <button type="button" id="try-not">아직 아니다</button>
+      <span class="meta quiet">체크한 것은 3개월 뒤 다시 묻는다.</span>
+    </div>
+
+    {# **내 답이 그대로 본문이 된다.** 받아 적은 것이 아니라 내 말이라
+       기록 자격이 있다(AGENTS.md §5). #}
+    <form id="try-rec" class="try-rec" hidden method="post" action="/web/topics/x/promote">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <input type="hidden" name="topic" value="">
+      <input type="hidden" name="kind" value="CONCEPT">
+      <input type="hidden" name="back" value="{{ back }}">
+      <label class="chat-field">
+        <span>제목</span>
+        <input type="text" name="title" id="try-title" required>
+      </label>
+      <label class="chat-field">
+        <span>본문 — 방금 쓴 내 답이다. 고칠 수 있다</span>
+        <textarea name="body" id="try-body" rows="6" required></textarea>
+      </label>
+      <div class="ask-row">
+        <button type="submit" class="primary">기록 남기기</button>
+        <button type="button" id="try-rec-cancel">취소</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var box = document.getElementById("try-box");
+  if (!box || !window.fetch) return;
+  var q = document.getElementById("try-q");
+  var text = document.getElementById("try-text");
+  var send = document.getElementById("try-send");
+  var cli = document.getElementById("try-cli");
+  var status = document.getElementById("try-status");
+  var review = document.getElementById("try-review");
+  var next = document.getElementById("try-next");
+  var rec = document.getElementById("try-rec");
+  var check = document.getElementById("try-check");
+  var 지금 = null;
+
+  function 열기(slug, hash, 질문) {
+    지금 = { slug: slug, hash: hash, text: 질문 };
+    q.textContent = 질문;
+    text.value = "";
+    status.textContent = "";
+    review.hidden = true; review.textContent = "";
+    next.hidden = true; rec.hidden = true;
+    check.action = "/web/topics/" + encodeURIComponent(slug) + "/asks";
+    check.elements.ask.value = hash;
+    check.elements.text.value = 질문;
+    rec.action = "/web/topics/" + encodeURIComponent(slug) + "/promote";
+    rec.elements.topic.value = slug;
+    box.hidden = false;
+    text.focus();
+  }
+  function 닫기() { box.hidden = true; 지금 = null; }
+
+  document.querySelectorAll("button.try").forEach(function (b) {
+    b.addEventListener("click", function () {
+      열기(b.dataset.slug, b.dataset.ask, b.dataset.text);
+    });
+  });
+  document.getElementById("try-x").addEventListener("click", 닫기);
+  document.getElementById("try-not").addEventListener("click", 닫기);
+  document.getElementById("try-rec-cancel").addEventListener("click", function () {
+    rec.hidden = true; next.hidden = false;
+  });
+  // 바깥을 누르거나 Esc 로 닫는다. **답은 이미 저장되어 있다** — 닫는다고
+  // 내 문장이 없어지지 않는다.
+  box.addEventListener("click", function (e) { if (e.target === box) 닫기(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !box.hidden) 닫기();
+  });
+
+  document.getElementById("try-promote").addEventListener("click", function () {
+    document.getElementById("try-body").value = text.value.trim().slice(0, 4000);
+    document.getElementById("try-title").value =
+      (지금 ? 지금.text : "").replace(/\?$/, "").slice(0, 80);
+    rec.hidden = false; next.hidden = true;
+    document.getElementById("try-title").focus();
+  });
+
+  send.addEventListener("click", async function () {
+    if (!지금 || send.disabled) return;
+    var 답 = text.value.trim();
+    if (!답) { status.textContent = "답을 적어 주세요"; text.focus(); return; }
+    send.disabled = true;
+    status.textContent = "짚어보는 중…";
+    review.hidden = false; review.textContent = "";
+
+    var body = new URLSearchParams();
+    body.set("_token", {{ token|tojson }});
+    body.set("ask", 지금.hash);
+    body.set("text", 답);
+    body.set("question", 지금.text);
+    body.set("cli", cli.value);
+
+    var 모은글 = "";
+    try {
+      var res = await fetch(
+        "/web/topics/" + encodeURIComponent(지금.slug) + "/answer",
+        { method: "POST", body: body });
+      if (!res.ok) {
+        status.textContent = "보내지 못했습니다 (" + res.status + ")";
+        send.disabled = false; return;
+      }
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var blocks = buf.split("\n\n"); buf = blocks.pop();
+        blocks.forEach(function (block) {
+          var name = "", data = "";
+          block.split("\n").forEach(function (line) {
+            if (line.indexOf("event: ") === 0) name = line.slice(7);
+            if (line.indexOf("data: ") === 0) data = line.slice(6);
+          });
+          if (!name) return;
+          var payload = {};
+          try { payload = JSON.parse(data); } catch (e) { return; }
+          // **저장이 먼저 온다.** 뒤가 다 실패해도 내 문장은 남았다.
+          if (name === "saved") status.textContent = "내 답 저장됨 · 짚어보는 중…";
+          if (name === "message") {
+            모은글 += payload.text;
+            review.textContent = 모은글;
+          }
+          if (name === "error") status.textContent =
+            payload.message + (payload.fix ? " — " + payload.fix : "");
+          if (name === "done") {
+            status.textContent = payload.reviewed
+              ? "저장됨 — 이 답은 다음에 다시 물을 때 같이 보인다"
+              : "내 답은 저장됐다. 짚어주기는 못 받았다";
+            next.hidden = false;
+          }
+        });
+      }
+    } catch (err) { status.textContent = "끊겼습니다: " + err; }
+    send.disabled = false;
+  });
+}());
+</script>

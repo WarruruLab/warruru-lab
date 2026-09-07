@@ -780,6 +780,11 @@ def build_group(ctx, key: str) -> dict | None:
 
             today = local_date_of(to_iso(ctx.clock.now()))
             group["picks"] = checking.picks(ctx, key, today)
+            # 이전 답변은 **접힌 채로** 같이 내려간다(2026-09-08 확정).
+            # 다시 물을 때 백지에서 시작하지 않으려는 것이지, 보여주려는
+            # 것이 아니라서 기본으로는 안 보인다.
+            for pick in group["picks"]:
+                pick["answers"] = checking.my_answers(ctx, pick["slug"], pick["hash"])
             group["stale"] = checking.stale_count(ctx, key, today)
             group["books"] = checking.books_for(key)
             낡음 = {}
