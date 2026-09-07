@@ -1186,3 +1186,55 @@ def test_준비도가_막대가_아니라_칸이다(client, home):
     assert 'class="grid-gauge"' in page
     assert page.count('class="cell ') >= 4      # 슬러그 4개 = 칸 4개
     assert "0 / 4 슬러그" in page               # 글자는 이어져 있어야 한다
+
+
+def test_색은_인주_하나뿐이다():
+    """**색으로 상태를 말하지 않는다. 형태로 말한다.**
+
+    이전 판은 청록·주황·붉은색 셋을 썼는데 두 가지로 실패했다 —
+    주황과 붉은색이 정상 시각에서도 ΔE 10.5 로 구별이 안 됐고
+    (`dataviz` 검사기, 15 미만은 하드 FAIL), 색이 셋이면 어느 것도
+    신호가 되지 못했다.
+
+    격자는 이미 채움을 solid, 빔을 outline 으로 구별한다. 거기 색을 또
+    얹으면 색이 정보를 더하지 않는 장식이 되고, 장식이 된 색은 화면
+    전체를 못 믿게 만든다.
+    """
+    import re
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parents[1] / "src" / "warruru_local" /
+           "daemon" / "templates" / "base.html").read_text(encoding="utf-8")
+    css = css[css.index("<style>"):css.index("</style>")]
+    tokens = {name for name in re.findall(r"--([a-z][a-z-]*):", css)}
+    색 = {t for t in tokens if t.startswith(("seal", "full", "gap", "due"))}
+    assert 색 == {"seal", "seal-soft"}, 색
+
+
+def test_흐린_글자도_읽힌다():
+    """`.quiet` 이 감싸는 것은 장식이 아니라 날짜와 건수다.
+    안 읽히면 그 자리가 없는 것과 같아서 본문 기준(4.5:1)을 지킨다.
+    """
+    import re
+    from pathlib import Path
+
+    def 밝기(hex6: str) -> float:
+        parts = [int(hex6[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        parts = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+                 for v in parts]
+        return 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2]
+
+    def 대비(a: str, b: str) -> float:
+        높, 낮 = sorted((밝기(a), 밝기(b)), reverse=True)
+        return (높 + 0.05) / (낮 + 0.05)
+
+    css = (Path(__file__).resolve().parents[1] / "src" / "warruru_local" /
+           "daemon" / "templates" / "base.html").read_text(encoding="utf-8")
+    밝은 = css[css.index(":root {"):css.index('[data-theme="dark"]')]
+    어두운 = css[css.index('[data-theme="dark"]'):css.index("* { box-sizing")]
+
+    for 블록, 바닥 in ((밝은, "--ground"), (어두운, "--ground")):
+        땅 = re.search(rf"{바닥}:\s*(#[0-9A-Fa-f]{{6}})", 블록).group(1)
+        for 이름 in ("--ink", "--ink-soft", "--ink-faint", "--seal"):
+            색 = re.search(rf"{이름}:\s*(#[0-9A-Fa-f]{{6}})", 블록).group(1)
+            assert 대비(색, 땅) >= 4.5, (이름, 색, 땅, round(대비(색, 땅), 2))
