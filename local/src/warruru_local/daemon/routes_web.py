@@ -25,7 +25,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 @router.get("/")
-async def index(request: Request):
+async def index(request: Request, date: str | None = None):
     """홈 — **오늘 뭐 하지**에 답한다(명세 §2.13).
 
     2026-09-08 까지 이 자리는 `/d/{오늘}` 로 보내는 리다이렉트였다. 아침에
@@ -38,15 +38,30 @@ async def index(request: Request):
     """
     ctx = request.app.state.ctx
     now = to_iso(ctx.clock.now())
-    day = local_date_of(now)
+    today = local_date_of(now)
+    # **미래는 없다.** 아직 안 온 날에 "할 것" 도 "한 것" 도 없어서,
+    # 그 화면은 무엇을 보여줘도 거짓이 된다. 넘겨받으면 오늘로 당긴다.
+    day = _validate_date(date) if date else today
+    if day > today:
+        day = today
+    지난날 = day < today
+
     start, end = local_day_bounds(day)
     어제 = _shift(day, -1)
     시작2, 끝2 = local_day_bounds(어제)
+    처음 = ctx.records.first_record_day()
     return templates.TemplateResponse(
         request, "home.html",
         {
-            "view": todayview.build(ctx, day),
-            "today": day,
+            # 지난날에는 '할 것' 을 세우지 않는다 — 지나간 날에 대한
+            # 할 일은 뜻이 없다. 그 자리를 '그날 한 것' 이 받는다.
+            "view": todayview.build(ctx, day) if not 지난날 else None,
+            "past": todayview.day_summary(ctx, day) if 지난날 else None,
+            "is_past": 지난날,
+            "day": day,
+            "prev_day": 어제 if not 처음 or 어제 >= 처음 else "",
+            "next_day": _shift(day, 1) if 지난날 else "",
+            "today": today,
             "weekday": _weekday(day),
             # 세는 것이 목적이 아니라 **어제와 견주는 것**이 목적이다.
             # "오늘 0건" 만으로는 그게 이상한 일인지 알 수 없다.

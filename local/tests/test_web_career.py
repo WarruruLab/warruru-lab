@@ -1435,3 +1435,48 @@ def test_홈은_남긴_것을_맨_아래로_내린다(client):
     page = client.get("/").text
     # 네비에도 '오늘 기록' 이 있으므로 본문의 표식으로 잰다.
     assert page.index("<h2>오늘 할 것</h2>") < page.index('class="made-n')
+
+
+# ── 홈의 날짜 축 (2026-09-08) ────────────────────────────────────
+#
+# 어제 무엇을 했는지 보려고 다른 화면을 찾아가야 하면, 매일 무엇을 했는지가
+# 안 쌓인다. 홈이 그 자리를 받는다.
+
+def test_오늘에서는_앞으로_못_간다(client):
+    """**미래는 없다.** 아직 안 온 날에 '할 것' 도 '한 것' 도 없어서,
+    그 화면은 무엇을 보여줘도 거짓이 된다."""
+    page = client.get("/").text
+    assert 'href="/?date=2026-07-21"' in page          # 전날로는 간다
+    assert 'href="/?date=2026-07-23"' not in page      # 다음날로는 못 간다
+    assert '<span class="stop"' in page                # 자리는 지키되 꺼져 있다
+
+
+def test_지난날에서는_양쪽으로_간다(client):
+    page = client.get("/?date=2026-07-20").text
+    assert 'href="/?date=2026-07-19"' in page
+    assert 'href="/?date=2026-07-21"' in page
+    assert 'href="/"' in page                          # 오늘로 돌아오는 길
+
+
+def test_미래를_넘기면_오늘로_당긴다(client):
+    """주소를 손으로 고쳐도 없는 날이 열리지 않는다."""
+    page = client.get("/?date=2027-01-01").text
+    assert "<b>2026-07-22</b>" in page
+    assert "오늘 할 것" in page
+
+
+def test_지난날은_할_것_대신_한_것을_보여준다(client):
+    """지나간 날에 대한 할 일은 뜻이 없다."""
+    page = client.get("/?date=2026-07-20").text
+    assert "이 날 한 것" in page
+    assert "오늘 할 것" not in page
+    # 마감도 안 뜬다 — 마감은 오늘 기준이다.
+    assert 'class="due-strip"' not in page
+
+
+def test_왼쪽은_이름이고_날짜는_그_아래다(client):
+    """날짜가 제목이면 도구 이름이 화면 어디에도 안 나오고,
+    날짜를 옮기는 것이 '다른 화면으로 가는 일' 처럼 보인다."""
+    page = client.get("/").text
+    assert "<h1>와르르랩</h1>" in page
+    assert page.index("<h1>와르르랩</h1>") < page.index('class="day-move"')
