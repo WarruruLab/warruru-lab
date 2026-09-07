@@ -105,26 +105,24 @@
   {% endif %}
 </section>
 
-{# 5. 채워지는 정도 — 세 축의 격자. 이 도구의 시그니처다. #}
+{# 5. 기술스택 — **이력서와 공고에 적히는 말**이다(2026-09-08 교체).
+   전에는 세 축(프로젝트 78 · CS 71 · AI 31)의 격자가 이 자리였는데,
+   그 자름은 공부에는 맞아도 이력서에 적을 때는 안 맞았다 — 공고는
+   `spring-di` 라고 쓰지 않고 Spring 이라고 쓴다. 격자는 `/career/stack`
+   에 그대로 있다. #}
 <section class="tool">
-  <h2><a href="/career/stack">채워지는 정도</a></h2>
-  <div class="axes">
-    {% for axis, label in [(stack.coverage, "프로젝트 주제"), (stack.cs_coverage, "CS 지식"),
-                           (stack.ai_coverage, "AI · 에이전트")] %}
-    <div class="axis">
-      <div class="axis-head">
-        <strong>{{ label }}</strong>
-        <span class="gauge-read">{{ axis.covered }} / {{ axis.total }}</span>
-      </div>
-      <span class="grid-gauge" role="img" aria-label="{{ label }} {{ axis.covered }}/{{ axis.total }}">
-        {%- for n in range(axis.total) -%}
-        <span class="cell {{ 'on' if n < axis.covered }}"></span>
-        {%- endfor -%}
-      </span>
-    </div>
+  <h2><a href="/career/stacks">기술스택</a></h2>
+  <ul class="tagline">
+    {% for row in stacks[:8] %}
+    <li>
+      <a class="tag {{ 'filled' if row.written else '' }}" href="/career/s/{{ row.key }}">
+        {{ row.name }}
+        <i>{{ row.written }}/{{ row.total }}</i>
+      </a>
+    </li>
     {% endfor %}
-  </div>
-  <a class="more" href="/career/stack">주제별로 보기 →</a>
+  </ul>
+  <a class="more" href="/career/stacks">{{ stacks|length }}개 전체 · 정리하기 →</a>
 </section>
 
 {# 6. 책 — 반납일이 있는 것부터 #}

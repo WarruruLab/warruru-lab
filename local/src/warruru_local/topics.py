@@ -878,3 +878,75 @@ RECOMMENDED_SLUGS: tuple[str, ...] = (
 # 판정 전용 집합. RECOMMENDED_SLUGS 는 순서가 의미를 가지므로 튜플로 두고,
 # 멤버십만 여기서 상수 시간으로 본다.
 _RECOMMENDED_SET = frozenset(RECOMMENDED_SLUGS)
+
+
+# ── 기술스택 (2026-09-08 추가) ────────────────────────────────────
+#
+# **축 셋(로드맵 · CS · AI)과 다른 자름이다.** 저쪽은 "만들면서 겪나 /
+# 앉아서 공부하나" 로 갈랐고, 이쪽은 **이력서와 공고에 적히는 말**로
+# 가른다. 공고 8곳의 `required` 가 쓰는 단어가 그대로다 —
+# Java · Spring Boot · RDBMS · Redis/Valkey · Kubernetes · AWS ·
+# 리눅스·네트워크.
+#
+# 슬러그 180개가 **빠짐없이** 14개로 갈린다(`test_스택이_슬러그를_다_덮는다`).
+# 남는 것이 생기면 그 슬러그는 어느 화면에서도 안 보이게 된다.
+#
+# `extras` 는 접두어로 안 잡히는 것들이다. 접두어를 늘려 억지로 맞추면
+# 다른 스택의 것까지 딸려 오므로, 이름을 그대로 적는다.
+STACKS: tuple[tuple[str, str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("java", "Java",
+     ("lang-", "oop-", "pattern-", "jvm-", "java-"), ("race-condition",)),
+    ("spring", "Spring",
+     ("spring-", "jpa-", "tx-", "dto-", "filter-", "api-", "package-",
+      "validation-"), ("querydsl",)),
+    ("db", "DB · SQL",
+     ("db-", "composite-", "domain-", "entity-", "sql-"),
+     ("optimistic-vs-pessimistic-lock",)),
+    ("redis", "Redis · 캐시", ("redis-", "cache-"), ()),
+    ("mq", "Kafka · 메시징",
+     ("kafka-", "rabbitmq-", "consumer-", "mq-", "outbox-"),
+     ("sync-to-async", "poison-message", "message-persistence", "idempotency",
+      "task-queue-vs-event-stream")),
+    ("aws", "AWS · 클라우드",
+     ("aws-", "terraform-", "ec2-", "iac-"),
+     ("public-private-subnet", "nat-gateway", "security-group-nacl")),
+    ("container", "Docker · 쿠버네티스",
+     ("k8s-", "docker-", "nginx-", "ci-", "cd-"),
+     ("dockerfile-multistage", "github-actions-pipeline")),
+    ("network", "네트워크", ("net-", "load-", "http-", "dns-"), ()),
+    ("os", "OS · 리눅스", ("os-", "linux-"), ()),
+    ("algo", "자료구조 · 알고리즘", ("ds-", "algo-"), ()),
+    ("arch", "아키텍처 · 분산", ("arch-", "dist-", "msa-", "event-"), ()),
+    ("web", "웹 기초 · 보안",
+     ("web-", "auth-", "security-"), ("sse-reconnect",)),
+    ("quality", "테스트 · 성능",
+     ("test-", "mockito-", "k6-"), ("latency-p95", "prometheus-grafana")),
+    ("ai", "AI · 에이전트",
+     ("agent-", "llm-", "mcp-", "rag-", "multi-", "eval-", "prompt-"), ()),
+)
+
+
+def all_slugs() -> tuple[str, ...]:
+    """세 축의 슬러그 전부. **순서를 지키고 중복을 없앤다.**"""
+    return tuple(dict.fromkeys(
+        list(RECOMMENDED_SLUGS) + list(CS_SLUGS) + list(AI_SLUGS)))
+
+
+def stack_of(slug: str) -> str:
+    """이 슬러그가 속한 스택 키. 없으면 빈 문자열이다.
+
+    **`extras` 를 먼저 본다.** 접두어보다 이름이 정확해서, 겹칠 때는
+    이름이 이긴다 — `security-group-nacl` 은 AWS 것이지 웹 보안이 아니다.
+    """
+    for key, _, _, extras in STACKS:
+        if slug in extras:
+            return key
+    for key, _, prefixes, _ in STACKS:
+        if slug.startswith(prefixes):
+            return key
+    return ""
+
+
+def stack_slugs(key: str) -> tuple[str, ...]:
+    """그 스택에 속한 슬러그. 세 축의 순서를 그대로 따른다."""
+    return tuple(slug for slug in all_slugs() if stack_of(slug) == key)
