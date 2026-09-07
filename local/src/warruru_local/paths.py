@@ -115,6 +115,16 @@ def book_note_day_dir(home: Path, key: str) -> Path:
     return book_note_dir(home) / key / "notes"
 
 
+def stack_note_dir(home: Path) -> Path:
+    """기술스택 정리. **한 스택이 한 파일이다** — 그 파일이 곧 화면이고,
+    옵시디언에서 열어도 같은 것이 보인다.
+
+    책 노트가 날짜마다 한 장인 것과 다르다. 스택 정리는 쌓이는 것이
+    아니라 **고쳐 쓰는 것**이라 하루치로 자르면 이어지지 않는다.
+    """
+    return career_dir(home) / "stacks"
+
+
 def answer_dir(home: Path) -> Path:
     """주제별로 물어보고 받은 답. **기록도 참고도 아니다.**
 

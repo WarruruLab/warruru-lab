@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">
+  <a href="/career/stacks">← 기술스택</a> ·
+  <b>{{ view.written }} / {{ view.total }}</b> 정리 ·
+  기록 {{ view.records }}건
+  {% for name in view.companies %}<span class="badge alert">{{ name }}</span>{% endfor %}
+</p>
+
+{# **목차는 슬러그가 만든다.** 빈 절이 위로 온다 — 채우러 오는 화면이라
+   다 쓴 것이 먼저 서면 스크롤을 내려야 할 일이 나온다. #}
+<section class="tool todo">
+  <div class="work-head">
+    <h2>목차</h2>
+    <span class="meta">빈 것이 위에 · 공고가 많이 찾는 순</span>
+  </div>
+  <ol class="toc">
+    {% for row in view.toc %}
+    <li>
+      <span class="toc-row">
+        <a href="#s-{{ row.slug }}">{{ row.label }}</a>
+        {# **정리한 것에만 표를 단다.** 대부분이 비어 있는 것이 기본
+           상태라, 빈 것마다 배지를 달면 그 배지가 배경이 된다. #}
+        {% if row.written %}<span class="badge ok">정리함</span>{% endif %}
+        {% if row.companies %}<span class="badge alert">공고 {{ row.companies|length }}곳</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+{% for row in view.toc %}
+<section class="tool sect" id="s-{{ row.slug }}">
+  <div class="work-head">
+    <h2>{{ row.label }}</h2>
+    <code class="quiet">{{ row.slug }}</code>
+    <span id="st-{{ row.slug }}" class="when"></span>
+  </div>
+
+  {# 근거는 시스템이 대고 문장은 내가 쓴다. #}
+  <p class="meta sect-refs">
+    <a href="/t/{{ row.slug }}">기록 {{ row.records }}건</a>
+    {% if row.asks %}· 면접 질문 {{ row.asked }}/{{ row.asks }}{% endif %}
+    {% for book in row.books %}· <a href="/career/book/{{ book.key }}">{{ book.label }}</a>{% endfor %}
+    {% for name in row.companies %}<span class="badge alert">{{ name }}</span>{% endfor %}
+  </p>
+
+  <textarea class="sect-text" data-slug="{{ row.slug }}" rows="{{ 10 if row.written else 4 }}"
+            placeholder="여기에 내 말로 적는다. 옆의 기록 {{ row.records }}건이 재료다 — 받아 적지 말고 내 문장으로."
+            >{{ row.text }}</textarea>
+
+  <div class="ask-row">
+    <form class="inline" method="post" action="/web/stacks/{{ view.key }}/move">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <input type="hidden" name="slug" value="{{ row.slug }}">
+      <select name="to" aria-label="어느 스택으로">
+        {% for key, name in view.others %}<option value="{{ key }}">{{ name }}</option>{% endfor %}
+      </select>
+      <button type="submit">여기로 옮긴다</button>
+    </form>
+  </div>
+</section>
+{% endfor %}
+
+<script>
+(function () {
+  // 자동 저장. **멈췄을 때 한 번만 보낸다** — 책 노트와 같은 규약이다.
+  // 글자마다 보내면 데몬이 쓰는 파일이 계속 열렸다 닫힌다.
+  var token = {{ token|tojson }};
+  var key = {{ view.key|tojson }};
+  document.querySelectorAll(".sect-text").forEach(function (box) {
+    var slug = box.dataset.slug;
+    var status = document.getElementById("st-" + slug);
+    var timer = null, 보낸것 = box.value;
+    async function save() {
+      if (box.value === 보낸것) return;
+      var 보낼것 = box.value;
+      status.textContent = "저장 중…";
+      var body = new URLSearchParams();
+      body.set("_token", token); body.set("slug", slug); body.set("text", 보낼것);
+      try {
+        var res = await fetch("/web/stacks/" + encodeURIComponent(key) + "/section",
+                              { method: "POST", body: body });
+        if (!res.ok) { status.textContent = "저장 실패 (" + res.status + ")"; return; }
+        보낸것 = 보낼것;
+        status.textContent = "저장됨";
+      } catch (e) { status.textContent = "저장 실패"; }
+    }
+    box.addEventListener("input", function () {
+      status.textContent = "…";
+      clearTimeout(timer);
+      timer = setTimeout(save, 1200);
+    });
+    // 창을 닫거나 다른 곳을 누를 때도 한 번 붙잡는다.
+    box.addEventListener("blur", function () { clearTimeout(timer); save(); });
+  });
+  window.addEventListener("beforeunload", function () {
+    document.querySelectorAll(".sect-text").forEach(function (box) { box.blur(); });
+  });
+}());
+</script>
+{% endblock %}

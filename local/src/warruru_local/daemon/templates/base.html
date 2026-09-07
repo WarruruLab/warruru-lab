@@ -299,6 +299,42 @@
   .cert-ddays { display: flex; flex-wrap: wrap; gap: 1.2rem; margin: 0 0 1rem;
                 font-size: var(--t-md); align-items: center; }
   .cert-ddays > span { display: inline-flex; align-items: center; gap: .4rem; }
+  /* ── 기술스택 ────────────────────────────────────────────────
+     허브에서는 태그 줄, 목록에서는 카드 격자. 둘 다 **눌러 들어가는
+     것**이라 눌리는 표면을 분명히 한다. */
+
+  .tagline { list-style: none; margin: .2rem 0 0; padding: 0;
+             display: flex; flex-wrap: wrap; gap: .4rem; }
+  a.tag { display: inline-flex; align-items: center; gap: .35rem;
+          padding: .3rem .6rem; border-radius: 999px; font-size: var(--t-sm);
+          font-weight: 600; background: var(--rule-soft); color: var(--ink-soft); }
+  a.tag:hover { color: var(--key); }
+  a.tag.filled { background: var(--key-soft); color: var(--key); }
+  a.tag i { font-family: var(--mono); font-style: normal; font-size: var(--t-xs);
+            color: var(--ink-faint); }
+  .stack-grid { list-style: none; margin: .8rem 0 0; padding: 0; display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+                gap: .6rem; }
+  a.stack-card { display: flex; flex-direction: column; gap: .3rem;
+                 padding: .9rem 1rem; border-radius: 12px; background: var(--panel-2); }
+  a.stack-card:hover { background: var(--key-soft); }
+  a.stack-card b { font-size: var(--t-md); }
+  .stack-num { font-family: var(--mono); font-size: var(--t-lg); }
+  .stack-num .zero { color: var(--alert); }
+  .stack-num .quiet { font-size: var(--t-xs); }
+  .stack-tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+  /* `li` 를 flex 로 만들면 번호가 사라진다. 안쪽 span 이 줄을 잡는다. */
+  ol.toc { margin: .4rem 0 0; padding-left: 1.6rem;
+           columns: 2; column-gap: 2rem; }
+  ol.toc li { padding: .25rem 0; break-inside: avoid; }
+  ol.toc li::marker { color: var(--ink-faint); font-family: var(--mono);
+                      font-size: var(--t-xs); }
+  .toc-row { display: inline-flex; align-items: center; gap: .4rem;
+             flex-wrap: wrap; }
+  @media (max-width: 44rem) { ol.toc { columns: 1; } }
+  .sect .sect-refs { margin: .1rem 0 .5rem; }
+  .sect-text { width: 100%; resize: vertical; }
+  .badge.alert { background: var(--alert-soft); color: var(--alert); }
   .cert-add { display: flex; flex-direction: column; gap: .6rem; max-width: 26rem; }
   .cert-add button { align-self: flex-start; }
   details.mine { flex-basis: 100%; font-size: var(--t-sm); }

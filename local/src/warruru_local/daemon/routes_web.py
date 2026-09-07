@@ -15,7 +15,7 @@ from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, certs, checking, dayview, drafting,
-    learning, publishing, reading, topicview,
+    learning, publishing, reading, stacking, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -146,11 +146,54 @@ async def career_index(request: Request):
             "stack": stack,
             "books": stack["books"],
             "certs": careerview.build_certs(ctx),
+            "stacks": stacking.build_index(ctx),
             # **마감은 자격증과 공고를 섞어 한 줄로 세운다.** 아침에 묻는 것은
             # "다음에 뭐가 닥치나" 하나여서다.
             "deadlines": careerview.deadlines(ctx),
             "tally": ctx.records.tally(),
             "today": local_date_of(to_iso(ctx.clock.now())),
+        },
+    )
+
+
+@router.get("/career/stacks")
+async def career_stacks(request: Request):
+    """기술스택 목차 — **이력서와 공고에 적히는 말로 가른 축**(명세 §2.12).
+
+    축 셋(로드맵 · CS · AI)은 "만들면서 겪나 / 앉아서 공부하나" 로 갈랐다.
+    그 자름은 공부에는 맞지만 **이력서에 적을 때는 안 맞는다** — 공고는
+    Java · Spring · RDBMS 라고 쓰지 `spring-di` 라고 쓰지 않는다.
+    """
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "stacks.html",
+        {
+            "stacks": stacking.build_index(ctx),
+            "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
+        },
+    )
+
+
+@router.get("/career/s/{key}")
+async def career_stack_note(request: Request, key: str):
+    """스택 하나의 정리. **목차는 슬러그가 만들고 절은 사람이 쓴다.**
+
+    주소가 `/career/stack/{키}` 와 다르다 — 저쪽은 묶음(주제 모음)이고
+    이쪽은 정리 문서다. 같은 주소를 쓰면 어느 쪽인지 모른다.
+    """
+    ctx = request.app.state.ctx
+    view = stacking.build(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 스택이 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "stack_note.html",
+        {
+            "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
         },
     )
 
@@ -770,6 +813,65 @@ async def bump_cert_form(
         to_iso(ctx.clock.now()),
     )
     return RedirectResponse(f"/career/cert/{quote(cert_key)}", status_code=302)
+
+
+@router.post("/web/stacks/{key}/section")
+async def save_section_form(
+    request: Request,
+    key: str,
+    slug: str = Form(...),
+    text: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """절 하나를 저장한다. **자동 저장이 부르는 자리**라 HTML 을 안 돌려준다 —
+    책 노트와 같은 규약이다. 화면이 통째로 다시 그려지면 쓰던 자리를 잃는다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not stacking.save_section(ctx, key, slug, text):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 스택이나 주제가 없습니다"},
+        )
+    return {"saved_at": to_iso(ctx.clock.now())}
+
+
+@router.post("/web/stacks/add")
+async def add_stack_form(
+    request: Request,
+    key: str = Form(...),
+    name: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not stacking.add(ctx, key.strip(), name):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_STACK",
+                    "message": "키는 영문 소문자·숫자·붙임표, 이름은 비울 수 없고, "
+                               "이미 있는 것은 덮지 않습니다"},
+        )
+    return RedirectResponse(f"/career/s/{quote(key.strip())}", status_code=303)
+
+
+@router.post("/web/stacks/{key}/move")
+async def move_slug_form(
+    request: Request,
+    key: str,
+    slug: str = Form(...),
+    to: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """주제를 다른 스택으로 옮긴다. **자동 분류를 사람이 고치는 자리다.**"""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not stacking.move(ctx, slug, key, to):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "CANNOT_MOVE", "message": "옮길 수 없습니다"},
+        )
+    return RedirectResponse(f"/career/s/{quote(key)}", status_code=303)
 
 
 @router.post("/web/certs/add")

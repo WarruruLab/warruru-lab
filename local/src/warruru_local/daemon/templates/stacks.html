@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}기술스택 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>기술스택</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta">
+  <a href="/career">← 포트폴리오</a> ·
+  <a href="/career/stack">주제별로 보기</a>
+</p>
+
+<section class="tool">
+  <p class="meta">
+    <strong>이력서와 공고에 적히는 말로 가른 축이다.</strong> 공고는
+    <code>spring-di</code> 라고 쓰지 않고 <em>Spring</em> 이라고 쓴다.
+    <strong>공고가 많이 요구하는 순</strong>으로 선다 — 많이 한 순이 아니다.
+  </p>
+  <ul class="stack-grid">
+    {% for stack in stacks %}
+    <li>
+      <a class="stack-card" href="/career/s/{{ stack.key }}">
+        <b>{{ stack.name }}</b>
+        <span class="stack-num">
+          <span class="{{ 'zero' if not stack.written }}">{{ stack.written }}</span>
+          <span class="quiet">/ {{ stack.total }} 정리</span>
+        </span>
+        <span class="stack-tags">
+          {% if stack.companies %}
+          <span class="badge alert">공고 {{ stack.companies|length }}곳</span>
+          {% endif %}
+          <span class="badge {{ 'ok' if stack.records else 'warn' }}">기록 {{ stack.records }}</span>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="tool">
+  <h2>스택 더하기</h2>
+  <p class="meta">
+    노트 한 장이 <code>~/.warruru/career/stacks/</code> 에 생긴다 —
+    <strong>저장소 바깥이고, 옵시디언에서 그대로 열린다.</strong>
+  </p>
+  <form class="cert-add" method="post" action="/web/stacks/add">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <label class="chat-field">
+      <span>이름</span>
+      <input type="text" name="name" required placeholder="Elasticsearch">
+    </label>
+    <label class="chat-field">
+      <span>키 — 주소가 된다</span>
+      <input type="text" name="key" required pattern="[a-z0-9][a-z0-9-]*"
+             placeholder="elasticsearch">
+    </label>
+    <button class="primary" type="submit">더하기</button>
+  </form>
+</section>
+{% endblock %}

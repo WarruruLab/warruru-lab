@@ -254,7 +254,7 @@ def test_허브가_두_갈래를_보여준다(client, home):
     page = client.get("/career").text
     assert 'class="board"' in page
     assert 'href="/career/companies"' in page
-    assert 'href="/career/stack"' in page
+    assert 'href="/career/stacks"' in page
 
 
 def test_기술스택_화면이_로드맵_전부를_보여준다(client):
@@ -309,11 +309,17 @@ def test_회사_상세는_c_아래에_있다(client, home):
 
 # ── 허브 두 칸 (2026-08-31) ──────────────────────────────────────────
 
-def test_허브에서_축을_눌러_들어간다(client):
-    """허브는 요약이라 주제 하나하나를 걸지 않는다. 축으로 들어간다."""
+def test_허브에서_스택을_눌러_들어간다(client):
+    """허브는 요약이라 주제 하나하나를 걸지 않는다. **스택 태그**로 들어간다.
+
+    전에는 세 축의 격자가 이 자리였다(2026-09-08 교체). 그 자름은 공부에는
+    맞아도 이력서에 적을 때는 안 맞았다 — 공고는 `spring-di` 라고 쓰지 않고
+    Spring 이라고 쓴다. 격자는 `/career/stack` 에 그대로 있다.
+    """
     page = client.get("/career").text
-    assert "채워지는 정도" in page
-    assert 'href="/career/stack"' in page
+    assert "기술스택" in page
+    assert 'href="/career/s/spring"' in page
+    assert 'href="/career/stacks"' in page
 
 
 def test_허브의_오른쪽_칸에서_회사를_눌러_들어간다(client, home):
@@ -483,14 +489,17 @@ def test_수상한_링크는_걸지_않는다(client, home):
 
 # ── CS 지식 (2026-08-31) ─────────────────────────────────────────────
 
-def test_허브에_세_축이_격자로_선다(client):
-    """프로젝트 · CS · AI 셋을 한 카드에 격자로 놓는다.
-    막대가 아니라 칸이라 **몇 칸이 비었는지**가 먼저 읽힌다."""
-    page = client.get("/career").text
-    카드 = page[page.index("채워지는 정도"):]
-    for 이름 in ("프로젝트 주제", "CS 지식", "AI · 에이전트"):
-        assert 이름 in 카드, 이름
-    assert 카드.count('class="grid-gauge"') >= 3
+def test_세_축이_격자로_선다(client):
+    """프로젝트 · CS · AI 셋을 격자로 놓는다. 막대가 아니라 칸이라
+    **몇 칸이 비었는지**가 먼저 읽힌다.
+
+    허브에서 `/career/stack` 으로 옮겼다(2026-09-08). 허브의 그 자리는
+    기술스택 태그가 받는다 — 둘 다 두면 같은 것을 두 번 세는 화면이 된다.
+    """
+    page = client.get("/career/stack").text
+    for 이름 in ("프로젝트", "CS", "AI"):
+        assert 이름 in page, 이름
+    assert page.count('class="grid-gauge"') >= 3
 
 
 def test_CS_묶음_화면이_열린다(client):
@@ -771,7 +780,7 @@ def test_카드_이름이_성격을_말한다(client):
     """이름이 '자격증 목록' 이 아니라 '마감' 인 것이 이 화면의 태도다 —
     무엇이 담겼나가 아니라 **무엇에 답하나**로 부른다."""
     page = client.get("/career").text
-    for 이름 in ("마감", "쌓인 것", "채워지는 정도"):
+    for 이름 in ("마감", "쌓인 것", "기술스택"):
         assert f"<h2>{이름}</h2>" in page or f"{이름}</a></h2>" in page, 이름
 
 
