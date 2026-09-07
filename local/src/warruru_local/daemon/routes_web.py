@@ -113,16 +113,39 @@ async def calendar_month(request: Request, year_month: str):
 
 @router.get("/t")
 async def topics_index(request: Request, date: str | None = None):
-    """선택한 로컬 날짜의 주제별 요약. 날짜가 없으면 오늘이다."""
+    """기록 — **그날 와르르랩에 전달된 것**을 읽고, 글로 만들고, 다듬는다
+    (명세 §2.14).
+
+    전에 이 화면은 '주제' 였고 슬러그와 숫자만 있었다 —
+    `db-index 9건 개념1 실험6 재료 4/4`. **205건이 다 제목을 갖고 있는데
+    화면에는 하나도 없었고**, `재료 3/4` 가 무슨 뜻인지는 어디에도 안
+    적혀 있지 않았다. 탭은 '기록' 인데 화면 제목은 '주제' 라 같은 곳인지도
+    안 보였다.
+
+    날짜 축은 홈과 같은 규칙이다 — 미래는 없고, 왼쪽은 첫 기록에서 멈춘다.
+    """
     ctx = request.app.state.ctx
     today = local_date_of(to_iso(ctx.clock.now()))
-    selected = _validate_date(date) if date else today
-    view = topicview.build_index(ctx, selected)
+    day = _validate_date(date) if date else today
+    if day > today:
+        day = today
+    처음 = ctx.records.first_record_day()
+    어제 = _shift(day, -1)
     return templates.TemplateResponse(
         request, "topics.html",
-        # 초안·발행 수는 갈래 아래 요약이 읽는다. 취업 준비 허브에 있던
-        # 것을 기록 갈래로 옮겼다(2026-09-08).
-        {"view": view, "today": today, "tally": ctx.records.tally()},
+        {
+            "view": todayview.day_records(ctx, day),
+            # **날짜와 무관한 칸.** 그날 것이 없어도 쓸 수 있는 것은 있다 —
+            # 그날로만 자르면 0건인 날에 화면이 통째로 빈다.
+            "writable": todayview.writable(ctx),
+            "day": day,
+            "weekday": _weekday(day),
+            "prev_day": 어제 if not 처음 or 어제 >= 처음 else "",
+            "next_day": _shift(day, 1) if day < today else "",
+            "today": today,
+            "tally": ctx.records.tally(),
+            "token": ctx.settings.token,
+        },
     )
 
 
@@ -1019,6 +1042,89 @@ async def edit_draft_form(
         )
     made = drafting.create(ctx, view["topic_slug"], markdown=markdown)
     return RedirectResponse(f"/drafts/{made['draft_id']}?saved=1", status_code=302)
+
+
+# 초안 다듬기 프롬프트. **조립기의 LLM 호출 0 은 그대로다**(명세 §2.4) —
+# 6단 골격을 세우는 것은 여전히 결정적이고, 여기는 이미 선 글을 고치는
+# 자리다. 자식 프로세스로 도는 것은 묻기 경로와 같다(§3.7).
+#
+# **재료를 늘리지 말라**는 한 줄이 이 문장의 핵심이다. 다듬다가 없는 수치와
+# 없는 이유가 생기면 그 글은 면접에서 무너진다 — TODO 는 채우는 것이 아니라
+# 남겨서 "여기가 내가 답 못 하는 곳" 을 표시하는 자리다(AGENTS.md §5).
+POLISH_PROMPT = (
+    "아래 마크다운 초안을 다듬어라. **재료를 늘리지 마라** — 원문에 없는 수치 ·"
+    " 이유 · 링크를 지어내면 안 된다.\n"
+    "`TODO:` 로 남은 절은 그대로 둔다. 그 자리는 내가 아직 답 못 하는 곳이라"
+    " 표시로 남겨야 한다.\n"
+    "고칠 것은 문장이다 — 겹치는 말을 줄이고, 순서를 바로잡고, 제목을 내용에"
+    " 맞춘다. 6단 구조(문제 · 선택 · 구현 · 측정 · 결과 · 한계)는 유지한다.\n"
+    "마크다운 전문만 답으로 내라. 설명이나 인사말을 붙이지 마라.\n"
+)
+
+REWRITE_PROMPT = (
+    "아래 마크다운 초안을 **처음부터 다시 써라.** 재료는 원문에 있는 것뿐이다 —"
+    " 없는 수치 · 이유 · 링크를 지어내면 안 된다.\n"
+    "6단 구조(문제 · 선택 · 구현 · 측정 · 결과 · 한계)를 지키고,"
+    " `TODO:` 로 남은 절은 그대로 `TODO:` 로 남긴다.\n"
+    "마크다운 전문만 답으로 내라. 설명이나 인사말을 붙이지 마라.\n"
+)
+
+
+@router.post("/web/drafts/{draft_id}/polish")
+async def polish_draft_form(
+    request: Request,
+    draft_id: str,
+    mode: str = Form("polish"),
+    ask: str = Form(""),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """초안을 **화면에서** 다듬거나 다시 쓴다 (명세 §2.14).
+
+    전에는 `polish topic=… draft=…` 한 줄을 복사해 터미널에 붙여넣었다.
+    옮겨 적는 수고가 남아 있으면 그 단계에서 멈추고, 실제로 초안 57건에
+    발행이 0건이었다.
+
+    **덮어쓰지 않는다.** 받은 글을 화면에 보여주고, 사람이 [이 글로 바꾸기]
+    를 눌러야 저장된다. 다듬은 결과가 원문보다 나쁠 수 있고, 그때 원문이
+    이미 사라졌으면 되돌릴 방법이 없다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    view = topicview.build_draft(ctx, draft_id)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
+        )
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+
+    머리 = REWRITE_PROMPT if mode == "rewrite" else POLISH_PROMPT
+    if ask.strip():
+        머리 += f"\n특별히 이것을 고쳐라: {ask.strip()}\n"
+    물음 = asking.Ask(
+        topic_slug=view["topic_slug"],
+        prompt=f"{머리}\n---\n{view['markdown']}",
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        async for name, data in asking.run(물음):
+            if name == "started":
+                continue
+            yield _sse(name, data)
+        yield _sse("done", {})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/web/drafts/{draft_id}/push")

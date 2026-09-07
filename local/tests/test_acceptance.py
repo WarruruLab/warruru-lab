@@ -272,11 +272,13 @@ def _learn(client, record_id, topic="connection pool", **extra):
     return client.post("/v1/records", json=body)
 
 
-def test_DL01_기록_세_건이_주제_화면에_한_줄로_묶인다(client):
+def test_DL01_기록_세_건이_기록_화면에_한_줄로_묶인다(client):
+    """화면이 '주제' 에서 '기록' 으로 바뀌었다(2026-09-08). 묶는 것은
+    그대로지만 **제목이 먼저 보이고** 슬러그가 뒤를 받친다."""
     for index in range(3):
         _learn(client, f"rec_{index}")
     page = client.get("/t").text
-    assert "connection pool" in page
+    assert "connection-pool" in page
     assert "3건" in page
 
 

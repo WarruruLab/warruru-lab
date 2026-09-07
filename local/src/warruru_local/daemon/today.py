@@ -168,3 +168,88 @@ def day_summary(ctx, day: str) -> dict:
             "count": row["count"],
         })
     return {"topics": made, "count": sum(row["count"] for row in made)}
+
+
+def day_records(ctx, day: str) -> dict:
+    """그날 **와르르랩에 전달된 기록**을 제목으로 읽는다 (명세 §2.14).
+
+    전에 이 자리는 슬러그와 숫자만 있었다 — `db-index 9건 개념1 실험6
+    재료 4/4`. **205건이 다 제목을 갖고 있는데 화면에는 하나도 없었고**,
+    `재료 3/4` 가 무슨 뜻인지는 어디에도 안 적혀 있었다.
+
+    글로 만들 수 있는 주제도 같이 센다. 여기가 '오늘 뭘 했나' 에서
+    '그래서 뭘 쓰나' 로 넘어가는 자리다.
+    """
+    from warruru_local import topics
+    from warruru_local.clock import local_day_bounds
+
+    KIND = {"CONCEPT": "개념", "EXPERIMENT": "실험",
+            "TECH_CHOICE": "기술선택", "TROUBLESHOOTING": "트러블슈팅"}
+
+    start, end = local_day_bounds(day)
+    rows = ctx.records.list_records(since=start, until=end, limit=200)
+    기록 = [{
+        "id": row["record_id"],
+        "title": row["title"],
+        "slug": row["topic_slug"],
+        "label": topics.label_of(row["topic_slug"]),
+        "kind": KIND.get(row["kind"], row["kind"]),
+        # **면접 문장이 비었는지 그 자리에서 보인다.** 205건 중 43건뿐이라,
+        # 목록에서 안 드러나면 영영 안 채운다.
+        "interview": bool((row["interview"] or "").strip()),
+    } for row in rows]
+
+    # 그날 만진 주제. 주제 하나가 글 하나가 된다.
+    주제: dict[str, dict] = {}
+    for row in 기록:
+        칸 = 주제.setdefault(row["slug"], {
+            "slug": row["slug"], "label": row["label"], "count": 0, "draft": None,
+        })
+        칸["count"] += 1
+    for slug, 칸 in 주제.items():
+        초안 = ctx.records.latest_draft_of(slug)
+        if 초안:
+            칸["draft"] = {
+                "id": 초안["draft_id"],
+                "published": bool(초안["published_url"]),
+            }
+    return {
+        "records": 기록,
+        "topics": sorted(주제.values(), key=lambda row: -row["count"]),
+        "count": len(기록),
+        "filled": sum(1 for row in 기록 if row["interview"]),
+    }
+
+
+def writable(ctx, limit: int = 6) -> list[dict]:
+    """**글로 쓸 수 있는 주제.** 날짜와 무관하다.
+
+    `/t` 를 그날로만 자르면 0건인 날에 화면이 통째로 빈다 — 홈이 `/d/{오늘}`
+    로 보내던 때와 같은 실패다. 그날 것이 없어도 **쓸 수 있는 것은 있다.**
+
+    재료 막대 넷은 `rationale`(왜 그렇게 판단했나) · `outcome`(그래서 어떻게
+    됐나) · `limitation`(어디까지만 맞나) · `interview`(면접에서 어떻게
+    말할까)다. 넷이 다 차야 6단 초안의 빈 절이 안 생긴다 — 전에는 화면에
+    `재료 3/4` 라고만 적혀 있고 **그게 무슨 뜻인지 어디에도 없었다.**
+    """
+    from warruru_local import topics
+
+    by_slug: dict[str, list[dict]] = {}
+    for row in ctx.records.material_rows():
+        by_slug.setdefault(row["topic_slug"], []).append(row)
+
+    made = []
+    for slug, rows in by_slug.items():
+        재료 = topics.material_fill(rows)
+        찬것 = sum(1 for item in 재료 if item["filled"])
+        초안 = ctx.records.latest_draft_of(slug)
+        made.append({
+            "slug": slug, "label": topics.label_of(slug),
+            "count": len(rows), "material": 재료, "ready": 찬것,
+            "draft": 초안["draft_id"] if 초안 else None,
+            "published": bool(초안 and 초안["published_url"]),
+        })
+    # **재료가 찬 것 먼저, 그다음 기록이 많은 것.** 아직 안 쓴 것이 위로 온다 —
+    # 이미 발행한 주제를 먼저 보여줄 이유가 없다.
+    made.sort(key=lambda row: (row["published"], -row["ready"], -row["count"]))
+    return made[:limit]

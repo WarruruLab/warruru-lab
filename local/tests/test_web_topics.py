@@ -44,12 +44,14 @@ def _record(client, record_id, **extra):
     return client.post("/v1/records", json=body)
 
 
-def test_오늘_기록이_없으면_0건이_붉게_보인다(client):
+def test_그날_전달된_것이_없으면_그렇게_말한다(client):
+    """**화면이 비지는 않는다.** 그날 것이 없어도 쓸 수 있는 것은 있다 —
+    홈이 `/d/{오늘}` 로 보내던 때와 같은 실패를 되풀이하지 않는다."""
     page = client.get("/t")
     assert page.status_code == 200
-    assert "오늘 기록 0건" in page.text
-    assert "empty-today" in page.text
-
+    assert "이 날 전달된 것 0건" in page.text
+    assert "record_learning" in page.text
+    assert "글로 쓸 수 있는 것" in page.text
 
 def test_조회는_토큰이_필요_없다(home, monkeypatch):
     monkeypatch.setenv("TZ", "Asia/Seoul")
@@ -62,13 +64,16 @@ def test_조회는_토큰이_필요_없다(home, monkeypatch):
         assert bare.get("/t").status_code == 200
 
 
-def test_슬러그별로_건수와_마지막_시각이_보인다(client):
-    _record(client, "rec_A", occurred_at="2026-08-24T09:00:00.000Z")
-    _record(client, "rec_B", occurred_at="2026-08-24T07:40:00.000Z")
-    page = client.get("/t").text
-    assert "2건" in page
-    assert "18:00" in page          # KST 로 마지막 기록 시각
+def test_기록을_제목으로_읽는다(client):
+    """**205건이 다 제목을 갖고 있는데 화면에는 하나도 없었다**(2026-09-08).
 
+    전에는 슬러그와 숫자만 있었다 — `db-index 9건 개념1 실험6 재료 4/4`.
+    무엇을 알게 됐는지가 화면 어디에도 없으면 그 목록은 읽을 것이 없다.
+    """
+    _record(client, "rec_A", title="풀 크기를 30 이상 못 올린 이유")
+    page = client.get("/t").text
+    assert "풀 크기를 30 이상 못 올린 이유" in page
+    assert "실험" in page                     # 종류도 사람 말로
 
 def test_kind_배지가_보인다(client):
     _record(client, "rec_A")
@@ -77,60 +82,48 @@ def test_kind_배지가_보인다(client):
     assert "실험" in page and "트러블슈팅" in page
 
 
-def test_topic_원문이_화면에_그대로_나온다(client):
-    """화면이 보여줄 것은 슬러그가 아니라 사람이 적은 말이다."""
+def test_주제_슬러그도_같이_보인다(client):
+    """제목이 주인공이고 슬러그는 어느 묶음인지 말한다."""
     _record(client, "rec_A", topic="  Connection Pool  ")
     page = client.get("/t").text
-    assert "Connection Pool" in page
+    assert "connection-pool" in page
 
-
-def test_1건짜리_슬러그는_미분류_구획에_모인다(client):
-    """오타 교정 장치다. 병합 UI 는 만들지 않는다 — SQL 한 줄이 화면보다 싸다."""
+def test_면접_문장이_비었으면_그_자리에_표시된다(client):
+    """205건 중 43건뿐이다. 목록에서 안 드러나면 영영 안 채운다."""
     _record(client, "rec_A")
-    _record(client, "rec_B")
-    _record(client, "rec_C", topic="connectoin pool")   # 오타
     page = client.get("/t").text
-    assert "미분류" in page
-    body = page.split("미분류")[1]
-    assert "connectoin pool" in body
-    assert "connectoin pool" not in page.split("미분류")[0]
+    assert "면접 —" in page
+    assert "면접 문장 0/1" in page
 
-
-def test_오늘_경계는_로컬_자정_기준이다(client):
-    """UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다.
-
-    어제 것이 화면에서 사라지지는 않는다(명세 §2.2 개정). 확인할 것은
-    **어느 구획에 앉느냐**다 — 새벽 기록이 '지난 주제' 로 밀리면 경계가 UTC 로
-    잘린 것이다.
-    """
+def test_그날_경계는_로컬_자정_기준이다(client):
+    """UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다."""
     # KST 2026-08-24 00:30 = UTC 2026-08-23 15:30
-    _record(client, "rec_오늘새벽", occurred_at="2026-08-23T15:30:00.000Z")
+    _record(client, "rec_오늘새벽", title="새벽에 한 것",
+            occurred_at="2026-08-23T15:30:00.000Z")
     # KST 2026-08-23 23:30 = UTC 2026-08-23 14:30
-    _record(client, "rec_어제밤", topic="jvm gc",
+    _record(client, "rec_어제밤", topic="jvm gc", title="어젯밤에 한 것",
             occurred_at="2026-08-23T14:30:00.000Z")
     page = client.get("/t").text
-    오늘, 지난 = page.split("지난 주제")
-    assert "connection pool" in 오늘
-    assert "jvm gc" not in 오늘
-    assert "jvm gc" in 지난
+    assert "새벽에 한 것" in page
+    assert "어젯밤에 한 것" not in page
+    assert "어젯밤에 한 것" in client.get("/t?date=2026-08-23").text
 
-
-def test_홈의_날짜_화살표로_전날과_다음날을_본다(client):
+def test_기록도_미래로는_못_간다(client):
+    """홈과 같은 규칙이다 — 아직 안 온 날에 전달된 것이 있을 리 없다."""
+    _record(client, "rec_더전날", title="더 앞에 한 일",
+            occurred_at="2026-08-20T09:00:00.000Z")
     _record(client, "rec_전날", title="전날에만 한 일",
             occurred_at="2026-08-23T09:00:00.000Z")
 
     today = client.get("/t").text
     assert 'href="/t?date=2026-08-23"' in today
-    assert 'href="/t?date=2026-08-25"' in today
+    assert 'href="/t?date=2026-08-25"' not in today
+    assert "전날에만 한 일" not in today
 
     previous = client.get("/t?date=2026-08-23").text
-    assert "2026-08-23" in previous
-    assert "선택 날짜 기록 1건" in previous
-    assert "전날에만 한 일" not in previous  # 홈은 제목이 아니라 주제로 묶는다
-    assert "connection pool" in previous
+    assert "전날에만 한 일" in previous
     assert 'href="/t?date=2026-08-22"' in previous
     assert 'href="/t?date=2026-08-24"' in previous
-
 
 def test_홈의_잘못된_날짜는_400이다(client):
     assert client.get("/t?date=2026-02-30").status_code == 400
@@ -143,45 +136,46 @@ def test_홈의_잘못된_날짜는_400이다(client):
 # 화면을 연다. 그때 화면이 비어 있으면 **들어가는 문이 가진 것을 숨기는 것**이다.
 
 
-def test_오늘_기록이_없어도_지난_주제가_보인다(client):
-    """실제로 부딪힌 결함이다. DB 에 주제가 셋 있는데 화면은 비어 있었다."""
+def test_그날_것이_없어도_쓸_수_있는_것은_남는다(client):
+    """실제로 부딪힌 결함이다. DB 에 주제가 셋 있는데 화면은 비어 있었다.
+    날짜로만 자르면 같은 구멍이 다시 난다."""
     _record(client, "rec_A", occurred_at="2026-08-20T09:00:00.000Z")
     page = client.get("/t").text
-    assert "오늘 기록 0건" in page      # 오늘 신호는 그대로 남는다
-    assert "connection pool" in page    # 그러나 가진 것을 숨기지 않는다
+    assert "이 날 전달된 것 0건" in page     # 그날 신호는 그대로
+    assert "connection-pool" in page          # 그러나 가진 것을 숨기지 않는다
 
+def test_쓸_수_있는_것은_재료가_찬_순이다(client):
+    """건수가 많다고 글이 되는 것이 아니다 — 재료 넷이 차야 빈 절이 안 생긴다."""
+    _record(client, "rec_A", topic="jvm gc", rationale="골랐다",
+            outcome="p95 90ms", limitation="캐시 안 비움", interview="이렇게 말한다")
+    _record(client, "rec_B", topic="net tcp")
+    _record(client, "rec_C", topic="net tcp")
+    글감 = client.get("/t").text.split("글로 쓸 수 있는 것")[1]
+    assert 글감.index("jvm-gc") < 글감.index("net-tcp")
 
-def test_지난_주제는_최근순이다(client):
-    """오늘 만지지 않은 주제라면 '얼마나 많이' 보다 '언제가 마지막이었나' 다."""
-    _record(client, "rec_옛날_1", topic="jvm gc", occurred_at="2026-08-10T09:00:00.000Z")
-    _record(client, "rec_옛날_2", topic="jvm gc", occurred_at="2026-08-10T10:00:00.000Z")
-    _record(client, "rec_최근", topic="net tcp", occurred_at="2026-08-22T09:00:00.000Z")
-    지난 = client.get("/t").text.split("지난 주제")[1]
-    # 건수는 jvm gc 가 많지만(2건) 최근인 net tcp 가 앞이다.
-    assert 지난.index("net tcp") < 지난.index("jvm gc")
+def test_이미_발행한_주제는_뒤로_간다(client):
+    """이미 낸 글을 먼저 보여줄 이유가 없다."""
+    from warruru_local.daemon import today as todayview
 
+    _record(client, "rec_A", topic="jvm gc")
+    _record(client, "rec_B", topic="net tcp")
+    ctx = client.app.state.ctx
+    draft = client.post("/v1/drafts", json={"topic_slug": "jvm-gc"}).json()
+    client.post(f"/web/drafts/{draft['draft_id']}/published",
+                data={"_token": ctx.settings.token,
+                      "published_url": "https://example.com/a"},
+                follow_redirects=False)
+    글감 = [row["slug"] for row in todayview.writable(ctx)]
+    assert 글감[-1] == "jvm-gc"
 
-def test_오늘_주제는_지난_주제에_다시_나오지_않는다(client):
-    """같은 주제가 두 구획에 겹쳐 보이면 건수가 두 배로 읽힌다."""
-    _record(client, "rec_어제", occurred_at="2026-08-23T09:00:00.000Z")
-    _record(client, "rec_오늘", occurred_at="2026-08-24T09:00:00.000Z")
-    page = client.get("/t").text
-    assert "connection pool" in page.split("지난 주제")[0]
-    assert "지난 주제" not in page      # 겹치는 주제뿐이면 구획 자체가 없다
-
-
-def test_지난_주제의_건수는_전체다(client):
-    """구획은 '오늘이 아닌 주제' 로 가르지만, 건수까지 자르지는 않는다.
-
-    `/t/{slug}` 가 보여주는 것도 그 주제의 전체 기록이다. 두 화면이 다른
-    숫자를 말하면 어느 쪽을 믿을지 모르게 된다.
-    """
+def test_쓸_수_있는_것의_건수는_전체다(client):
+    """`/t/{slug}` 가 보여주는 것도 그 주제의 전체 기록이다.
+    두 화면이 다른 숫자를 말하면 어느 쪽을 믿을지 모르게 된다."""
     for i in range(3):
         _record(client, f"rec_{i}", topic="jvm gc",
                 occurred_at=f"2026-08-2{i}T09:00:00.000Z")
-    지난 = client.get("/t").text.split("지난 주제")[1]
-    assert "3건" in 지난
-
+    글감 = client.get("/t").text.split("글로 쓸 수 있는 것")[1]
+    assert "3건" in 글감
 
 def test_주제_한_줄에서_상세로_간다(client):
     _record(client, "rec_A")
@@ -313,16 +307,14 @@ def test_주제_상세의_날짜는_로컬_기준이다(client):
 
 # ── 재료 막대 ──────────────────────────────────────────────────────
 
-def test_주제_목록이_재료가_얼마나_찼는지_보여준다(client):
-    """이 화면의 질문은 '오늘 뭘 글로 쓸 수 있나' 다.
-    건수만으로는 답이 안 나온다 — 3건이어도 재료가 비면 못 쓴다.
-    """
+def test_재료가_얼마나_찼는지_보여준다(client):
+    """건수만으로는 '뭘 글로 쓸 수 있나' 에 답이 안 나온다 —
+    3건이어도 재료가 비면 못 쓴다."""
     _record(client, "rec_A", rationale="골랐다", outcome="p95 90ms")
     _record(client, "rec_B")
     page = client.get("/t").text
     assert 'class="gauge"' in page
     assert "재료" in page
-
 
 def test_막대는_주제마다_네_칸이다(client):
     """칸 수가 주제마다 다르면 눈으로 비교가 안 된다."""
@@ -331,22 +323,21 @@ def test_막대는_주제마다_네_칸이다(client):
     page = client.get("/t").text
     assert page.count('class="seg') == 4
 
-
 def test_상세도_같은_막대를_쓴다(client):
     _record(client, "rec_A", rationale="골랐다")
     assert 'class="gauge"' in client.get("/t/connection-pool").text
 
 
-def test_지난_주제도_막대를_가진다(client):
-    """지난 주제야말로 '이걸 글로 쓸 수 있나' 를 묻는 자리다.
-    막대가 없으면 건수만 보고 눌러야 한다.
-    """
+def test_막대에_뜻을_적어_둔다(client):
+    """전에는 `재료 3/4` 라고만 있고 **그게 무슨 뜻인지 어디에도 없었다.**
+    화면이 안 읽히는 이유가 그것이었다(2026-09-08 사용자 지적)."""
     _record(client, "rec_A", occurred_at="2026-08-20T09:00:00.000Z",
             rationale="골랐다")
-    지난 = client.get("/t").text.split("지난 주제")[1]
-    assert 'class="gauge"' in 지난
-    assert 지난.count('class="seg') == 4
-
+    page = client.get("/t").text
+    assert 'class="gauge"' in page
+    for 말 in ("왜 그렇게 판단했나", "그래서 어떻게 됐나",
+              "어디까지만 맞나", "면접에서 어떻게 말할까"):
+        assert 말 in page, 말
 
 def test_막대는_하루치가_아니라_주제_전체를_센다(client):
     """초안 조립기는 그 주제의 기록을 **전부** 재료로 쓴다.
@@ -356,22 +347,11 @@ def test_막대는_하루치가_아니라_주제_전체를_센다(client):
     """
     _record(client, "rec_어제", occurred_at="2026-08-23T09:00:00.000Z",
             rationale="골랐다")
-    # 오늘 2건이어야 '미분류' 가 아니라 본 구획에 앉아 막대가 그려진다.
-    _record(client, "rec_오늘_1", occurred_at="2026-08-24T09:00:00.000Z")
-    _record(client, "rec_오늘_2", occurred_at="2026-08-24T10:00:00.000Z")
+    _record(client, "rec_오늘", occurred_at="2026-08-24T09:00:00.000Z")
 
-    오늘 = client.get("/t").text.split("지난 주제")[0]
+    목록 = client.get("/t").text.split("글로 쓸 수 있는 것")[1]
     상세 = client.get("/t/connection-pool").text
-
-    # 오늘치만 세면 rationale 이 빈칸이라 '재료 0/4' 가 된다.
-    assert "재료 1/4" in 오늘
-    # 두 화면이 같은 막대를 그린다. 이 둘이 갈리는 것이 원래 문제였다.
-    assert "재료 1/4" in 상세
-    # 채움 너비도 3건 중 1건이다 — 분모가 하루치(2건)면 0% 로 보인다.
-    assert "width: 33%" in 오늘
-
-
-# ── 면접 문장은 학습 화면에만 (2026-08-25) ──────────────────────────
+    assert "재료 1/4" in 목록 and "재료 1/4" in 상세
 
 def test_주제_화면이_면접_문장을_보여준다(client):
     """읽는 사람이 둘이라 화면도 둘이다. 티스토리는 독자용,
@@ -386,7 +366,10 @@ def test_면접_문장은_발행_본문에_안_들어간다(client):
     _record(client, "rec_A", interview="이렇게 말합니다")
     draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
     page = client.get(f"/drafts/{draft['draft_id']}").text
-    paste = page.split("<textarea", 1)[1].split("</textarea>")[0]
+    # **붙여넣기 칸을 이름으로 집는다.** 첫 `<textarea>` 로 집으면 화면에
+    # 칸이 하나 늘 때마다 이 테스트가 엉뚱한 곳을 본다 — 다듬기 칸이
+    # 위에 생기면서 실제로 그렇게 됐다(2026-09-08).
+    paste = page.split('id="paste"', 1)[1].split("</textarea>")[0]
     assert "이렇게 말합니다" not in paste
 
 
@@ -395,7 +378,7 @@ def test_발행_본문에_내부_식별자가_없다(client):
     _record(client, "rec_A")
     draft = client.post("/v1/drafts", json={"topic_slug": "connection-pool"}).json()
     page = client.get(f"/drafts/{draft['draft_id']}").text
-    paste = page.split("<textarea", 1)[1].split("</textarea>")[0]
+    paste = page.split('id="paste"', 1)[1].split("</textarea>")[0]
     assert "조립에 쓴 기록" not in paste
     assert "rec_A" not in paste
     assert "문제" in paste          # 본문은 그대로다
