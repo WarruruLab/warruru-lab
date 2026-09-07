@@ -106,6 +106,15 @@ def book_note_dir(home: Path) -> Path:
     return career_dir(home) / "books"
 
 
+def book_note_day_dir(home: Path, key: str) -> Path:
+    """책 하나의 날짜별 노트. **챗봇 답과 따로 둔다**(명세 §2.9).
+
+    `answers/` 는 받은 것이고 이쪽은 내가 쓴 것이다. 한 파일에 섞으면
+    나중에 "내 말로 쓴 것" 만 골라낼 수 없고, 그 구분이 이 도구의 전부다.
+    """
+    return book_note_dir(home) / key / "notes"
+
+
 def answer_dir(home: Path) -> Path:
     """주제별로 물어보고 받은 답. **기록도 참고도 아니다.**
 

@@ -387,6 +387,71 @@ def _book_notes(ctx, today: str) -> dict[str, dict]:
     return made
 
 
+# 책이 가질 수 있는 상태. **'안 정한 것' 은 상태가 아니라 상태가 없는 것**이라
+# 여기 없다 — 목록에서 마지막 칸으로 모인다.
+BOOK_STATES = ("읽는 중", "다음에", "중단", "다 읽음")
+
+
+def set_book_state(ctx, key: str, state: str) -> None:
+    """앞머리의 `state` 만 고친다. 본문과 나머지 필드는 그대로 둔다 —
+    사람이 손으로 적어 둔 것을 화면이 지우면 안 된다."""
+    path = paths.book_note_dir(ctx.settings.home) / f"{key}.md"
+    text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+    meta, body = parse_front_matter(text)
+    meta["state"] = state
+    줄 = []
+    for name, value in meta.items():
+        if isinstance(value, list):
+            줄.append(f"{name}:")
+            줄 += [f"  - {item}" for item in value]
+        else:
+            줄.append(f"{name}: {value}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("---\n" + "\n".join(줄) + "\n---\n" + (body or "\n"),
+                    encoding="utf-8")
+
+
+def build_books(ctx) -> dict:
+    """책 목록. 상태로 갈라 놓고, '다음에' 는 **공고가 요구하는 주제를 많이
+    덮는 순**으로 세운다(명세 §2.9 f).
+
+    27권을 한 줄로 세우면 무엇부터 볼지 여전히 모른다. 순서가 곧 답이다.
+    """
+    from warruru_local.daemon import reading
+
+    stack = build_stack(ctx)
+    wanted = demand(list_companies(ctx))
+    certs = {key: set(slugs) for key, _, slugs in topics.CERTIFICATIONS}
+
+    made = []
+    for book in stack["books"]:
+        slugs = next((s for k, _, s in topics.BOOK_GROUPS if k == book["key"]), ())
+        공고 = {c for slug in slugs for c in wanted.get(slug, [])}
+        자격증 = [name for key, name, cs in topics.CERTIFICATIONS
+                  if set(slugs) & set(cs)]
+        made.append({
+            **book,
+            "companies": sorted(공고),
+            "certs": 자격증[:2],
+            "progress": reading.covered(ctx, book["key"]),
+            "note_days": len(reading.days_of(ctx, book["key"])),
+        })
+
+    def 급한순(row):
+        return (row["days"] if row["days"] is not None else 9999, row["label"])
+
+    def 요구순(row):
+        return (-len(row["companies"]), -len(row["certs"]), row["label"])
+
+    통 = {"읽는 중": [], "다음에": [], "중단": [], "다 읽음": [], "안 정한 것": []}
+    for row in made:
+        통[row["state"] if row["state"] in BOOK_STATES else "안 정한 것"].append(row)
+    통["읽는 중"].sort(key=급한순)
+    통["다음에"].sort(key=요구순)
+    통["안 정한 것"].sort(key=요구순)
+    return {"groups": 통, "states": BOOK_STATES}
+
+
 def deadlines(ctx) -> list[dict]:
     """자격증과 공고의 마감을 **한 줄로 섞어** 가까운 순으로 세운다.
 

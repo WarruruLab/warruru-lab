@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ view.day }} 노트 — Warruru Local{% endblock %}
+{% block content %}
+{# **여기서 보는 것은 내가 흘려 쓴 원문이다**(명세 §2.9 e).
+   정리된 기록(/d/{날짜})도, 챗봇 답도 아니다. #}
+<header class="read-head">
+  <div>
+    <h1>{{ view.day }}</h1>
+    <p class="meta">
+      {% if view.notes %}
+        노트 {{ view.notes|length }}개 · 기록 {{ view.promoted }}건 올림
+      {% else %}노트 없음{% endif %}
+    </p>
+  </div>
+  <span class="chat-sp"></span>
+  {% include "_nav.html" %}
+</header>
+
+<div class="daystrip">
+  {% for d in view.strip %}
+  <a class="dcell {{ 'on' if d.day == view.day }}" href="/notes/{{ d.day }}">
+    <span class="n">{{ d.num }}</span>
+    <span class="dot {{ '' if d.has else 'none' }}"></span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if view.notes %}
+{% for note in view.notes %}
+<section class="tool notebook">
+  <div class="work-head">
+    <strong>{{ note.label }}</strong>
+    {% if note.records %}
+      <span class="badge ok">기록 {{ note.records|length }}건 올림</span>
+    {% else %}
+      <span class="badge warn">기록 0건</span>
+      <form class="inline" method="get"
+            action="/career/book/{{ note.key }}/today">
+        <input type="hidden" name="day" value="{{ view.day }}">
+        <button type="submit" class="primary">지금 올리기</button>
+      </form>
+    {% endif %}
+    <span class="chat-sp"></span>
+    <a class="meta" href="/career/book/{{ note.key }}/today?day={{ view.day }}">이어서 쓰기 →</a>
+  </div>
+  <div class="preview">{{ note.html|safe }}</div>
+</section>
+{% endfor %}
+
+<p class="meta quiet">
+  <strong>기록 0건</strong> 인 노트는 그날 공부가 안 남은 것이다.
+  지금이라도 올리면 <strong>그날 날짜로</strong> 기록이 들어간다.
+</p>
+{% else %}
+<section class="tool">
+  <p>이 날은 노트를 안 썼다.</p>
+  <p class="meta">
+    안 쓴 날이 있는 것은 정상이다. 다만 <strong>읽었는데 안 썼는지</strong>,
+    <strong>아예 안 읽었는지</strong>는 이 화면이 모른다.
+  </p>
+  <p><a class="btn" href="/career/books">읽는 중인 책 보기 →</a></p>
+</section>
+{% endif %}
+
+{% if view.records %}
+<section class="tool">
+  <h2>이 날 남은 기록 {{ view.records|length }}건</h2>
+  <p class="meta">
+    노트 없이 올라간 것이 섞여 있다 — 개발하며 훅이 남긴 것들이다.
+    <strong>노트 축과 기록 축은 다르다.</strong>
+  </p>
+  <ul class="picks">
+    {% for row in view.records[:8] %}
+    <li>
+      <a href="/t/{{ row.topic_slug }}">{{ row.title }}</a>
+      <span class="badge">{{ row.kind }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <a class="more" href="/d/{{ view.day }}">그날 화면 →</a>
+</section>
+{% endif %}
+{% endblock %}

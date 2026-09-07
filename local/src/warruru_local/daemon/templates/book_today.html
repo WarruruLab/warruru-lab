@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}{{ view.label }} · 오늘 읽기 — Warruru Local{% endblock %}
+{% block content %}
+{# 노트가 화면의 대부분이다(명세 §2.9 b). 위에는 셋만 — 반납 · 진도 · 상태. #}
+<header class="read-head">
+  <div>
+    <h1>{{ view.label }}</h1>
+    <p class="meta">
+      오늘 읽기 · {{ view.day }}
+      {% if view.day != view.today %}<span class="badge warn">지난 날</span>{% endif %}
+    </p>
+  </div>
+  <span class="chat-sp"></span>
+  {% include "_nav.html" %}
+</header>
+
+<p class="read-tags">
+  {% if view.days is not none %}
+    <span class="badge {{ 'due' if view.days <= 7 }}">
+      {% if view.days < 0 %}반납 {{ -view.days }}일 지남{% else %}D-{{ view.days }}{% endif %}
+      {% if view.due %} · {{ view.due }}{% endif %}
+    </span>
+  {% endif %}
+  <span class="badge">주제 {{ view.progress.covered }} / {{ view.progress.total }} 채움</span>
+  <form class="inline" method="post" action="/web/books/{{ view.key }}/state">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <select name="state" onchange="this.form.submit()">
+      {% for s in ["읽는 중", "다음에", "중단", "다 읽음"] %}
+      <option value="{{ s }}" {{ 'selected' if view.state == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <a class="meta" href="/career/book/{{ view.key }}">책 정보 →</a>
+  <span class="chat-sp"></span>
+  <span class="meta quiet" id="note-status">저장됨</span>
+</p>
+
+<div class="read-body">
+  <aside class="read-past">
+    <h4>지난 노트</h4>
+    {% for d in view.past_days[:8] %}
+    <a class="day" href="/career/book/{{ view.key }}/today?day={{ d }}">▸ {{ d[5:] }}</a>
+    {% else %}
+    <p class="meta quiet">아직 없다.</p>
+    {% endfor %}
+    <p class="meta quiet read-hint">눌러서 읽는다.<br>오늘 것과 안 섞인다.</p>
+  </aside>
+
+  <div class="read-main">
+    <div id="promote-out" hidden></div>
+    <textarea id="note" data-key="{{ view.key }}" data-day="{{ view.day }}"
+              placeholder="읽으면서 그대로 쓴다. 멈추면 알아서 저장된다.">{{ view.note.text }}</textarea>
+  </div>
+</div>
+
+<div class="read-foot">
+  <button id="promote" type="button" class="primary">기록으로 올리기</button>
+  <select id="promote-cli" aria-label="어느 에이전트로">
+    <option value="codex">Codex</option>
+    <option value="claude">Claude</option>
+  </select>
+  <span class="meta quiet" id="promote-status">노트를 읽고 내 말로 쓴 것만 올린다</span>
+</div>
+
+{% with ask = {"key": view.ask_key, "thread": view.thread,
+               "answers": view.answers, "slugs": view.ask_slugs} %}
+{% include "_ask_box.html" %}
+{% endwith %}
+
+<script>
+(function () {
+  var box = document.getElementById("note");
+  if (!box || !window.fetch) return;
+  var key = box.dataset.key, day = box.dataset.day;
+  var status = document.getElementById("note-status");
+  var 토큰 = {{ token|tojson }};
+  var timer = null, 마지막 = box.value, 저장중 = false;
+  var 백업키 = "warruru-note:" + key + ":" + day;
+
+  // 쓰는 동안은 브라우저에도 복사해 둔다. 창이 갑자기 닫혀도 남는다.
+  try {
+    var 남은것 = localStorage.getItem(백업키);
+    if (남은것 !== null && 남은것 !== box.value && 남은것.trim()) {
+      box.value = 남은것;
+      status.textContent = "저장 안 된 글을 되살렸다";
+    }
+  } catch (e) {}
+
+  async function 저장(keepalive) {
+    if (저장중 || box.value === 마지막) return;
+    저장중 = true;
+    var 보낼것 = box.value;
+    var body = new URLSearchParams();
+    body.set("day", day); body.set("text", 보낼것); body.set("_token", 토큰);
+    try {
+      var res = await fetch("/web/books/" + encodeURIComponent(key) + "/note",
+                            { method: "POST", body: body, keepalive: !!keepalive });
+      if (res.ok) {
+        마지막 = 보낼것;
+        status.textContent = "저장됨";
+        try { localStorage.removeItem(백업키); } catch (e) {}
+      } else { status.textContent = "저장 실패 (" + res.status + ")"; }
+    } catch (err) { status.textContent = "저장 실패 — 글은 남아 있다"; }
+    저장중 = false;
+  }
+
+  box.addEventListener("input", function () {
+    status.textContent = "쓰는 중…";
+    try { localStorage.setItem(백업키, box.value); } catch (e) {}
+    clearTimeout(timer);
+    timer = setTimeout(function () { 저장(false); }, 2000);   // 멈추면 한 번
+  });
+  // 탭을 닫거나 다른 탭으로 갈 때 마지막으로 한 번 더.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") 저장(true);
+  });
+  window.addEventListener("pagehide", function () { 저장(true); });
+
+  // ── 기록으로 올리기 ────────────────────────────────────────
+  var 올리기 = document.getElementById("promote");
+  var 알림 = document.getElementById("promote-status");
+  var 결과 = document.getElementById("promote-out");
+  올리기.addEventListener("click", async function () {
+    if (올리기.disabled) return;
+    await 저장(false);
+    올리기.disabled = true;
+    알림.textContent = "노트를 읽는 중…";
+    var body = new URLSearchParams();
+    body.set("day", day); body.set("_token", 토큰);
+    body.set("cli", document.getElementById("promote-cli").value);
+    try {
+      var res = await fetch("/web/books/" + encodeURIComponent(key) + "/promote",
+                            { method: "POST", body: body });
+      if (!res.ok) { 알림.textContent = "보내지 못했습니다 (" + res.status + ")";
+                     올리기.disabled = false; return; }
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var blocks = buf.split("\n\n"); buf = blocks.pop();
+        blocks.forEach(function (block) {
+          var name = "", data = "";
+          block.split("\n").forEach(function (line) {
+            if (line.indexOf("event: ") === 0) name = line.slice(7);
+            if (line.indexOf("data: ") === 0) data = line.slice(6);
+          });
+          if (!name) return;
+          var p = {}; try { p = JSON.parse(data); } catch (e) { return; }
+          if (name === "error") 알림.textContent = p.message + (p.fix ? " — " + p.fix : "");
+          if (name === "done") 그리기(p);
+        });
+      }
+    } catch (err) { 알림.textContent = "끊겼습니다: " + err; }
+    올리기.disabled = false;
+  });
+
+  function 그리기(p) {
+    결과.hidden = false;
+    결과.className = "promote-result";
+    var 줄 = "";
+    if (p.added.length) {
+      줄 += '<div class="pr-head"><b>' + p.added.length + '건 남겼다</b>'
+         + '<span class="meta">주제 ' + p.before.covered + '/' + p.before.total
+         + ' → ' + p.after.covered + '/' + p.after.total + '</span>'
+         + '<a class="meta" href="/d/' + day + '">되돌리려면 그날 화면에서</a></div>';
+      줄 += '<ul class="pr-list">';
+      p.added.forEach(function (r) {
+        줄 += '<li><a href="/t/' + r.slug + '">' + esc(r.title) + '</a>'
+           + '<span class="quiet"> · ' + esc(r.label) + '</span></li>';
+      });
+      줄 += "</ul>";
+      알림.textContent = "";
+    } else {
+      줄 += '<div class="pr-head"><b>올릴 것이 없다.</b></div>'
+         + '<p class="meta">노트가 전부 받아 적은 문장이면 이렇게 된다. '
+         + '기록은 <b>내 말로 정리했을 때</b> 남기는 것이라, 지금 올리면 면접에서 못 쓴다.</p>';
+    }
+    if (p.skipped && p.skipped.length) {
+      줄 += '<p class="pr-skip"><b>안 올린 것</b><br>';
+      p.skipped.forEach(function (s) { 줄 += esc(s) + "<br>"; });
+      줄 += "</p>";
+    }
+    결과.innerHTML = 줄;
+  }
+  function esc(t) {
+    var d = document.createElement("div"); d.textContent = t || ""; return d.innerHTML;
+  }
+}());
+</script>
+{% endblock %}

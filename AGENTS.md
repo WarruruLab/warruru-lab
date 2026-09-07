@@ -22,6 +22,8 @@
   (`machine` / `client_instance` / `work_session` / `checkpoint`
   / `learning_record` / `draft` / `ask_check` / `cert_progress` / `ask_thread`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
+- 책 노트 `~/.warruru/career/books/{책}/notes/{날짜}.md` — **챗봇 답과 따로다.**
+  내가 쓴 것과 받은 것을 가르는 것이 이 도구의 전부다
 - 회사별 준비 노트 `~/.warruru/career/*.md` · 자격증 노트
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
   `~/.warruru/career/topics/*.md` · 묶음 머리말
@@ -42,6 +44,8 @@
   · `/career/stack/{묶음}` — 축 셋(로드맵 · CS · AI)이 같은 주소를 쓴다
   · `/career/cert/{자격증}` · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
+  · **`/career/books`**(읽는 중 · 다음에 읽을 것) ·
+  **`/career/book/{책}/today`**(오늘 읽기 — 노트) · **`/notes/{날짜}`**(그날 노트)
   주제 · 책 · 묶음 화면에서 **물을 수 있다** — 데몬이 구독 CLI(Codex 또는
   Claude)를 자식 프로세스로 띄우고 답을 SSE 로 흘린다. 대화는 그 자리마다
   하나씩 이어지고, [오늘 정리] 가 하루치를 세 절로 접는다.
