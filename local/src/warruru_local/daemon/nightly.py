@@ -120,7 +120,10 @@ def run(ctx) -> dict:
         if ctx.records.latest_draft_of(slug) is not None:
             continue
         try:
-            made = drafting.create(ctx, slug)
+            # **자동으로 만든 것이라고 적어 둔다.** 이 표시가 없으면
+            # 화면이 "만든 글" 이라고 부르는 목록에 내가 만들지 않은
+            # 것이 섞이고, 그러면 그 목록 전체를 못 믿는다.
+            made = drafting.create(ctx, slug, made_by="nightly")
             drafted.append(slug)
         except Exception:
             # 한 주제가 터졌다고 그날 밤 전체를 잃지 않는다.

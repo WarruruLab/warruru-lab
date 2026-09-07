@@ -28,13 +28,15 @@
     <h2>{% if day == today %}오늘의 기록{% else %}{{ day }} 기록{% endif %}</h2>
     <span class="meta"><b class="num">{{ view.count }}</b>건</span>
     {% if view.records %}
-    <span class="meta quiet">면접 문장 {{ view.filled }}/{{ view.count }}</span>
     <button type="button" id="pick-all" class="btn">전체 선택</button>
     {% endif %}
   </div>
 
   {% if view.records %}
-  <ul class="asks recs">
+  {# **열 줄이 넘으면 그 안에서 스크롤한다**(2026-09-08). 33건이 통째로
+     펼쳐지면 아래 [글로 만들기] 까지 세 화면을 내려가야 한다 —
+     고르는 자리와 누르는 자리가 한 화면에 있어야 흐름이 끊기지 않는다. #}
+  <ul class="asks recs scroll-10">
     {% for row in view.records %}
     <li>
       <label class="pick-box">
@@ -42,7 +44,7 @@
       </label>
       <a class="ask-text" href="/t/{{ row.slug }}">{{ row.title }}</a>
       <span class="badge">{{ row.kind }}</span>
-      <code class="quiet">{{ row.slug }}</code>
+      <span class="badge">{{ row.label }}</span>
       {# **면접 문장이 비었는지 그 자리에서 보인다.** 205건 중 43건뿐이라
          목록에서 안 드러나면 영영 안 채운다. #}
       {% if not row.interview %}
@@ -104,19 +106,19 @@
 {% endif %}
 </form>
 
-{# ── 만든 글 — **날짜와 무관하다** ──
-   초안이 57건인데 목록 화면이 없어 주제를 거쳐야만 닿았다. #}
+{# ── 만든 글 — **내가 만든 것과 자동 초안을 가른다** ──
+   밤 스위퍼가 자정에 만든 초안이 '만든 글' 로 섞여 있어서, 내가 만들지
+   않은 것이 내가 만든 것처럼 서 있었다(2026-09-08). #}
 <section class="tool">
   <div class="work-head">
-    <h2>만든 글</h2>
-    <span class="meta">눌러서 확인하고 다듬는다</span>
+    <h2>내가 만든 글</h2>
+    <span class="meta">위에서 골라 만든 것</span>
   </div>
-  {% if drafts %}
-  <ul class="asks">
-    {% for row in drafts %}
+  {% if mine %}
+  <ul class="asks scroll-10">
+    {% for row in mine %}
     <li>
-      <a class="ask-text" href="/drafts/{{ row.draft_id }}">{{ row.title }}</a>
-      <code class="quiet">{{ row.topic_slug }}</code>
+      <a class="ask-text" href="/drafts/{{ row.draft_id }}">{{ row.label }}</a>
       {% if row.published_url %}<span class="badge ok">발행함</span>
       {% else %}<span class="badge">{{ row.status }}</span>{% endif %}
       <span class="when">{{ row.updated_at[:10] }}</span>
@@ -125,6 +127,31 @@
   </ul>
   {% else %}
   <p class="empty">아직 없다. 위에서 기록을 골라 만든다.</p>
+  {% endif %}
+</section>
+
+<section class="tool">
+  <div class="work-head">
+    <h2>자동 초안</h2>
+    <span class="meta">데몬이 자정에 마감하며 만들어 둔 것</span>
+  </div>
+  {% if auto %}
+  <ul class="asks scroll-10">
+    {% for row in auto %}
+    <li>
+      <a class="ask-text quiet" href="/drafts/{{ row.draft_id }}">{{ row.label }}</a>
+      {% if row.published_url %}<span class="badge ok">발행함</span>
+      {% else %}<span class="badge">{{ row.status }}</span>{% endif %}
+      <span class="when">{{ row.updated_at[:10] }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta quiet">
+    <strong>재료가 있는 주제를 미리 6단으로 세워 둔 것이다.</strong> 열어서
+    다듬으면 그때부터 내 글이다 — 이미 초안이 있는 주제는 다시 안 건드린다.
+  </p>
+  {% else %}
+  <p class="empty">아직 없다.</p>
   {% endif %}
 </section>
 

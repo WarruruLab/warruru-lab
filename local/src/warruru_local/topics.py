@@ -487,8 +487,77 @@ SLUG_LABELS: dict[str, str] = {
 }
 
 
+# 로드맵·CS·AI **밖**의 주제 이름. 이 프로젝트를 만들며 실제로 남긴
+# 기록들이라 목록에 서는데, 이름이 없어 화면에 영문 슬러그가 그대로
+# 나왔다(2026-09-08). 30개 중 기록이 있는 것만 적는다.
+#
+# **`SLUG_LABELS` 에 합치지 않는다.** 그쪽은 로드맵 부록 A 와 CS 출처가
+# 원본이고 테스트가 대조한다 — 여기 것을 섞으면 "로드맵 위인가" 라는
+# 질문에 답할 수 없게 된다. 이름을 보여주는 일만 한다.
+PROJECT_LABELS: dict[str, str] = {
+    "nationwide-dfs-performance": "전국 DFS 성능",
+    "osm-route-data": "OSM 경로 데이터",
+    "agent-plugin-packaging": "에이전트 플러그인 패키징",
+    "career-prep-pipeline": "취업 준비 파이프라인",
+    "database-migration": "DB 마이그레이션",
+    "spool-durability": "스풀 내구성",
+    "android-location-provider": "안드로이드 위치 provider",
+    "aws-secrets-manager": "AWS Secrets Manager",
+    "backend-container-vulnerability-scanning": "컨테이너 취약점 검사",
+    "backend-learning-plan": "백엔드 학습 계획",
+    "browser-theme-persistence": "브라우저 테마 유지",
+    "database-referential-integrity": "참조 무결성",
+    "date-boundary": "날짜 경계",
+    "dfs-route-directional-continuity": "DFS 경로 방향 연속성",
+    "dfs-v7-linear-fixture-regression": "DFS v7 회귀",
+    "flyway-migration-regression-tests": "Flyway 마이그레이션 회귀",
+    "geospatial-data-visualization": "공간 데이터 시각화",
+    "jinja-undefined": "Jinja Undefined",
+    "mobile-location-lifecycle": "모바일 위치 생명주기",
+    "postgresql-gist": "PostgreSQL GiST",
+    "postgresql-psql": "PostgreSQL psql",
+    "privacy-consent-boundaries": "개인정보 동의 경계",
+    "recommendation-grounding": "추천 근거",
+    "recommendation-latency": "추천 지연",
+    "route-required-condition-semantics": "경로 필수 조건 의미",
+    "shell-scripting": "셸 스크립팅",
+    "tistory-publishing": "티스토리 발행",
+    "web-event-layering": "웹 이벤트 레이어링",
+    "산책온-react-native-ios-simulator-실행": "산책온 iOS 시뮬레이터 실행",
+    "전국-node-tmap-검수-화면": "전국 노드 TMAP 검수 화면",
+}
+
+
 def label_of(slug: str) -> str:
-    return SLUG_LABELS.get(slug, slug)
+    """화면에 보일 이름.
+
+    적어 둔 것이 없으면 **슬러그에서 키워드를 만든다** — 붙임표를 띄우고
+    아는 약어만 대문자로 되돌린다(2026-09-08). 슬러그를 그대로 띄우면
+    목록에서 한 번 더 옮겨 읽어야 하고, 새 주제가 생길 때마다 표를 고쳐야
+    한다. **뜻을 지어내지는 않는다** — 있는 글자만 읽기 좋게 편다.
+    """
+    적힌것 = SLUG_LABELS.get(slug) or PROJECT_LABELS.get(slug)
+    return 적힌것 if 적힌것 else keyword_of(slug)
+
+
+# 슬러그 안에서 대문자로 되돌릴 약어. 여기 없는 말은 손대지 않는다.
+_ACRONYMS = {
+    "api", "aws", "cd", "ci", "cpu", "cs", "css", "db", "dfs", "bfs", "dns",
+    "dto", "erd", "gc", "gist", "html", "http", "https", "id", "io", "ios",
+    "jpa", "json", "jvm", "k8s", "llm", "mcp", "mvc", "nat", "oauth", "orm",
+    "os", "osm", "rag", "rds", "rest", "sql", "sse", "ssl", "tcp", "tls",
+    "tmap", "ttl", "udp", "ui", "url", "uuid", "vpc", "yaml",
+}
+
+
+def keyword_of(slug: str) -> str:
+    """슬러그를 읽기 좋은 키워드로 편다. `db-index` → `DB index`."""
+    말들 = [조각 for 조각 in (slug or "").split("-") if 조각]
+    if not 말들:
+        return slug
+    return " ".join(
+        조각.upper() if 조각.lower() in _ACRONYMS else 조각 for 조각 in 말들
+    )
 
 
 def roadmap_index(slug: str) -> int:

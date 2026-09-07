@@ -467,6 +467,7 @@ class RecordRepository:
         source_record_ids: list[str],
         file_path: str | None,
         now_iso: str,
+        made_by: str = "web",
     ) -> tuple[dict, bool]:
         """그 주제의 **가장 최근 미발행 초안**을 덮어쓰고, 없으면 만든다.
 
@@ -488,10 +489,10 @@ class RecordRepository:
             self._conn.execute(
                 "UPDATE draft SET topic = ?, kind_json = ?, title = ?,"
                 " markdown = ?, markdown_truncated = ?, source_record_ids_json = ?,"
-                " file_path = ?, updated_at = ? WHERE draft_id = ?",
+                " file_path = ?, made_by = ?, updated_at = ? WHERE draft_id = ?",
                 (topic, kinds_json, title, markdown,
-                 1 if markdown_truncated else 0, ids_json, file_path, now_iso,
-                 existing["draft_id"]),
+                 1 if markdown_truncated else 0, ids_json, file_path, made_by,
+                 now_iso, existing["draft_id"]),
             )
             return self.get_draft(existing["draft_id"]), True
 
@@ -499,10 +500,10 @@ class RecordRepository:
             "INSERT INTO draft ("
             " draft_id, topic, topic_slug, kind_json, title, markdown,"
             " markdown_truncated, source_record_ids_json, file_path, status,"
-            " created_at, updated_at"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?)",
+            " made_by, created_at, updated_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?)",
             (draft_id, topic, topic_slug, kinds_json, title, markdown,
-             1 if markdown_truncated else 0, ids_json, file_path,
+             1 if markdown_truncated else 0, ids_json, file_path, made_by,
              now_iso, now_iso),
         )
         return self.get_draft(draft_id), False
@@ -550,7 +551,7 @@ class RecordRepository:
         """
         rows = self._conn.execute(
             "SELECT draft_id, topic, topic_slug, title, status, published_url,"
-            " updated_at FROM draft WHERE deleted_at IS NULL"
+            " made_by, updated_at FROM draft WHERE deleted_at IS NULL"
             " ORDER BY updated_at DESC, draft_id DESC LIMIT ?",
             (max(1, min(limit, 200)),),
         ).fetchall()

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from warruru_local import ids, limits, paths
+from warruru_local import ids, limits, paths, topics
 from warruru_local.clock import local_date_of, to_iso
 from warruru_local.daemon import draft as draft_builder
 from warruru_local.publish.markdown_file import MarkdownFileTarget
@@ -22,6 +22,7 @@ def create(
     markdown: str | None = None,
     title: str | None = None,
     source_record_ids: list[str] | None = None,
+    made_by: str = "web",
 ) -> dict:
     """초안을 만들거나 덮어쓴다. 파일과 행이 함께 간다.
 
@@ -43,10 +44,12 @@ def create(
         records, key=lambda row: (row.get("occurred_at") or "", row["record_id"])
     )
 
-    return _write(ctx, records, topic_slug, markdown, title, source_record_ids)
+    return _write(ctx, records, topic_slug, markdown, title,
+                  source_record_ids, made_by)
 
 
-def create_from_records(ctx, record_ids: list[str]) -> dict:
+def create_from_records(ctx, record_ids: list[str],
+                        made_by: str = "web") -> dict:
     """**사람이 고른 기록만**으로 초안을 만든다.
 
     `create` 는 주제 전체를 재료로 쓴다. 이쪽은 화면에서 체크한 것만 쓴다 —
@@ -73,11 +76,12 @@ def create_from_records(ctx, record_ids: list[str]) -> dict:
     # 고르는 규칙과 같다 — 두 곳이 다른 것을 고르면 파일 제목과 색인이 어긋난다.
     return _write(
         ctx, records, records[-1]["topic_slug"], None, None,
-        [row["record_id"] for row in records],
+        [row["record_id"] for row in records], made_by,
     )
 
 
-def _write(ctx, records, topic_slug, markdown, title, source_record_ids) -> dict:
+def _write(ctx, records, topic_slug, markdown, title, source_record_ids,
+           made_by: str = "web") -> dict:
     """조립하고, 파일을 쓰고, 색인 행을 남긴다. 두 경로가 여기서 만난다."""
     body = markdown if markdown is not None else draft_builder.build(records)
     body, truncated = limits.clamp_text(body, limits.BODY_MAX)
@@ -89,7 +93,12 @@ def _write(ctx, records, topic_slug, markdown, title, source_record_ids) -> dict
     date = local_date_of(now)
     # 가장 최근 기록의 원문을 제목으로 쓴다. 조립기도 같은 것을 고른다.
     topic = records[-1]["topic"]
-    heading = (title or "").strip() or topic
+    # **원문이 슬러그면 한글 이름을 쓴다**(2026-09-08). 에이전트가 `topic` 에
+    # 슬러그를 그대로 적는 일이 잦아서, 밤에 만든 초안 제목이 죄다
+    # `web-oauth` 같은 영문이었다 — 목록에서 무슨 글인지 안 읽힌다.
+    한글 = topics.label_of(topic_slug)
+    보임 = topic if topic != topic_slug else (한글 if 한글 != topic_slug else topic)
+    heading = (title or "").strip() or 보임
     # 다듬은 글이 재료 목록을 함께 보내면 그것을 쓴다. 안 보내면 지금 재료다.
     ids_used = source_record_ids or [row["record_id"] for row in records]
 
@@ -118,6 +127,10 @@ def _write(ctx, records, topic_slug, markdown, title, source_record_ids) -> dict
         source_record_ids=ids_used,
         file_path=result.path,
         now_iso=now,
+        # **누가 만들었나.** 밤 스위퍼가 만든 초안과 사람이 화면에서 만든
+        # 초안이 목록에서 구분이 안 됐다 — 화면은 그것을 '만든 글' 이라고
+        # 불렀고, 내가 만들지 않은 것이 내가 만든 것처럼 서 있었다.
+        made_by=made_by,
     )
     return {
         "draft_id": row["draft_id"],

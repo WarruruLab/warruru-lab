@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 5
+CURRENT_VERSION = 6
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -254,7 +254,20 @@ CREATE TABLE IF NOT EXISTS ask_thread (
 );
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5}
+_V6 = """
+-- 초안이 **누가 만든 것인가.** 밤 스위퍼가 자동으로 만든 초안과 사람이
+-- 화면에서 만든 초안이 목록에서 구분이 안 됐다(2026-09-08).
+--
+-- 57건 중 54건이 KST 자정 무렵에 한 초씩 몰려 생긴 것이었고, 화면은 그것을
+-- '만든 글' 이라고 불렀다 — **이름이 거짓말을 했다.** 내가 만들지 않은 것이
+-- 내가 만든 것처럼 서 있으면 그 목록을 못 믿는다.
+--
+-- 기존 행은 `NULL` 이다. 지어내서 채우지 않는다 — 어느 것이 자동이었는지
+-- 시각으로 짐작할 수는 있어도 그 짐작을 데이터로 앉히면 틀린 값이 남는다.
+ALTER TABLE draft ADD COLUMN made_by TEXT;
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

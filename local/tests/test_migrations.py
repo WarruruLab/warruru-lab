@@ -142,6 +142,9 @@ EXPECTED_COLUMNS = {
         "published_url",
         "published_at",
         "deleted_at",
+        # v6 — **누가 만들었나.** 밤 스위퍼가 만든 것과 사람이 만든 것이
+        # 목록에서 구분이 안 됐다(2026-09-08).
+        "made_by",
         "created_at",
         "updated_at",
     },

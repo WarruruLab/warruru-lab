@@ -73,6 +73,29 @@ async def index(request: Request, date: str | None = None):
     )
 
 
+def _split_drafts(ctx) -> dict:
+    """초안을 **내가 만든 것 / 자동 초안**으로 가른다.
+
+    `made_by` 가 비어 있는 것(v6 이전 행)은 자동으로 본다 — 57건 중 54건이
+    KST 자정 무렵에 한 초씩 몰려 생긴 것이었다. 지어내서 채우지는 않고,
+    화면이 그렇게 말할 뿐이다.
+
+    제목이 슬러그 그대로면 **한글 이름을 보여준다.** 에이전트가 `topic` 에
+    슬러그를 적는 일이 잦아 밤에 만든 초안 제목이 죄다 영문이었다.
+    """
+    from warruru_local import topics
+
+    내것, 자동 = [], []
+    for row in ctx.records.list_drafts(limit=40):
+        한글 = topics.label_of(row["topic_slug"])
+        보임 = row["title"]
+        if 보임 == row["topic_slug"] and 한글 != row["topic_slug"]:
+            보임 = 한글
+        칸 = dict(row, label=보임)
+        (자동 if (row["made_by"] or "nightly") == "nightly" else 내것).append(칸)
+    return {"mine": 내것[:10], "auto": 자동[:10]}
+
+
 _WEEK = ("월", "화", "수", "목", "금", "토", "일")
 
 
@@ -135,10 +158,10 @@ async def topics_index(request: Request, date: str | None = None):
         request, "topics.html",
         {
             "view": todayview.day_records(ctx, day),
-            # **만든 글.** 초안이 57건인데 목록 화면이 없어 주제를 거쳐야만
-            # 닿았다 — 만든 것을 못 찾으면 만든 적이 없는 것과 같다.
-            # 이 칸은 날짜와 무관하다. 그날 것이 없어도 화면이 안 빈다.
-            "drafts": ctx.records.list_drafts(limit=10),
+            # **두 칸으로 가른다**(2026-09-08). 밤 스위퍼가 만든 초안과
+            # 사람이 만든 초안이 한 목록에 섞여 있어서, 내가 만들지 않은
+            # 것이 '만든 글' 로 서 있었다.
+            **_split_drafts(ctx),
             "templates": [(key, name) for key, (name, _) in WRITE_TEMPLATES.items()],
             "day": day,
             "weekday": _weekday(day),

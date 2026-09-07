@@ -45,13 +45,13 @@ def _record(client, record_id, **extra):
 
 
 def test_그날_전달된_것이_없으면_그렇게_말한다(client):
-    """**화면이 비지는 않는다.** 그날 것이 없어도 '만든 글' 은 남는다 —
-    홈이 `/d/{오늘}` 로 보내던 때와 같은 실패를 되풀이하지 않는다."""
+    """**화면이 비지는 않는다.** 그날 것이 없어도 초안 목록은 남는다."""
     page = client.get("/t")
     assert page.status_code == 200
     assert "<h2>오늘의 기록</h2>" in page.text
     assert "record_learning" in page.text
-    assert "<h2>만든 글</h2>" in page.text
+    assert "<h2>내가 만든 글</h2>" in page.text
+    assert "<h2>자동 초안</h2>" in page.text
 
 def test_조회는_토큰이_필요_없다(home, monkeypatch):
     monkeypatch.setenv("TZ", "Asia/Seoul")
@@ -89,11 +89,15 @@ def test_주제_슬러그도_같이_보인다(client):
     assert "connection-pool" in page
 
 def test_면접_문장이_비었으면_그_자리에_표시된다(client):
-    """205건 중 43건뿐이다. 목록에서 안 드러나면 영영 안 채운다."""
+    """205건 중 43건뿐이다. 목록에서 안 드러나면 영영 안 채운다.
+
+    **머리에 비율은 안 적는다**(2026-09-08) — "면접 문장 18/33" 은 무엇을
+    세는 말인지가 안 읽혔다. 빈 줄에 표시만 남긴다.
+    """
     _record(client, "rec_A")
     page = client.get("/t").text
     assert "면접 —" in page
-    assert "면접 문장 0/1" in page
+    assert "면접 문장" not in page
 
 def test_그날_경계는_로컬_자정_기준이다(client):
     """UTC 자정으로 자르면 KST 오전 9시 이전 기록이 통째로 앞 구간으로 샌다."""
@@ -143,16 +147,25 @@ def test_그날_것이_없어도_만든_글은_남는다(client):
     client.post("/v1/drafts", json={"topic_slug": "connection-pool"})
     page = client.get("/t").text
     assert "오늘의 기록" in page and ">0</b>건" in page   # 그날 신호는 그대로
-    assert "connection-pool" in page                      # 만든 글이 남는다
+    # 제목은 사람이 적은 원문이다. 슬러그로 적힌 경우에만 한글 이름으로 바꾼다.
+    assert "connection pool" in page
 
-def test_만든_글이_최근순으로_선다(client):
-    """만든 것을 못 찾으면 만든 적이 없는 것과 같다."""
+def test_자동_초안과_내가_만든_글을_가른다(client):
+    """밤 스위퍼가 자정에 만든 것이 '만든 글' 로 섞여 있으면,
+    **내가 만들지 않은 것이 내가 만든 것처럼 선다.**"""
+    from warruru_local.daemon import drafting
+
     _record(client, "rec_A", topic="jvm gc")
     _record(client, "rec_B", topic="net tcp")
-    client.post("/v1/drafts", json={"topic_slug": "jvm-gc"})
-    client.post("/v1/drafts", json={"topic_slug": "net-tcp"})
-    만든글 = client.get("/t").text.split("<h2>만든 글</h2>")[1]
-    assert 만든글.index("net-tcp") < 만든글.index("jvm-gc")
+    ctx = client.app.state.ctx
+    drafting.create(ctx, "jvm-gc", made_by="nightly")
+    drafting.create(ctx, "net-tcp", made_by="web")
+
+    page = client.get("/t").text
+    내것 = page[page.index("<h2>내가 만든 글</h2>"):page.index("<h2>자동 초안</h2>")]
+    자동 = page[page.index("<h2>자동 초안</h2>"):]
+    assert "net tcp" in 내것 and "jvm gc" not in 내것
+    assert "jvm gc" in 자동
 
 def test_이미_발행한_주제는_뒤로_간다(client):
     """이미 낸 글을 먼저 보여줄 이유가 없다."""
