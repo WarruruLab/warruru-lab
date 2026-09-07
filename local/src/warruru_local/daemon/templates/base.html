@@ -361,17 +361,53 @@
   .cell.lv2 { background: #93C0F7; color: var(--ink); }
   .cell.lv3 { background: var(--key-fill); color: #fff; }
   .cell.lv4 { background: #1B5FC1; color: #fff; }
-  .streak .cell.now { box-shadow: inset 0 0 0 2px var(--ink); }
+  .cell.now, .cal-cell.now { box-shadow: inset 0 0 0 2px var(--ink-faint); }
+  .seg-switch { display: inline-flex; background: var(--rule-soft);
+                border-radius: 999px; padding: 2px; gap: 2px; }
+  .seg-switch button { font-size: var(--t-xs); font-weight: 700;
+                       color: var(--ink-faint); padding: .25rem .7rem;
+                       border: 0; background: none; border-radius: 999px;
+                       cursor: pointer; font-family: inherit; }
+  .seg-switch button.on { background: var(--panel); color: var(--ink);
+                          box-shadow: 0 1px 3px rgba(25, 31, 40, .10); }
+
+  /* 달력 — 같은 재료를 다른 모양으로. **없는 날은 `-`** 다. */
+  .cal-head, .cal-row { display: grid; grid-template-columns: repeat(7, 1fr);
+                        gap: 4px; }
+  .cal-head { margin-bottom: .3rem; }
+  .cal-head span { text-align: center; font-size: var(--t-xs);
+                   color: var(--ink-faint); }
+  .cal-row { margin-bottom: 4px; }
+  .cal-cell {
+    /* 한 달이 여섯 줄이라 칸이 높으면 카드가 화면을 다 먹는다. */
+    position: relative; aspect-ratio: 1.9; border-radius: 8px;
+    background: var(--rule-soft); display: flex; align-items: center;
+    justify-content: center; font-family: var(--mono); font-size: var(--t-md);
+    color: var(--ink-faint);
+  }
+  .cal-cell i { position: absolute; top: 4px; left: 6px; font-style: normal;
+                font-size: 10px; color: var(--ink-faint); opacity: .75; }
+  .cal-cell.gone { background: transparent; }
+  a.cal-cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 1px; }
+
   .streak-key { display: flex; align-items: center; gap: .25rem; margin-top: .7rem; }
   .streak-key .cell { width: 13px; height: 13px; aspect-ratio: auto; }
+  /* **다크에서는 사다리를 다시 만든다.** 밝은 바탕에서는 "옅은 파랑 →
+     짙은 파랑" 이 곧 "적게 → 많이" 인데, 어두운 바탕에서는 반대다 —
+     처음 넣었을 때 빈 칸(회색)이 1단계(짙은 남색)보다 밝아서 사다리가
+     뒤집혀 보였다(2026-09-08 실측). 어두운 파랑에서 밝은 파랑으로 간다. */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .cell.lv1 { background: #24406A; }
-    :root:not([data-theme="light"]) .cell.lv2 { background: #2F5E9E; }
-    :root:not([data-theme="light"]) .cell.lv4 { background: #8CBEFB; color: #10233F; }
+    :root:not([data-theme="light"]) .cell.lv0 { background: #2B2E35; }
+    :root:not([data-theme="light"]) .cell.lv1 { background: #1F3556; }
+    :root:not([data-theme="light"]) .cell.lv2 { background: #2E5896; }
+    :root:not([data-theme="light"]) .cell.lv3 { background: #4A8DEE; color: #0E1B2E; }
+    :root:not([data-theme="light"]) .cell.lv4 { background: #9CC7FC; color: #10233F; }
   }
-  :root[data-theme="dark"] .cell.lv1 { background: #24406A; }
-  :root[data-theme="dark"] .cell.lv2 { background: #2F5E9E; }
-  :root[data-theme="dark"] .cell.lv4 { background: #8CBEFB; color: #10233F; }
+  :root[data-theme="dark"] .cell.lv0 { background: #2B2E35; }
+  :root[data-theme="dark"] .cell.lv1 { background: #1F3556; }
+  :root[data-theme="dark"] .cell.lv2 { background: #2E5896; }
+  :root[data-theme="dark"] .cell.lv3 { background: #4A8DEE; color: #0E1B2E; }
+  :root[data-theme="dark"] .cell.lv4 { background: #9CC7FC; color: #10233F; }
 
   .made { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   a.made-n { display: inline-flex; align-items: baseline; gap: .4rem; }

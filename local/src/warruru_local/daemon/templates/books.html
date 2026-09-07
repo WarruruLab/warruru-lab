@@ -6,6 +6,8 @@
   {% include "_nav.html" %}
 </header>
 
+<p class="meta subline">{{ today }} 기준 · <strong>반납이 가까운 순</strong>으로 세운다</p>
+
 {% macro 줄(book, 라벨) %}
 <li>
   <a href="/career/book/{{ book.key }}">{{ book.label }}</a>

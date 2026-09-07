@@ -64,6 +64,9 @@ async def index(request: Request, date: str | None = None):
             # **매일 얼마나 남겼나.** 달력(`/c`)이 "그 달 어느 날에" 를 묻고,
             # 이쪽은 "요즘 이어지고 있나" 를 묻는다.
             "streak": todayview.streak(ctx, today),
+            # 같은 재료를 **다른 모양으로** 본다. 스트릭은 "이어지고 있나",
+            # 달력은 "며칟날 했나" 를 묻는다.
+            "month": todayview.month_grid(ctx, day),
             "today": today,
             "weekday": _weekday(day),
             # 세는 것이 목적이 아니라 **어제와 견주는 것**이 목적이다.
