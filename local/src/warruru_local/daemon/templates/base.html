@@ -282,6 +282,40 @@
   /* ── 자격증 ───────────────────────────────────────────────────
      +/− 두 폼이 각각 블록이라 세로로 어긋나 있었다. 한 줄에 세운다. */
 
+  /* ── 홈 ───────────────────────────────────────────────────────
+     이 화면이 답할 것은 **오늘 뭐 하지** 하나다. 남긴 것은 맨 아래로
+     내렸다 — 아침에 여는 사람에게 "어제 뭘 했나" 는 답이 아니다. */
+
+  .weekday { font-size: var(--t-lg); color: var(--ink-faint); font-weight: 500;
+             margin-left: .3rem; }
+  .due-strip { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  a.due-one {
+    display: inline-flex; align-items: baseline; gap: .55rem;
+    padding: .55rem .9rem; border-radius: 12px; background: var(--panel);
+    box-shadow: var(--shadow); font-size: var(--t-md);
+  }
+  a.due-one .dd { font-family: var(--mono); font-weight: 700;
+                  color: var(--ink-soft); }
+  a.due-one.now { background: var(--alert-soft); }
+  a.due-one.now .dd { color: var(--alert); }
+  a.due-one .when { font-family: var(--mono); font-size: var(--t-xs);
+                    color: var(--ink-faint); }
+  a.due-more { align-self: center; font-size: var(--t-sm); color: var(--ink-faint); }
+  a.due-more:hover { color: var(--key); }
+
+  .todo a.ask-text { color: var(--ink); }
+  .todo a.ask-text:hover { color: var(--key); }
+  .todo .tick { cursor: default; }
+  .todo form .tick { cursor: pointer; }
+
+  .made { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  a.made-n { display: inline-flex; align-items: baseline; gap: .4rem; }
+  a.made-n b { font-family: var(--mono); font-size: var(--t-xl); }
+  a.made-n.zero b { color: var(--alert); }
+  a.made-n span { color: var(--ink-soft); font-size: var(--t-sm); }
+  .made-vs { font-family: var(--mono); font-size: var(--t-sm); }
+  .made-links { margin-left: auto; font-size: var(--t-sm); color: var(--ink-faint); }
+
   .bump { display: inline-flex; gap: .25rem; }
   .bump form.inline { display: inline-flex; margin: 0; }
   button.tick.alert { background: var(--alert-soft); border-color: var(--alert);
