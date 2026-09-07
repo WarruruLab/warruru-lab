@@ -67,6 +67,33 @@
 </section>
 {% endif %}
 
+{# 공부는 "이 책을 읽는 중" 으로 흐를 때가 많다. 그 자리에 물을 칸이
+   없으면 터미널로 나가야 하고, 나가면 안 돌아온다. #}
+{% with ask = {"key": view.ask_key, "thread": view.thread} %}
+{% include "_ask_box.html" %}
+{% endwith %}
+
+{% if view.answers %}
+<section class="tool">
+  <h2>물어본 것 {{ view.answers|length }}건</h2>
+  <p class="meta">
+    <strong>기록이 아니다</strong> — 내 말로 정리했을 때 `record` 로 남긴다.
+  </p>
+  {% for answer in view.answers %}
+  <article class="work">
+    <div class="work-head">
+      <strong>{{ answer.asked or answer.name }}</strong>
+      <span class="when">{{ answer.name }}{% if answer.tool %} · {{ answer.tool }}{% endif %}</span>
+    </div>
+    <details>
+      <summary class="meta">답 보기</summary>
+      <div class="preview">{{ answer.html|safe }}</div>
+    </details>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+
 {% if view.intro %}
 <section class="tool">
   <div class="preview">{{ view.intro|safe }}</div>

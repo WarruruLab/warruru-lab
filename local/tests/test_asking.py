@@ -184,3 +184,52 @@ def test_아주_긴_답은_잘린다(tmp_path, monkeypatch):
     program = _fake(tmp_path, f"cat <<'EOF'\n{line}\nEOF")
     events = _run(asking.Ask("db-index", "질문", tmp_path, program=program))
     assert len(events[0][1]["text"]) == 20
+
+
+# ── Claude Code 는 이벤트 모양이 다르다 (2026-09-08 실측) ──────────
+
+CLAUDE_STREAM = [
+    {"type": "rate_limit_event", "session_id": "s1"},
+    {"type": "system", "subtype": "init", "session_id": "d92a02cb-d270-4dd3-b7c9"},
+    {"type": "assistant",
+     "message": {"content": [{"type": "text", "text": "체이닝과 개방주소법."}]}},
+    {"type": "result", "subtype": "success", "is_error": False,
+     "usage": {"input_tokens": 2, "output_tokens": 3}},
+]
+
+
+def _claude_fake(tmp_path):
+    body = "\n".join(json.dumps(line, ensure_ascii=False) for line in CLAUDE_STREAM)
+    return _fake(tmp_path, f"cat <<'EOF'\n{body}\nEOF", name="fake-claude")
+
+
+def test_claude_이벤트도_같은_이름으로_나온다(tmp_path):
+    """화면은 어느 CLI 인지 몰라야 한다. 분기는 `translate` 한 곳에만 둔다."""
+    program = _claude_fake(tmp_path)
+    events = _run(asking.Ask("db-index", "질문", tmp_path,
+                             cli="claude", program=program))
+    assert [name for name, _ in events] == ["started", "message", "usage"]
+    assert events[0][1]["thread_id"] == "d92a02cb-d270-4dd3-b7c9"
+    assert events[1][1]["text"] == "체이닝과 개방주소법."
+    assert events[2][1]["tokens"] == 5
+
+
+def test_claude_의_생각_블록은_답이_아니다():
+    """`text` 블록만 사람에게 보여 줄 말이다."""
+    line = json.dumps({"type": "assistant",
+                       "message": {"content": [{"type": "thinking", "thinking": "음"}]}})
+    assert asking.translate(line) is None
+
+
+def test_claude_실패는_error_로_나온다():
+    line = json.dumps({"type": "result", "subtype": "error_during_execution",
+                       "is_error": True, "result": "한도를 넘었습니다"})
+    assert asking.translate(line) == ("error", {"message": "한도를 넘었습니다"})
+
+
+def test_두_CLI_의_이벤트가_서로를_가리지_않는다():
+    """이름이 겹치면 한쪽이 조용히 다른 쪽으로 읽힌다."""
+    codex = json.dumps({"type": "thread.started", "thread_id": "c1"})
+    claude = json.dumps({"type": "system", "subtype": "init", "session_id": "l1"})
+    assert asking.translate(codex) == ("started", {"thread_id": "c1"})
+    assert asking.translate(claude) == ("started", {"thread_id": "l1"})

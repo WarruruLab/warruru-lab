@@ -712,3 +712,39 @@ def test_여러_줄_질문이_앞머리를_깨지_않는다(client, fake_ask, ho
     meta, body = careerview.parse_front_matter(path.read_text(encoding="utf-8"))
     assert meta["asked"] == "첫 줄 --- 둘째 줄"
     assert "B+트리는 범위 검색" in body
+
+
+def test_경로_탈출을_거부한다(client, fake_ask, home):
+    """이 값이 그대로 디렉터리 이름이 된다 — `..` 하나로 답 파일이
+    홈 밖에 앉는다. 회사 노트가 같은 이유로 이미 같은 검사를 한다."""
+    for 나쁜값 in ("..", "../secret", "UPPER", "빈칸 있음", "-앞이대시"):
+        res = client.post(f"/web/topics/{나쁜값}/ask", data={
+            "prompt": "질문", "_token": client.app.state.ctx.settings.token})
+        assert res.status_code in (404, 400), 나쁜값
+
+
+def test_모르는_CLI_는_거절한다(client, fake_ask):
+    assert _ask(client, "db-index", cli="gpt5").status_code == 400
+
+
+def test_CLI_를_바꾸면_대화를_잇지_않는다(client, fake_ask):
+    """스레드 id 는 그 CLI 안에서만 뜻이 있다. codex 의 id 를 claude 에
+    넘기면 조용히 새 대화가 열리거나 실패한다."""
+    _ask(client, "db-index", cli="codex")
+    다시 = _events(_ask(client, "db-index", cli="claude").text)
+    assert dict(다시)["started"]["resumed"] is False
+    assert client.app.state.ctx.records.ask_thread("db-index")["cli"] == "claude"
+
+
+def test_정리는_정해진_프롬프트로_간다(client, fake_ask, home):
+    """정리 문장을 화면에서 만들면 버전도 테스트도 안 붙고,
+    두 화면이 조금씩 다른 문장을 보내기 시작한다."""
+    from warruru_local import paths
+    from warruru_local.daemon.routes_web import SUMMARY_PROMPT
+
+    assert "지어내" in SUMMARY_PROMPT or "대화에 나온 것만" in SUMMARY_PROMPT
+    _ask(client, "db-index", prompt="B+트리가 뭐야")
+    res = _ask(client, "db-index", prompt="", mode="summary")
+    assert res.status_code == 200
+    text = next((paths.answer_dir(home) / "db-index").glob("*.md")).read_text(encoding="utf-8")
+    assert "## 오늘 정리" in text

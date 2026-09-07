@@ -281,12 +281,25 @@ async def toggle_ask_form(
     return RedirectResponse(target, status_code=302)
 
 
+# 하루치 대화를 공부 기록으로 접는 프롬프트. **재료가 없으면 지어내지 말라**는
+# 한 줄이 이 문장의 핵심이다 — 정리가 창작이 되는 순간 그 파일을 못 믿는다.
+SUMMARY_PROMPT = (
+    "오늘 이 주제로 나눈 대화를 공부 기록으로 정리해줘. 세 부분이다 — "
+    "① 오늘 알게 된 것, ② 아직 막히는 것, ③ 다음에 볼 것. "
+    "**대화에 나온 것만 쓴다.** 없으면 그 절을 비우고 비었다고 적어라. "
+    "내가 한 말과 네가 설명한 것을 구분해서, 내가 이해했다고 말한 것만 ①에 넣어라. "
+    "마크다운으로, 500자 안쪽."
+)
+
+
 @router.post("/web/topics/{topic_slug}/ask")
 async def ask_form(
     request: Request,
     topic_slug: str,
-    prompt: str = Form(...),
+    prompt: str = Form(""),
     fresh: int = Form(0),
+    cli: str = Form("codex"),
+    mode: str = Form("ask"),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """그 주제에 대해 묻는다. 답은 도착하는 대로 흐른다(명세 §3.7).
@@ -296,21 +309,45 @@ async def ask_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
+
+    # **이 값이 그대로 디렉터리 이름이 된다**(`career/answers/{키}/`).
+    # 검사하지 않으면 `..` 하나로 답 파일이 홈 밖에 앉는다. 회사 노트가
+    # 같은 이유로 이미 같은 검사를 한다(`careerview.SLUG`).
+    if not careerview.SLUG.match(topic_slug):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 주제가 없습니다"},
+        )
+
     asked = prompt.strip()
+    if mode == "summary":
+        # **정리 프롬프트는 코드에 둔다.** 화면에서 만들면 버전도 테스트도
+        # 안 붙고, 두 화면이 조금씩 다른 문장을 보내기 시작한다.
+        asked = SUMMARY_PROMPT
     if not asked:
         raise HTTPException(
             status_code=400,
             detail={"code": "EMPTY_PROMPT", "message": "물어볼 것을 적어 주세요"},
         )
 
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
     if fresh:
         ctx.records.forget_thread(topic_slug)
     row = ctx.records.ask_thread(topic_slug)
+    # **CLI 를 바꾸면 대화를 잇지 않는다.** 스레드 id 는 그 CLI 안에서만
+    # 뜻이 있어서, codex 의 id 를 claude 에 넘기면 조용히 새 대화가 열리거나
+    # 실패한다. 갈아탈 때는 새로 시작하는 것이 정직하다.
+    이어감 = row is not None and row["cli"] == cli
     ask = asking.Ask(
         topic_slug=topic_slug,
         prompt=asked,
         home=ctx.settings.home,
-        thread_id=row["thread_id"] if row else None,
+        cli=cli,
+        thread_id=row["thread_id"] if 이어감 else None,
     )
 
     async def stream():
@@ -338,8 +375,9 @@ async def ask_form(
             if thread_id:
                 ctx.records.remember_thread(topic_slug, thread_id, ask.cli, now)
             saved = topicview.append_answer(
-                ctx, topic_slug, asked, "\n\n".join(parts),
-                local_date_of(now), ask.cli,
+                ctx, topic_slug,
+                "오늘 정리" if mode == "summary" else asked,
+                "\n\n".join(parts), local_date_of(now), ask.cli,
             )
         yield _sse("done", {"tokens": tokens, "saved": saved})
 
