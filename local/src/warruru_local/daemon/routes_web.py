@@ -124,11 +124,14 @@ def _back(date: str) -> RedirectResponse:
 
 @router.get("/career")
 async def career_index(request: Request):
-    """포트폴리오 허브. **두 갈래로 갈라 놓는다.**
+    """포트폴리오 허브 — **계기판이다**(2026-09-07 재설계).
 
-    기술스택은 '무엇을 공부할까' 를, 채용공고는 '어디에 지원할까' 를 묻는다.
-    두 축은 묻는 것이 다르고 보는 주기도 다르다 — 한 화면에 섞으면 어느
-    쪽도 훑기 어려워진다.
+    먼저 오는 것은 **마감**이다. 자격증과 공고를 섞어 가까운 순으로 세운다.
+    그다음이 **0인 것들** — 질문 체크 0, 발행 0 처럼 만들어 두고 안 쓰는
+    자리를 숫자로 드러낸다. 안 보이면 계속 0으로 남는다.
+
+    기술스택과 채용공고를 갈라 놓던 구조는 유지한다. 묻는 것이 다르고
+    보는 주기도 달라서다 — 다만 **마감만은 위에서 합친다.**
     """
     ctx = request.app.state.ctx
     companies = careerview.list_companies(ctx)
@@ -140,6 +143,10 @@ async def career_index(request: Request):
             "stack": stack,
             "books": stack["books"],
             "certs": careerview.build_certs(ctx),
+            # **마감은 자격증과 공고를 섞어 한 줄로 세운다.** 아침에 묻는 것은
+            # "다음에 뭐가 닥치나" 하나여서다.
+            "deadlines": careerview.deadlines(ctx),
+            "tally": ctx.records.tally(),
             "today": local_date_of(to_iso(ctx.clock.now())),
         },
     )

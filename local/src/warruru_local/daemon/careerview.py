@@ -387,6 +387,52 @@ def _book_notes(ctx, today: str) -> dict[str, dict]:
     return made
 
 
+def deadlines(ctx) -> list[dict]:
+    """자격증과 공고의 마감을 **한 줄로 섞어** 가까운 순으로 세운다.
+
+    지금까지 둘을 따로 놓았는데(2026-09-07 이전), 사람이 아침에 묻는 것은
+    "자격증이 언제인가" 도 "공고가 언제인가" 도 아니라 **"다음에 뭐가 닥치나"**
+    하나다. 두 목록을 번갈아 보며 머릿속에서 합치게 두면 그게 곧 놓치는 자리다.
+
+    지난 것과 내가 못 하는 것(`해당없음`)은 빼고, 준비도를 함께 들고 온다 —
+    D-day 옆에 준비도가 없으면 급한지 아닌지를 판단할 수 없다.
+    """
+    made: list[dict] = []
+
+    for cert in build_certs(ctx):
+        if cert["done"] or not cert["next"]:
+            continue
+        made.append({
+            "kind": "자격증",
+            "name": cert["name"],
+            "url": f"/career/cert/{cert['key']}",
+            "label": cert["next"]["label"],
+            "date": cert["next"]["date"],
+            "days": cert["next"]["days"],
+            "have": cert["coverage"]["covered"],
+            "total": cert["coverage"]["total"],
+            "blocked": 0,
+        })
+
+    for row in list_companies(ctx):
+        due = row.get("deadline")
+        if not row.get("slug") or not due or due["past"]:
+            continue
+        made.append({
+            "kind": "공고",
+            "name": row["company"] or row["title"],
+            "url": f"/career/c/{row['slug']}",
+            "label": "지원 마감",
+            "date": due["date"],
+            "days": due["days"],
+            "have": row["coverage"]["covered"],
+            "total": row["coverage"]["total"],
+            "blocked": len(row.get("blocked") or []),
+        })
+
+    return sorted(made, key=lambda item: (item["days"], item["name"]))
+
+
 def build_stack(ctx) -> dict:
     """기술스택 화면.
 

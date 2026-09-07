@@ -246,6 +246,30 @@ class RecordRepository:
         )
         return True
 
+    def tally(self) -> dict[str, int]:
+        """허브 계기판이 읽는 네 숫자. **한 번의 쿼리로 센다.**
+
+        `interview` 를 따로 세는 이유가 있다 — 나머지 필드는 96% 넘게 차 있는데
+        이것만 15% 다(2026-09-07 실측). 취업이 목적인 도구에서 면접에 들고 갈
+        문장이 없다는 뜻이라, 그 숫자가 화면에 계속 보여야 한다.
+        """
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS records,"
+            " SUM(CASE WHEN TRIM(COALESCE(interview,'')) <> '' THEN 1 ELSE 0 END)"
+            "   AS interview"
+            " FROM learning_record WHERE deleted_at IS NULL"
+        ).fetchone()
+        checks = self._conn.execute("SELECT COUNT(*) AS n FROM ask_check").fetchone()
+        published = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM draft WHERE status = 'PUBLISHED'"
+        ).fetchone()
+        return {
+            "records": int(row["records"] or 0),
+            "interview": int(row["interview"] or 0),
+            "checks": int(checks["n"] or 0),
+            "published": int(published["n"] or 0),
+        }
+
     # ── 주제별 대화 스레드 (v5) ──────────────────────────────────
 
     def ask_thread(self, topic_slug: str) -> dict | None:

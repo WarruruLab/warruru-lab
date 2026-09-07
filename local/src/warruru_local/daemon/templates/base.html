@@ -34,60 +34,76 @@
   보이지 않게 하되, 상태의 의미는 장식과 섞지 않는다.
 #}
 <style>
+  /* ────────────────────────────────────────────────────────────────
+     계기판 (2026-09-07 전면 재설계)
+
+     **웹폰트를 부르지 않는다.** 로컬 우선 도구라 네트워크 없이 열려야 한다
+     (AGENTS.md §2). 대신 **숫자를 표제로 세운다** — 이 화면이 하는 일이
+     세는 것이고, 세는 도구의 얼굴은 숫자다. 모노를 장식이 아니라
+     표시 서체로 쓴다.
+
+     **시그니처는 빈칸 격자다.** 진도를 막대가 아니라 칸으로 그린다.
+     막대는 "얼마나 왔나"를 말하고 격자는 "몇 칸이 비었나"를 말한다.
+     이 도구가 매번 답하려는 질문은 후자다 — 빈 곳이 곧 다음 차례라서.
+
+     색은 셋뿐이다. 청록은 재료가 있다, 주황은 비었다, 붉은색은 마감이
+     닥쳤다. **파랑을 쓰지 않는다** — 링크와 상태를 같은 색으로 칠하면
+     무엇이 눌리는 것이고 무엇이 사실인지 흐려진다.
+     ──────────────────────────────────────────────────────────────── */
+
   :root {
     color-scheme: light;
 
-    /* WarruruLab/DevTalk frontend/src/App.css 의 실제 토큰 */
-    --ground:    #f4f7f9;
-    --panel:     #ffffff;
-    --panel-2:   #f8f9fa;
-    --ink:       #2d3436;
-    --ink-soft:  #636e72;
-    --ink-faint: #8b949e;
-    --rule:      #e1e4e8;
-    --rule-soft: #edf0f2;
-    --primary:   #4a90e2;
-    --primary-hover: #357abd;
-    --primary-soft: #e3f2fd;
+    --ground:    #F1F3F2;
+    --panel:     #FFFFFF;
+    --panel-2:   #F7F9F8;
+    --ink:       #16211F;
+    --ink-soft:  #566764;
+    --ink-faint: #8A9995;
+    --rule:      #DEE5E3;
+    --rule-soft: #EAEFED;
 
-    /* 유일한 의미색 */
-    --full:      #28a745;   /* 재료가 있다 */
-    --full-soft: #d4edda;
-    --gap:       #b06b00;   /* 재료가 비었다 */
-    --gap-soft:  #fff3cd;
+    --full:      #0B8467;   /* 재료가 있다 */
+    --full-bg:   #E2F1EC;
+    --gap:       #A6591A;   /* 비었다 */
+    --gap-bg:    #F8EDE1;
+    --due:       #C2382F;   /* 마감이 닥쳤다. 아껴 쓴다 */
+    --due-bg:    #FAE8E6;
 
-    --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
-            "Malgun Gothic", sans-serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+            "Pretendard", "Malgun Gothic", system-ui, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
             "D2Coding", monospace;
 
-    --t-xs: .7rem;
-    --t-sm: .8rem;
-    --t-md: .875rem;
-    --t-base: 1rem;
-    --t-lg: 1.05rem;
-    --t-xl: 1.45rem;
+    --t-xs: .69rem;
+    --t-sm: .78rem;
+    --t-md: .86rem;
+    --t-base: .95rem;
+    --t-lg: 1.1rem;
+    --t-xl: 1.5rem;
+    --t-num: 2.1rem;
 
-    --radius: 12px;
+    --radius: 6px;
+    --pad: 1.15rem;
   }
 
   [data-theme="dark"] {
     color-scheme: dark;
-    --ground:    #111820;
-    --panel:     #19232d;
-    --panel-2:   #222e39;
-    --ink:       #edf3f8;
-    --ink-soft:  #b4c0ca;
-    --ink-faint: #82909d;
-    --rule:      #334250;
-    --rule-soft: #2a3743;
-    --primary:   #69aaf0;
-    --primary-hover: #8bbef4;
-    --primary-soft: #203b55;
-    --full:      #62c477;
-    --full-soft: #203d2a;
-    --gap:       #efb34f;
-    --gap-soft:  #493719;
+    --ground:    #0F1514;
+    --panel:     #161F1E;
+    --panel-2:   #1D2726;
+    --ink:       #E2EAE7;
+    --ink-soft:  #93A5A1;
+    --ink-faint: #647671;
+    --rule:      #24302E;
+    --rule-soft: #1C2625;
+
+    --full:      #43C4A2;
+    --full-bg:   #12302A;
+    --gap:       #DB8B45;
+    --gap-bg:    #33251A;
+    --due:       #E8615A;
+    --due-bg:    #38201E;
   }
 
   * { box-sizing: border-box; }
@@ -97,443 +113,333 @@
     color: var(--ink);
     font-family: var(--sans);
     font-size: var(--t-base);
-    line-height: 1.65;
+    line-height: 1.6;
     margin: 0;
-    padding: 1.6rem 1.25rem 5rem;
+    padding: 1.5rem 1.25rem 5rem;
     word-break: keep-all;          /* 한글을 어절 단위로 끊는다 */
     overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
   }
-  /* 읽는 폭. **컨테이너 하나에 담는다.**
-     종전에는 `body > *` 에 걸었는데, 직계 자식이 `margin` 단축을 쓰는 순간
-     `margin-inline: auto` 가 0 으로 덮여 그 요소만 왼쪽에 붙었다.
-     `/t/{slug}` 의 기록 목록(`margin: .7rem 0 0`)이 실제로 그랬다 —
-     위아래는 가운데인데 목록만 왼쪽이고, 폭은 그대로라 눈치채기도 어려웠다.
-     안쪽에서 무슨 margin 을 쓰든 이 자리는 안 흔들린다. */
-  main { max-width: 58rem; margin-inline: auto; }
 
-  /* ── 표제 ─────────────────────────────────────────────
-     모노로 세운다. 이 도구의 세계가 터미널이라 글꼴 자체가 성격이다. */
-  header {
-    display: flex;
-    gap: .5rem 1.1rem;
-    align-items: baseline;
-    flex-wrap: wrap;
-    padding: 1rem 1.15rem;
-    margin-bottom: 1.4rem;
-    background: var(--panel);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-  }
+  main { max-width: 62rem; margin: 0 auto; }
+
+  /* ── 표제 ─────────────────────────────────────────────────── */
+
   h1 {
     font-family: var(--mono);
     font-size: var(--t-xl);
     font-weight: 600;
-    letter-spacing: -.03em;
-    line-height: 1.15;
+    letter-spacing: -.02em;
     margin: 0;
+    text-wrap: balance;
   }
-  header nav { margin-left: auto; }
+  h2 {
+    font-family: var(--mono);
+    font-size: var(--t-lg);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 .5rem;
+  }
+  h3, h3.sub {
+    font-family: var(--mono);
+    font-size: var(--t-sm);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 1.5rem 0 .55rem;
+  }
+  h3 .quiet { text-transform: none; letter-spacing: 0; font-weight: 400; }
 
-  nav { display: flex; gap: .9rem; flex-wrap: wrap; font-size: var(--t-md); }
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: .75rem 1rem; margin-bottom: 1.25rem;
+  }
+  header nav { margin-left: auto; display: flex; gap: .8rem; flex-wrap: wrap; }
+  header nav a { font-size: var(--t-sm); }
 
-  /* 본문 링크는 밑줄, 탐색과 조작은 DevTalk 파랑으로 알린다. */
-  a { color: inherit; text-decoration: underline; text-underline-offset: .18em;
-      text-decoration-color: var(--ink-faint); }
-  a:hover { color: var(--primary); text-decoration-color: var(--primary); }
-  nav a {
-    color: var(--ink-soft); text-decoration: none; font-weight: 500;
-    padding: .35rem .5rem; border-radius: 6px;
-  }
-  nav a:hover { color: var(--primary); background: var(--primary-soft); }
-  nav .home-link {
-    color: #fff; background: var(--primary); font-weight: 700;
-    padding-inline: .7rem;
-  }
-  nav .home-link:hover { color: #fff; background: var(--primary-hover); }
-  nav .theme-toggle {
-    display: inline-flex; align-items: center; gap: .35rem;
-    color: var(--ink-soft); background: var(--panel-2);
-    border: 1px solid var(--rule); padding: .35rem .55rem;
-    white-space: nowrap;
-  }
-  nav .theme-toggle:hover {
-    color: var(--primary); background: var(--primary-soft);
-    border-color: var(--primary);
-  }
-  .date-switcher {
-    width: fit-content; margin: 0 0 .6rem;
-    align-items: center; gap: .35rem;
-    background: var(--panel); border: 1px solid var(--rule);
-    border-radius: 8px; padding: .25rem;
-  }
-  .date-switcher strong {
-    min-width: 7.2rem; text-align: center;
-    font-family: var(--mono); font-size: var(--t-md);
-    font-variant-numeric: tabular-nums;
-  }
-  .date-switcher a {
-    display: grid; place-items: center; width: 2rem; height: 2rem;
-    padding: 0; font-size: var(--t-lg);
+  p { margin: 0 0 .6rem; }
+  p:last-child { margin-bottom: 0; }
+
+  a { color: var(--ink); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+  a:hover { color: var(--full); }
+  a:focus-visible, button:focus-visible, summary:focus-visible,
+  input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--full); outline-offset: 2px; border-radius: 3px;
   }
 
-  /* ── 카드 ───────────────────────────────────────────── */
+  /* ── 판 ───────────────────────────────────────────────────── */
+
   .tool {
     background: var(--panel);
     border: 1px solid var(--rule);
     border-radius: var(--radius);
-    padding: 1rem 1.1rem;
-    margin-bottom: 1rem;
+    padding: var(--pad);
+    margin-bottom: .85rem;
   }
-  .tool {
-    transition: border-color .2s ease, box-shadow .2s ease;
-  }
-  .tool:hover { border-color: #c9d9ea; }
-  .tool > h2 {
-    font-family: var(--mono);
-    margin: 0 0 .85rem;
-    font-size: var(--t-xs);
-    font-weight: 600;
-    letter-spacing: .13em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-  }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; align-items: start; }
 
-  .work { border-top: 1px solid var(--rule-soft); padding: .85rem 0; }
-  .work:first-of-type { border-top: none; padding-top: 0; }
-  .work:last-of-type { padding-bottom: 0; }
-
-  .work-head {
-    display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap;
-  }
-  .work-head strong {
-    font-size: var(--t-lg); font-weight: 600; letter-spacing: -.01em;
-  }
-
-  /* ── 재료 막대 — 이 화면의 서명 ───────────────────────────
-     칸 넷은 rationale · outcome · limitation · interview 다.
-     주제마다 **항상 네 칸**이라 눈으로 비교가 된다. */
-  .gauge {
-    display: inline-grid;
-    grid-template-columns: repeat(4, 1.5rem);
-    gap: 2px;
-    vertical-align: -1px;
-  }
-  .seg {
-    height: .42rem;
-    border-radius: 1px;
-    background: var(--gap-soft);
-    position: relative;
-    overflow: hidden;
-  }
-  .seg > i {
-    display: block;
-    height: 100%;
-    background: var(--full);
-  }
-  .seg.none { background: var(--gap-soft); box-shadow: inset 0 0 0 1px var(--gap); }
-
-  .material {
-    display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
-    font-family: var(--mono);
-    font-size: var(--t-xs);
-    letter-spacing: .04em;
-    color: var(--ink-faint);
-  }
-  .material .ready { color: var(--full); }
-  .material .short { color: var(--gap); }
-
-  /* ── 라벨 ───────────────────────────────────────────────
-     기본 배지는 조용하다. 색은 글쓰기 준비 축의 것이라 쓰지 않는다.
-     구분은 모노와 옅은 바닥으로 한다. */
-  .badge {
-    font-family: var(--mono);
-    font-size: var(--t-xs);
-    line-height: 1.55;
-    letter-spacing: .03em;
-    background: var(--panel-2);
-    color: var(--ink-soft);
-    border-radius: 3px;
-    padding: 0 .4em;
-    white-space: nowrap;
-  }
-  .badge.ok   { color: var(--full); background: var(--full-soft); }
-  .badge.warn { color: var(--gap);  background: var(--gap-soft); }
-
-  .meta { font-size: var(--t-sm); color: var(--ink-soft); line-height: 1.6; }
-
-  /* ── 목록 ───────────────────────────────────────────────
-     시각을 왼쪽 고정 폭 레일에 세워 봤다가 걷었다. 대부분의 줄에서
-     그 칸이 비어 있어 본문이 통째로 밀려 보였다. 시각은 제목 줄
-     오른쪽 끝에 붙인다 — 읽을 때 먼저 오는 것은 제목이다. */
-  ul.checkpoints { list-style: none; margin: .7rem 0 0; padding: 0; }
-  ul.checkpoints > li {
-    padding: .5rem 0;
-    border-top: 1px solid var(--rule-soft);
-  }
-  ul.checkpoints > li:first-child { border-top: none; }
-
-  .when {
-    font-family: var(--mono);
-    font-size: var(--t-xs);
-    color: var(--ink-faint);
-    font-variant-numeric: tabular-nums;
-    margin-left: auto;      /* 제목 줄의 오른쪽 끝으로 */
-    white-space: nowrap;
-  }
-
-  /* ── 고를 수 있는 기록 목록 ───────────────────────────────
-     체크한 것만 초안의 재료가 된다. 체크박스는 왼쪽 고정 폭에 두되
-     시각 레일과 달리 **항상 무언가 들어 있어서** 빈 칸으로 안 보인다. */
-  ul.records { list-style: none; margin: .7rem 0 0; padding: 0; }
-  ul.records > li {
-    display: grid;
-    grid-template-columns: 1.15rem 1fr;
-    gap: 0 .65rem;
-    align-items: start;
-    padding: .5rem 0;
-    border-top: 1px solid var(--rule-soft);
-  }
-  ul.records > li:first-child { border-top: none; }
-  ul.records input[type="checkbox"] {
-    margin: .38rem 0 0;
-    accent-color: var(--full);
-    width: 1.05rem;
-    height: 1.05rem;
-  }
-  ul.records .line {
-    display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap;
-  }
-  ul.records .title {
-    font-size: var(--t-lg);
-    font-weight: 600;
-    letter-spacing: -.01em;
-    text-decoration-color: var(--ink-faint);
-  }
-  ul.records .title .go {
-    font-size: var(--t-xs);
-    color: var(--ink-faint);
-    margin-left: .3em;
-    display: inline-block;
-    text-decoration: none;
-  }
-  ul.records .title:hover .go { color: var(--ink); }
-  ul.records label.meta { cursor: pointer; }
-
-  .pick-bar {
-    display: flex; gap: .7rem; align-items: center; flex-wrap: wrap;
-    margin: .9rem 0 0;
-    padding-top: .8rem;
-    border-top: 1px solid var(--rule);
-  }
-
-  /* 면접 문장. 기록 본문과 성격이 달라 눈에 다르게 보여야 한다 —
-     이건 독자에게 갈 글이 아니라 본인이 되읽을 문장이다. */
-  .say {
-    margin: .45rem 0 0;
-    padding: .55rem .7rem;
-    border-left: 2px solid var(--full);
-    background: var(--full-soft);
-    font-size: var(--t-md);
-    line-height: 1.7;
-  }
-  .say-tag {
-    font-family: var(--mono);
-    font-size: var(--t-xs);
-    letter-spacing: .06em;
-    color: var(--full);
-    margin-right: .5em;
-    white-space: nowrap;
-  }
-
-  pre.body, code {
-    font-family: var(--mono);
-    font-size: var(--t-md);
-    background: var(--panel-2);
-    border-radius: 4px;
-  }
-  code { padding: .1em .35em; }
-  pre.body {
-    white-space: pre-wrap; word-break: break-word;
-    margin: .45rem 0 0; padding: .6rem .7rem;
-    line-height: 1.55; overflow-x: auto;
-  }
-
-  /* ── 미리보기 ───────────────────────────────────────────
-     티스토리를 흉내내지 않는다. 흉내내면 '여기서 이렇게 보였는데' 가
-     생기고, 그 순간 이 화면이 못 지킬 약속을 한 것이 된다.
-     여기서 하는 일은 **구조가 맞는지** 보이는 것까지다. */
-  .preview {
-    margin: .7rem 0 0; padding: .9rem 1.1rem;
-    background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px;
-  }
-  .preview > :first-child { margin-top: 0; }
-  .preview > :last-child { margin-bottom: 0; }
-  .preview h1 { font-size: 1.25rem; margin: 1.1rem 0 .4rem; }
-  .preview h2 { font-size: 1.08rem; margin: 1.1rem 0 .4rem; }
-  .preview h3 { font-size: 1rem; margin: .9rem 0 .35rem; }
-  .preview p { margin: .5rem 0; line-height: 1.7; }
-  .preview ul { margin: .5rem 0; padding-left: 1.2rem; }
-  .preview li { margin: .2rem 0; line-height: 1.65; }
-  .preview pre {
-    font-family: var(--mono); font-size: var(--t-md);
-    background: var(--ground); border: 1px solid var(--rule); border-radius: 4px;
-    margin: .6rem 0; padding: .6rem .7rem; overflow-x: auto;
-  }
-  .preview pre code { background: none; padding: 0; }
-  /* 표는 넓어지기 쉽다. 넘치면 **이 블록만** 가로로 굴린다 —
-     body 가 가로로 밀리면 화면 전체가 어긋난 것처럼 보인다. */
-  .preview { overflow-x: auto; }
-  .preview table {
-    border-collapse: collapse; margin: .7rem 0; font-size: var(--t-md);
-  }
-  .preview th, .preview td {
-    border: 1px solid var(--rule); padding: .3rem .55rem;
-    text-align: left; vertical-align: top;
-  }
-  .preview th { background: var(--ground); font-weight: 600; }
-  .preview blockquote {
-    margin: .6rem 0; padding: .1rem .8rem;
-    border-left: 3px solid var(--rule); color: var(--ink-soft);
-  }
-  .preview hr { border: none; border-top: 1px solid var(--rule); margin: 1rem 0; }
-
-  details > summary { cursor: pointer; margin-top: .5rem; }
-
-  /* ── 조작 ───────────────────────────────────────────── */
-  form.inline { display: inline; }
-  button {
-    font: inherit; font-size: var(--t-sm); line-height: 1.4;
-    cursor: pointer; padding: .2rem .6rem;
-    border-radius: 8px;
-    border: 1px solid var(--rule);
-    background: transparent;
-    color: var(--ink-soft);
-  }
-  button:hover { border-color: var(--primary); color: var(--primary); }
-  button.primary {
-    border-color: var(--primary); background: var(--primary);
-    color: #fff; font-weight: 600;
-  }
-  button.primary:hover { background: var(--primary-hover); color: #fff; }
-  button.danger { color: var(--gap); border-color: var(--gap-soft); }
-  button.danger:hover { border-color: var(--gap); color: var(--gap); }
-
-  input[type="url"], input[type="text"], textarea {
-    font: inherit; font-size: var(--t-md);
-    color: var(--ink); background: var(--panel-2);
-    border: 1px solid var(--rule); border-radius: 5px;
-    padding: .35rem .55rem;
-  }
-  input[type="url"] { min-width: min(24rem, 100%); }
-  textarea.body {
-    display: block; width: 100%;
-    font-family: var(--mono); line-height: 1.55; resize: vertical;
-  }
-  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-
-  /* ── 달력 ───────────────────────────────────────────────
-     칠해진 날은 '기록이 있다' 는 뜻이라 재료색과 같은 계열을 쓴다. */
-  table.calendar { border-collapse: separate; border-spacing: 3px; margin: .3rem 0 0 -3px; }
-  table.calendar th, table.calendar td {
-    width: 2.45rem; height: 2.45rem; text-align: center; padding: 0;
-    font-family: var(--mono); font-size: var(--t-md);
-    font-variant-numeric: tabular-nums;
-  }
-  table.calendar th {
-    font-size: var(--t-xs); font-weight: 600; letter-spacing: .08em;
-    color: var(--ink-faint); height: 1.5rem;
-  }
-  table.calendar td { border-radius: 5px; }
-  table.calendar td.marked { background: var(--full-soft); }
-  table.calendar td.marked a {
-    display: grid; place-items: center; width: 100%; height: 100%;
-    text-decoration: none; color: var(--full); font-weight: 600;
-    border-radius: 5px;
-  }
-  table.calendar td.marked:hover { background: var(--full); }
-  table.calendar td.marked:hover a { color: var(--ground); }
-  table.calendar td.today { box-shadow: inset 0 0 0 2px var(--ink-faint); }
-  table.calendar td.marked.today { box-shadow: inset 0 0 0 2px var(--full); }
-
-  /* ── 두 칸 ─────────────────────────────────────────────
-     좁은 화면에서는 한 줄로 눕는다. 억지로 두 칸을 유지하면 배지가
-     줄줄이 접혀 오히려 못 읽는다. */
-  .two {
-    display: grid; gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-    align-items: start;
-  }
-  .two > .tool { margin-bottom: 0; }
-  .two h2 > a { text-decoration: none; color: var(--ink); }
-  .two h2 > a:hover { color: var(--primary); }
-
-  h3.sub {
-    font-family: var(--mono); font-size: var(--t-xs); font-weight: 600;
-    letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint);
-    margin: 1.1rem 0 0;
-  }
-  h3.sub:first-of-type { margin-top: .9rem; }
-
-  ul.picks { list-style: none; margin: .6rem 0 0; padding: 0; }
-  ul.picks > li {
-    display: flex; gap: .4rem; align-items: baseline; flex-wrap: wrap;
-    padding: .42rem 0; border-top: 1px solid var(--rule-soft);
-  }
-  ul.picks > li:first-child { border-top: none; }
-  ul.picks > li > a {
-    font-weight: 600; text-decoration: none; margin-right: auto;
-  }
-  ul.picks > li > a:hover { color: var(--primary); }
-
-  /* ── 준비도 막대 ─────────────────────────────────────────
-     재료 막대와 색을 나눠 쓴다. 초록은 '있다', 주황 바닥은 '비었다' 로
-     화면 전체에서 같은 뜻이어야 한다. */
-  .cover {
-    display: inline-block; vertical-align: -2px;
-    width: 10rem; height: .5rem; border-radius: 2px;
-    background: var(--gap-soft); overflow: hidden;
-    margin-right: .45rem;
-  }
-  .cover > i { display: block; height: 100%; background: var(--full); }
-
-  table.cover-table { border-collapse: collapse; margin: .7rem 0 0; }
-  table.cover-table th, table.cover-table td {
-    border-bottom: 1px solid var(--rule-soft);
-    padding: .3rem .8rem .3rem 0; text-align: left;
-    font-size: var(--t-md);
-  }
-  table.cover-table th {
-    font-family: var(--mono); font-size: var(--t-xs);
-    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint);
-  }
-  table.cover-table .ready { color: var(--full); font-weight: 600; }
-  table.cover-table .short { color: var(--gap); font-weight: 600; }
-  a.badge { text-decoration: none; }
-  a.badge:hover { background: var(--gap); color: var(--ground); }
-
-  /* ── 질문 체크 ─────────────────────────────────────────
-     3초 만에 눌려야 하는 자리라 버튼을 크게 둔다. 작으면 안 누른다. */
-  ul.checkpoints.asks > li {
-    display: flex; gap: .55rem; align-items: baseline;
-  }
-  button.tick {
-    width: 1.5rem; height: 1.5rem; padding: 0;
-    display: inline-grid; place-items: center;
-    border-radius: 5px; font-size: var(--t-sm); line-height: 1;
-  }
-  button.tick.on {
-    background: var(--full-soft); border-color: var(--full); color: var(--full);
-  }
-
+  .meta { color: var(--ink-soft); font-size: var(--t-md); }
   .quiet { color: var(--ink-faint); }
   .empty { color: var(--ink-soft); }
   .empty-today { color: var(--gap); font-weight: 600; }
+  .when { color: var(--ink-faint); font-family: var(--mono); font-size: var(--t-xs); }
 
+  /* ── 숫자가 표제다 ────────────────────────────────────────── */
+
+  .dday {
+    font-family: var(--mono);
+    font-size: var(--t-num);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -.04em;
+    color: var(--ink);
+  }
+  .dday.near { color: var(--due); }
+  .dday .unit { font-size: var(--t-sm); font-weight: 400; color: var(--ink-faint);
+                letter-spacing: 0; margin-left: .12rem; }
+
+  /* ── 시그니처: 빈칸 격자 ──────────────────────────────────── */
+  /* 막대는 "얼마나 왔나", 격자는 "몇 칸이 비었나" 를 말한다.
+     이 도구가 매번 답하려는 질문은 후자다. */
+
+  .grid-gauge {
+    display: flex; flex-wrap: wrap; gap: 3px;
+    margin: .5rem 0 .35rem;
+  }
+  .grid-gauge .cell {
+    width: 10px; height: 10px; border-radius: 2px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    display: block;
+  }
+  .grid-gauge .cell.on { background: var(--full); border-color: var(--full); }
+  .grid-gauge .cell.want { border-color: var(--gap); border-width: 1.5px; }
+  a.cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 1px; }
+
+  /* 숫자를 태그로 감싸 강조하지 않는다. 테스트가 "0 / 4 슬러그" 를
+     이어진 글자로 보기 때문이다 — 화면은 같은데 테스트만 깨지는 종류의
+     변경이라, 강조는 서체와 색으로 한다. */
+  .gauge-read {
+    font-family: var(--mono); font-size: var(--t-sm);
+    color: var(--ink); letter-spacing: -.01em; white-space: nowrap;
+  }
+
+  /* 재료 막대 — 준비도 격자와 **다른 것**이다.
+     격자는 주제가 몇 개 채워졌나, 이쪽은 한 주제의 네 필드
+     (rationale · outcome · limitation · interview)가 얼마나 찼나를 말한다.
+     칸 수가 넷으로 고정이라 눈으로 비교가 된다. */
+
+  .material { display: inline-flex; align-items: center; gap: .4rem;
+              font-family: var(--mono); font-size: var(--t-xs); }
+  .material .gauge { display: inline-flex; gap: 2px; }
+  .material .seg {
+    width: 1.1rem; height: 7px; border-radius: 2px;
+    border: 1px solid var(--rule); overflow: hidden; display: block;
+  }
+  .material .seg i { display: block; height: 100%; background: var(--full); }
+  .material .seg.none { border-style: dashed; border-color: var(--gap); }
+  .material .ready { color: var(--full); }
+  .material .short { color: var(--gap); }
+
+  /* ── 마감 레인 ────────────────────────────────────────────── */
+
+  .lane { display: flex; flex-direction: column; gap: 0; }
+  .lane-row {
+    display: grid;
+    grid-template-columns: 4.6rem minmax(8rem, 1fr) minmax(0, 1.4fr) auto;
+    gap: .9rem; align-items: center;
+    padding: .7rem 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .lane-row:first-child { border-top: 0; }
+  .lane-row .who { font-weight: 600; font-size: var(--t-md); }
+  .lane-row .who a { text-decoration: none; }
+  .lane-row .who a:hover { text-decoration: underline; }
+  .lane-row .note { color: var(--ink-faint); font-size: var(--t-xs); display: block;
+                    font-weight: 400; }
+
+  /* ── 지표 칸 ──────────────────────────────────────────────── */
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+           background: var(--rule); border: 1px solid var(--rule);
+           border-radius: var(--radius); overflow: hidden; }
+  .stat { background: var(--panel); padding: .8rem .9rem; }
+  .stat .n {
+    font-family: var(--mono); font-size: 1.35rem; font-weight: 600;
+    line-height: 1.1; letter-spacing: -.03em; display: block;
+  }
+  .stat .k { font-size: var(--t-xs); color: var(--ink-faint); letter-spacing: .03em; }
+  .stat.zero { background: var(--gap-bg); }
+  .stat.zero .n, .stat.zero .k { color: var(--gap); }
+
+  /* ── 배지 ─────────────────────────────────────────────────── */
+
+  .badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    font-family: var(--mono); font-size: var(--t-xs);
+    padding: .12rem .4rem;
+    border: 1px solid var(--rule); border-radius: 3px;
+    color: var(--ink-soft); background: var(--panel-2);
+    text-decoration: none; white-space: nowrap;
+    letter-spacing: -.01em;
+  }
+  .badge.ok   { color: var(--full); border-color: var(--full); background: var(--full-bg); }
+  .badge.warn { color: var(--gap);  border-color: var(--gap);  background: var(--gap-bg); }
+  .badge.due  { color: var(--due);  border-color: var(--due);  background: var(--due-bg); }
+  a.badge:hover { border-color: var(--ink-soft); }
+
+  /* ── 목록 ─────────────────────────────────────────────────── */
+
+  ul.picks, ul.checkpoints, ul.asks {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+  }
+  ul.picks > li {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+    padding: .5rem 0; border-top: 1px solid var(--rule-soft);
+  }
+  ul.picks > li:first-child { border-top: 0; }
+  ul.picks > li > a:first-child { flex: 1 1 8rem; font-size: var(--t-md); text-decoration: none; }
+  ul.picks > li > a:first-child:hover { text-decoration: underline; }
+
+  ul.checkpoints > li, ul.asks > li {
+    padding: .55rem 0; border-top: 1px solid var(--rule-soft);
+  }
+  ul.checkpoints > li:first-child, ul.asks > li:first-child { border-top: 0; }
+
+  .work { padding: .7rem 0; border-top: 1px solid var(--rule-soft); }
+  .work:first-of-type { border-top: 0; }
+  .work-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .45rem;
+    margin-bottom: .25rem;
+  }
+  .work-head strong { font-size: var(--t-md); }
+
+  /* ── 본문·코드 ────────────────────────────────────────────── */
+
+  pre.body, .body {
+    font-family: var(--mono); font-size: var(--t-sm); line-height: 1.6;
+    background: var(--panel-2); border: 1px solid var(--rule);
+    border-radius: var(--radius); padding: .7rem .85rem;
+    overflow-x: auto; margin: .5rem 0; white-space: pre-wrap;
+  }
+  code { font-family: var(--mono); font-size: .9em; }
+  p code, li code, td code {
+    background: var(--panel-2); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 0 .25rem;
+  }
+
+  .preview {
+    border-left: 2px solid var(--rule); padding-left: .9rem;
+    font-size: var(--t-md); color: var(--ink-soft);
+  }
+  .preview h1, .preview h2 { font-size: var(--t-lg); margin: 1rem 0 .4rem; }
+  .preview h3 { text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .preview table { width: 100%; border-collapse: collapse; font-size: var(--t-sm);
+                   margin: .6rem 0; }
+  .preview th, .preview td { border: 1px solid var(--rule); padding: .35rem .5rem;
+                             text-align: left; }
+  .preview pre { overflow-x: auto; }
+
+  /* ── 폼 ───────────────────────────────────────────────────── */
+
+  button, .btn {
+    font-family: var(--sans); font-size: var(--t-md);
+    padding: .35rem .7rem; border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--panel-2);
+    color: var(--ink); cursor: pointer;
+  }
+  button:hover { border-color: var(--ink-faint); }
+  button.primary { background: var(--full); border-color: var(--full); color: var(--panel); }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  button.tick {
+    width: 1.55rem; height: 1.55rem; padding: 0;
+    display: inline-grid; place-items: center;
+    font-family: var(--mono); font-size: var(--t-sm); line-height: 1;
+  }
+  button.tick.on { background: var(--full-bg); border-color: var(--full); color: var(--full); }
+
+  input[type="text"], input[type="url"], textarea {
+    font-family: var(--sans); font-size: var(--t-md);
+    padding: .4rem .55rem; border-radius: var(--radius);
+    border: 1px solid var(--rule); background: var(--panel);
+    color: var(--ink); width: 100%;
+  }
+  form.inline { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  form.ask { display: flex; flex-direction: column; gap: .5rem; margin: .6rem 0; }
+  .ask-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+
+  /* ── 달력 ─────────────────────────────────────────────────── */
+
+  table.calendar { border-collapse: collapse; font-family: var(--mono);
+                   font-size: var(--t-sm); }
+  table.calendar th, table.calendar td {
+    width: 2.4rem; height: 2.4rem; text-align: center; vertical-align: middle;
+    border: 1px solid var(--rule-soft);
+  }
+  table.calendar th { color: var(--ink-faint); font-weight: 400; border: 0; }
+  table.calendar td a { display: grid; place-items: center; width: 100%; height: 100%;
+                        text-decoration: none; }
+  table.calendar td.has { background: var(--full-bg); }
+  table.calendar td.has a { color: var(--full); font-weight: 600; }
+
+  /* ── 화면마다 하나씩 있는 것들 ────────────────────────────── */
+
+  .theme-toggle { font-family: var(--mono); font-size: var(--t-xs); }
+  .date-switcher { display: flex; gap: .5rem; align-items: baseline;
+                   font-family: var(--mono); font-size: var(--t-sm); }
+  .today { color: var(--full); font-weight: 600; }
+
+  .records { display: flex; flex-direction: column; }
+  .row { display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
+  .line { border-top: 1px solid var(--rule-soft); padding-top: .55rem;
+          margin-top: .55rem; }
+  .title { font-weight: 600; }
+  .done { color: var(--ink-faint); text-decoration: line-through; }
+  .marked { color: var(--full); }
+  .danger { color: var(--due); border-color: var(--due); }
+  button.danger:hover { background: var(--due-bg); }
+  .go { font-family: var(--mono); font-size: var(--t-sm); }
+
+  /* 목록 화면의 준비도 — 표 안에서는 격자가 줄을 밀어내므로 막대로 둔다.
+     같은 값을 두 모양으로 그리는 유일한 자리다. */
+  .cover {
+    display: inline-block; width: 5.5rem; height: 6px; vertical-align: middle;
+    border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
+    background: var(--panel-2);
+  }
+  .cover i { display: block; height: 100%; background: var(--full); }
+  .cover-table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+  .cover-table th, .cover-table td {
+    text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--rule-soft);
+  }
+  .cover-table th { color: var(--ink-faint); font-weight: 400;
+                    font-family: var(--mono); font-size: var(--t-xs); }
+  .pick-bar { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0; }
+
+  /* ── 그 밖 ────────────────────────────────────────────────── */
+
+  .say { font-size: var(--t-md); color: var(--ink-soft); }
+  .say-tag { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-faint); }
+  .home-link { font-family: var(--mono); font-size: var(--t-sm); }
+  .seg { display: inline-flex; gap: .3rem; }
+  details summary { cursor: pointer; }
+
+  @media (max-width: 44rem) {
+    .two, .stats { grid-template-columns: 1fr; }
+    .stats { gap: 1px; }
+    .lane-row { grid-template-columns: 3.6rem 1fr; row-gap: .35rem; }
+    .lane-row > *:nth-child(3), .lane-row > *:nth-child(4) { grid-column: 2; }
+  }
   @media (max-width: 32rem) {
-    body { padding: 1.1rem .9rem 4rem; }
+    body { padding: 1rem .8rem 4rem; }
     header nav { margin-left: 0; }
     table.calendar th, table.calendar td { width: 2.05rem; height: 2.05rem; }
+    :root { --t-num: 1.7rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }

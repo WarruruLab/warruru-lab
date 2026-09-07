@@ -6,6 +6,70 @@
   {% include "_nav.html" %}
 </header>
 
+{# ── 마감 레인 ──────────────────────────────────────────────────
+   **자격증과 공고를 섞는다.** 아침에 묻는 것은 "자격증이 언제인가" 도
+   "공고가 언제인가" 도 아니라 "다음에 뭐가 닥치나" 하나다.
+   D-day 옆에 준비도 격자를 붙여야 급한지 아닌지가 판단된다. #}
+{% if deadlines %}
+<section class="tool">
+  <h2>다음에 닥치는 것</h2>
+  <div class="lane">
+    {% for row in deadlines[:6] %}
+    <div class="lane-row">
+      <span class="dday {{ 'near' if row.days <= 7 }}">
+        {{ row.days }}<span class="unit">일</span>
+      </span>
+      <span class="who">
+        <a href="{{ row.url }}">{{ row.name }}</a>
+        <span class="note">{{ row.label }} · {{ row.date }}</span>
+      </span>
+      {# 시그니처: 진도를 막대가 아니라 **칸**으로 그린다.
+         막대는 "얼마나 왔나", 칸은 "몇 칸이 비었나" 를 말한다. #}
+      <span>
+        {% if row.total %}
+        <span class="grid-gauge">
+          {%- for n in range(row.total) -%}
+          <span class="cell {{ 'on' if n < row.have }}"></span>
+          {%- endfor -%}
+        </span>
+        <span class="gauge-read">{{ row.have }} / {{ row.total }} 채움</span>
+        {% else %}
+        <span class="gauge-read quiet">요구 기술 미확인</span>
+        {% endif %}
+      </span>
+      <span>
+        <span class="badge">{{ row.kind }}</span>
+        {% if row.blocked %}<span class="badge due">자격 {{ row.blocked }}</span>{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ── 0 인 것들 ───────────────────────────────────────────────────
+   만들어 두고 안 쓰는 자리를 숫자로 드러낸다. 안 보이면 계속 0 으로 남는다.
+   `interview` 를 여기 세운 이유는 §소재뱅크에 있다 — 나머지 필드는 96% 넘게
+   차 있는데 이것만 15% 이고, 면접에 들고 갈 문장이 그것뿐이라서다. #}
+<section class="stats">
+  <span class="stat">
+    <span class="n">{{ tally.records }}</span>
+    <span class="k">기록</span>
+  </span>
+  <span class="stat {{ 'zero' if tally.interview * 3 < tally.records }}">
+    <span class="n">{{ tally.interview }}</span>
+    <span class="k">면접 문장</span>
+  </span>
+  <span class="stat {{ 'zero' if not tally.checks }}">
+    <span class="n">{{ tally.checks }}</span>
+    <span class="k">답할 수 있다</span>
+  </span>
+  <span class="stat {{ 'zero' if not tally.published }}">
+    <span class="n">{{ tally.published }}</span>
+    <span class="k">발행</span>
+  </span>
+</section>
+
 {# 두 축을 **나란히** 놓는다. 위아래로 쌓으면 아래쪽이 스크롤 밖으로 밀리고,
    그러면 두 축이 대등하다는 사실이 화면에서 사라진다. #}
 <div class="two">
@@ -76,9 +140,15 @@
     {% for group in stack.groups %}
     <li>
       <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
-      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
-      {% set wanted = group.slugs | selectattr("companies") | list %}
-      {% if wanted %}<span class="badge warn">공고 {{ wanted|length }}</span>{% endif %}
+      {# 회사가 요구하는데 0건인 칸은 **테두리를 다르게** 그린다.
+         같은 빈칸이라도 그 자리가 먼저다. #}
+      <span class="grid-gauge">
+        {%- for item in group.slugs -%}
+        <a class="cell {{ 'on' if item.count }}{{ ' want' if not item.count and item.companies }}"
+           href="/t/{{ item.slug }}" title="{{ item.label }}"></a>
+        {%- endfor -%}
+      </span>
+      <span class="gauge-read">{{ group.have }}/{{ group.total }}</span>
     </li>
     {% endfor %}
   </ul>
