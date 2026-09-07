@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}자격증 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>자격증</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta"><a href="/career">← 포트폴리오</a></p>
+
+<section class="tool">
+  <h2>볼 것 {{ certs|length }}</h2>
+  {% if certs %}
+  <ul class="picks">
+    {% for cert in certs %}
+    <li>
+      <a href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      {% if cert.next %}
+        <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">D-{{ cert.next.days }}</span>
+        <span class="quiet">{{ cert.next.label }}</span>
+      {% else %}
+        <span class="badge">일정 미정</span>
+      {% endif %}
+      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="status" value="보유">
+        <button class="btn" type="submit">땄다</button>
+      </form>
+      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="status" value="안 함">
+        <button class="btn" type="submit">내린다</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">볼 것이 없다. 아래에서 더한다.</p>
+  {% endif %}
+</section>
+
+{% if held %}
+<section class="tool">
+  <h2>딴 것 {{ held|length }}</h2>
+  <ul class="picks">
+    {% for cert in held %}
+    <li>
+      <a class="quiet" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      <span class="badge ok">{{ cert.status }}</span>
+      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="status" value="준비중">
+        <button class="btn" type="submit">다시 본다</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="tool">
+  <h2>자격증 더하기</h2>
+  <p class="meta">
+    노트 한 장이 <code>~/.warruru/career/certs/</code> 에 생긴다 —
+    <strong>저장소 바깥이다.</strong> 일정과 커리큘럼은 그 파일에 적는다.
+  </p>
+  <form class="cert-add" method="post" action="/web/certs/add">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <label class="chat-field">
+      <span>이름</span>
+      <input type="text" name="name" required placeholder="정보보안기사">
+    </label>
+    <label class="chat-field">
+      <span>키 — 주소가 된다</span>
+      <input type="text" name="key" required pattern="[a-z0-9][a-z0-9-]*"
+             placeholder="security-engineer">
+    </label>
+    <label class="chat-field">
+      <span>공식 사이트 (비워도 된다)</span>
+      <input type="url" name="site" placeholder="https://">
+    </label>
+    <button class="primary" type="submit">더하기</button>
+  </form>
+</section>
+
+{% if dropped %}
+<section class="tool">
+  <h2>내린 것 {{ dropped|length }}</h2>
+  <p class="meta quiet">
+    <strong>파일은 안 지웠다.</strong> 적어 둔 일정과 커리큘럼이 그대로 있어
+    다시 올리면 그 자리에서 이어진다.
+  </p>
+  <ul class="picks">
+    {% for cert in dropped %}
+    <li>
+      <span class="quiet">{{ cert.name }}</span>
+      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="status" value="준비중">
+        <button class="btn" type="submit">다시 올린다</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

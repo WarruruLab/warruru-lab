@@ -570,7 +570,7 @@ def build_stack(ctx) -> dict:
     }
 
 
-def _cert_note(ctx, key: str, today: str) -> dict:
+def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
     """자격증 노트 파일. **없어도 화면은 뜬다.**
 
     시험 일정은 사람이 확인해 적는 값이라 코드 상수로 둘 수 없다 —
@@ -610,18 +610,27 @@ def _cert_note(ctx, key: str, today: str) -> dict:
     from warruru_local.daemon.topicview import ask_hash
 
     progress = ctx.records.cert_progress(key)
+    counts = counts if counts is not None else _counts(ctx)
     curriculum = []
     for item in meta.get("curriculum") or []:
-        stage, title, amount = _fields(item, 3)
+        stage, title, amount, slugs = _fields(item, 4)
         if not title:
             continue
         try:
             total = int(amount)
         except ValueError:
             total = 0
-        done = progress.get(ask_hash(title), 0)
+        # **체크가 기본이고, 기록이 붙으면 자동이다**(2026-09-08 확정).
+        # 넷째 칸에 주제 슬러그를 적어 두면 그 주제로 남긴 기록이 진도에
+        # 같이 센다. 안 적으면 순수하게 손으로 세는 항목이다 — 에센스
+        # 정독처럼 로드맵 주제와 안 겹치는 것이 그렇다.
+        붙은주제 = [s.strip() for s in slugs.split(",") if s.strip()]
+        auto = sum(counts.get(slug, 0) for slug in 붙은주제)
+        손 = progress.get(ask_hash(title), 0)
+        done = min(total, 손 + auto) if total else (손 + auto)
         curriculum.append({
             "stage": stage, "title": title, "hash": ask_hash(title),
+            "slugs": 붙은주제, "auto": min(total, auto) if total else auto,
             "total": total, "done": done, "left": max(0, total - done),
             "percent": round(done * 100 / total) if total else 0,
         })
@@ -642,13 +651,11 @@ def _cert_note(ctx, key: str, today: str) -> dict:
              if not row["past"] and row["mine"] and row["stage"] == stage["name"]),
             None,
         )
-        # **항목마다 따로 센다.** 회차와 문항과 회독은 단위가 달라서, 더하면
-        # "오늘 2.2만큼" 처럼 아무 뜻도 없는 숫자가 나온다.
-        days = max(1, stage["next"]["days"]) if stage["next"] else 0
-        for row in stage["plan"]:
-            # 남은 날을 모르면(일정 미정) 하루 분량을 말하지 않는다.
-            # 모르는 것을 그럴듯한 숫자로 채우면 그 숫자를 믿게 된다.
-            row["per_day"] = round(row["left"] / days, 1) if days and row["left"] else 0
+        # **오늘 분량을 계산해서 말하지 않는다**(2026-09-08 확정).
+        # 전에는 `남은 것 ÷ 남은 날` 을 "오늘 0.1" 로 띄웠는데, 에센스를
+        # 0.1 영역 읽을 수는 없다. 항목마다 단위가 달라서(영역 · 문항 ·
+        # 회독 · 세트) 나눗셈이 뜻을 못 만든다. 화면은 **무엇을** 할지만
+        # 세우고 얼마나는 사람이 정한다.
         stage["left_items"] = sum(1 for row in stage["plan"] if row["left"])
 
     return {
@@ -688,20 +695,33 @@ def build_certs(ctx) -> list[dict]:
     **시험 범위가 아니다.** 여기가 다 차도 합격을 뜻하지 않는다 —
     시험에는 나오지만 로드맵에 없는 것이 있다.
     """
+    from warruru_local.daemon import certs as certmod
+
     counts = _counts(ctx)
     today = local_date_of(to_iso(ctx.clock.now()))
+    코드에있는것 = {key: (name, slugs) for key, name, slugs in topics.CERTIFICATIONS}
+    # **노트 파일로만 있는 것도 목록에 선다.** 화면에서 늘린 자격증은
+    # 코드 상수에 없다 — 그것만 읽으면 방금 더한 것이 안 보인다.
+    순서 = list(코드에있는것) + [
+        key for key in certmod.note_keys(ctx) if key not in 코드에있는것
+    ]
     made = []
-    for key, name, slugs in topics.CERTIFICATIONS:
+    for key in 순서:
+        name, slugs = 코드에있는것.get(key, ("", ()))
         rows = [
             {"slug": slug, "label": topics.label_of(slug), "count": counts.get(slug, 0)}
             for slug in slugs
         ]
         covered = sum(1 for row in rows if row["count"])
-        note = _cert_note(ctx, key, today)
+        note = _cert_note(ctx, key, today, counts)
         made.append({
             "key": key,
-            "name": name,
+            # 이름은 노트가 이긴다. 화면에서 더한 것은 코드에 이름이 없다.
+            "name": note["meta"].get("name") or name or key,
             "slugs": rows,
+            "in_code": key in 코드에있는것,
+            "held": certmod.is_held(note["status"]),
+            "dropped": certmod.is_dropped(note["status"]),
             "coverage": {
                 "total": len(rows),
                 "covered": covered,
@@ -709,13 +729,15 @@ def build_certs(ctx) -> list[dict]:
             },
             **note,
         })
+        made[-1]["today"] = certmod.today_items(made[-1])
     # **접수일이 가까운 순.** 이 화면이 먼저 답해야 하는 것은 "언제 접수하나"
     # 다 — 정처기 실기는 사흘, 네트워크관리사는 나흘뿐이고 놓치면 몇 달이
     # 밀린다. 딴 것과 일정을 모르는 것은 뒤로 보낸다.
     return sorted(
         made,
         key=lambda cert: (
-            cert["done"],
+            cert["dropped"],
+            cert["held"] or cert["done"],
             cert["next"] is None,
             cert["next"]["days"] if cert["next"] else 0,
         ),

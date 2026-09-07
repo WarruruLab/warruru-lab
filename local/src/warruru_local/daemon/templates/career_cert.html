@@ -8,101 +8,111 @@
 
 <p class="meta">
   <a href="/career">← 포트폴리오</a> ·
-  <a href="/career/stack">내가 채울 것 전체</a> ·
-  <span class="badge {{ 'ok' if view.done else '' }}">{{ view.status }}</span>
+  <a href="/career/certs">자격증 전체</a> ·
+  <span class="badge {{ 'ok' if view.done or view.held else '' }}">{{ view.status }}</span>
+  {% if view.goal %}· <strong>목표 — {{ view.goal }}</strong>{% endif %}
 </p>
 
-{% if view.goal %}
-<p class="meta"><strong>목표 — {{ view.goal }}</strong></p>
+{# **단계마다 남은 날이 한 줄에 선다.** 필기와 실기는 유형도 공부법도
+   다른 시험이라 날짜가 따로 가는데, 하나만 띄우면 다른 하나를 잊는다. #}
+{% if view.stages %}
+<p class="cert-ddays">
+  {% for stage in view.stages %}
+  <span class="{{ 'quiet' if stage.done }}">
+    <b>{{ stage.name }}</b>
+    {% if stage.done %}<span class="badge ok">{{ stage.state }}</span>
+    {% elif stage.next %}
+      <span class="dday-sm {{ 'near' if stage.next.days <= 7 }}">D-{{ stage.next.days }}</span>
+      <span class="quiet">{{ stage.next.date }}</span>
+    {% else %}<span class="badge">일정 미정</span>{% endif %}
+  </span>
+  {% endfor %}
+</p>
 {% endif %}
 
-{% if view.stages %}
-{# 단계가 이 화면의 주인공이다. 필기와 실기는 유형도 공부법도 다른 시험이라
-   같은 칸에 놓으면 어느 쪽 이야기인지 흐려진다. #}
-<div class="two">
-  {% for stage in view.stages %}
-  <section class="tool">
-    <h2>{{ stage.name }}
-      <span class="badge {{ 'ok' if stage.done else 'warn' }}">{{ stage.state }}</span>
-    </h2>
-    {% if stage.next %}
-    <div class="work-head">
-      <strong>{{ stage.next.label }}</strong>
-      <span class="badge {{ 'warn' if stage.next.days <= 30 else '' }}">D-{{ stage.next.days }}</span>
-      <span class="meta">{{ stage.next.date }}</span>
-    </div>
-    {% if stage.next.note %}<p class="meta">{{ stage.next.note }}</p>{% endif %}
-    {% if stage.plan %}
-    <ul class="checkpoints">
-      {% for item in stage.plan %}
-      <li>
-        <span class="{{ 'quiet' if not item.left }}">{{ item.title }}</span>
-        {% if item.per_day %}
-          <span class="badge warn">오늘 {{ item.per_day }}</span>
-        {% elif not item.left %}
-          <span class="badge ok">끝</span>
-        {% endif %}
-        <span class="when">{{ item.done }}/{{ item.total }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    {% elif stage.done %}
-    <p class="meta quiet">끝났다.</p>
-    {% else %}
-    <p class="meta quiet">다음 일정 미정.</p>
-    {% endif %}
-  </section>
-  {% endfor %}
-</div>
-{% elif view.next %}
-<section class="tool">
-  <h2>다음에 할 일</h2>
+{# **오늘이 맨 위다**(명세 §2.11 a). 9줄을 두 번 펼쳐 놓으면 아무것도
+   안 하게 된다 — `cert_progress` 가 0건이었던 이유가 그것이다.
+   **분량은 말하지 않는다.** 무엇을 할지만 세우고 얼마나는 내가 정한다. #}
+<section class="tool todo">
   <div class="work-head">
-    <strong>{{ view.next.label }}</strong>
-    <span class="badge {{ 'warn' if view.next.days <= 30 else '' }}">D-{{ view.next.days }}</span>
-    <span class="meta">{{ view.next.date }}</span>
+    <h2>오늘</h2>
+    {% if view.next %}
+    <span class="dday-sm {{ 'near' if view.next.days <= 7 }}">D-{{ view.next.days }}</span>
+    <span class="meta">{{ view.next.label }} · {{ view.next.date }}</span>
+    {% endif %}
   </div>
-  {% if view.next.note %}<p class="meta">{{ view.next.note }}</p>{% endif %}
+  {% if view.today %}
+  <ul class="asks">
+    {% for row in view.today %}
+    <li>
+      {% if row.kind == "item" %}
+      <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="item" value="{{ row.hash }}">
+        <input type="hidden" name="text" value="{{ row.title }}">
+        <input type="hidden" name="total" value="{{ row.total }}">
+        <input type="hidden" name="delta" value="1">
+        <button class="tick" type="submit" aria-label="{{ row.title }} 한 번 했다"
+                title="한 번 했으면 누른다">○</button>
+      </form>
+      <span class="ask-text">{{ row.title }}</span>
+      <span class="when">{{ row.done }}/{{ row.total }}</span>
+      {% else %}
+      <span class="tick alert" aria-hidden="true">!</span>
+      <span class="ask-text"><strong>{{ row.title }}</strong>
+        {% if row.note %}<span class="quiet">— {{ row.note }}</span>{% endif %}</span>
+      <span class="dday-sm near">D-{{ row.days }}</span>
+      {% if row.url %}<a class="btn primary" href="{{ row.url }}">바로가기</a>{% endif %}
+      {% endif %}
+      <span class="badge">{{ row.stage }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta quiet">
+    <strong>한 번 했으면 누른다.</strong> 얼마나 할지는 내가 정한다 —
+    화면은 무엇을 할지만 세운다.
+  </p>
+  {% else %}
+  <p class="empty">
+    오늘 할 것이 없다. 커리큘럼을 노트에 적으면 여기 선다 —
+    <code>~/.warruru/career/certs/{{ view.key }}.md</code>
+  </p>
+  {% endif %}
 </section>
-{% endif %}
 
 {% if view.curriculum %}
-<section class="tool">
-  <h2>커리큘럼</h2>
-  <p class="meta">
-    남은 분량을 다음 일정까지 남은 날로 나눈 것이 <strong>오늘 분량</strong>이다.
-    오늘 안 하면 내일 분량이 는다.
-  </p>
-  <ul class="checkpoints">
+<details class="rest">
+  {% set 남음 = view.curriculum|selectattr('left')|list|length %}
+  <summary>남은 전체 {{ 남음 }}항목
+    {% if view.curriculum|length > 남음 %}
+    <span class="quiet">· 끝난 것 {{ view.curriculum|length - 남음 }}</span>
+    {% endif %}</summary>
+  <ul class="asks">
     {% for item in view.curriculum %}
     <li>
-      <div class="work-head">
-        {% if item.stage %}<span class="badge">{{ item.stage }}</span>{% endif %}
-        <strong>{{ item.title }}</strong>
-        <span class="badge {{ 'ok' if item.done == item.total and item.total else '' }}">
-          {{ item.done }} / {{ item.total }}
-        </span>
-        <span class="when">
-          {% for delta, sign in [(-1, '−'), (1, '+')] %}
-          <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
-            <input type="hidden" name="_token" value="{{ token }}">
-            <input type="hidden" name="item" value="{{ item.hash }}">
-            <input type="hidden" name="text" value="{{ item.title }}">
-            <input type="hidden" name="total" value="{{ item.total }}">
-            <input type="hidden" name="delta" value="{{ delta }}">
-            <button class="tick" type="submit" aria-label="{{ item.title }} {{ sign }}1">{{ sign }}</button>
-          </form>
-          {% endfor %}
-        </span>
-      </div>
-      <span class="cover" role="img" aria-label="{{ item.percent }}%">
-        <i style="width: {{ item.percent }}%"></i>
+      <span class="ask-text {{ 'quiet' if not item.left }}">{{ item.title }}</span>
+      {% if item.auto %}
+      <span class="badge ok" title="이 항목에 매인 주제로 남긴 기록">기록 {{ item.auto }}</span>
+      {% endif %}
+      {% if item.stage %}<span class="badge">{{ item.stage }}</span>{% endif %}
+      <span class="when">{{ item.done }} / {{ item.total }}</span>
+      <span class="bump">
+        {% for delta, sign in [(-1, '−'), (1, '+')] %}
+        <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+          <input type="hidden" name="_token" value="{{ token }}">
+          <input type="hidden" name="item" value="{{ item.hash }}">
+          <input type="hidden" name="text" value="{{ item.title }}">
+          <input type="hidden" name="total" value="{{ item.total }}">
+          <input type="hidden" name="delta" value="{{ delta }}">
+          <button class="tick" type="submit"
+                  aria-label="{{ item.title }} {{ sign }}1">{{ sign }}</button>
+        </form>
+        {% endfor %}
       </span>
     </li>
     {% endfor %}
   </ul>
-</section>
+</details>
 {% endif %}
 
 {% if view.exams %}
@@ -124,7 +134,8 @@
   </ul>
   {% if view.links %}
   <nav aria-label="공식 사이트">
-    {% for link in view.links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
+    {% for link in view.links %}<a href="{{ link.url }}">{{ link.label }}</a>
+    {%- if not loop.last %} · {% endif %}{% endfor %}
   </nav>
   {% endif %}
   <p class="meta">
@@ -135,6 +146,24 @@
 </section>
 {% endif %}
 
+<section class="tool">
+  <h2>이 자격증을 어떻게 둘까</h2>
+  <div class="ask-row">
+    {% for label, status in [("볼 것으로", "준비중"), ("땄다", "보유"), ("안 본다", "안 함")] %}
+    <form class="inline" method="post" action="/web/certs/{{ view.key }}/status">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <input type="hidden" name="status" value="{{ status }}">
+      <input type="hidden" name="back" value="/career/cert/{{ view.key }}">
+      <button class="btn {{ 'primary' if view.status == status }}" type="submit">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="meta quiet">
+    <strong>내려도 파일은 안 지운다.</strong> 적어 둔 일정과 커리큘럼이
+    그대로 있어, 다시 올리면 그 자리에서 이어진다.
+  </p>
+</section>
+
 {% if view.html %}
 <section class="tool">
   <h2>과목 · 유형 · 공부법</h2>
@@ -142,6 +171,7 @@
 </section>
 {% endif %}
 
+{% if view.slugs %}
 <section class="tool">
   <h2>내 기록과 겹치는 것 {{ view.coverage.covered }} / {{ view.coverage.total }}</h2>
   <p>{% with coverage = view.coverage %}{% include "_coverage.html" %}{% endwith %}</p>
@@ -163,5 +193,5 @@
     {% endfor %}
   </ul>
 </section>
-
+{% endif %}
 {% endblock %}
