@@ -15,7 +15,7 @@ from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, certs, checking, dayview, drafting,
-    learning, publishing, reading, stacking, topicview,
+    learning, publishing, reading, stacking, today as todayview, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -25,9 +25,52 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 @router.get("/")
-async def index(request: Request) -> RedirectResponse:
+async def index(request: Request):
+    """홈 — **오늘 뭐 하지**에 답한다(명세 §2.13).
+
+    2026-09-08 까지 이 자리는 `/d/{오늘}` 로 보내는 리다이렉트였다. 아침에
+    열면 그날 남긴 것이 없으니 화면이 통째로 비었다 — "이 날짜에는 기록이
+    없습니다" 한 줄이 전부였고, 할 일이 하나도 안 보이니 닫고 나갔다.
+    **손이 가는 기능이 전부 0건이었던 것과 같은 이야기다.**
+
+    축마다 '오늘'을 이미 만들어 뒀는데 그것을 모으는 자리가 없었다.
+    그날 기록은 `/d/{날짜}` 에, 주제 목록은 `/t` 에 그대로 있다.
+    """
     ctx = request.app.state.ctx
-    return RedirectResponse(f"/d/{local_date_of(to_iso(ctx.clock.now()))}", status_code=302)
+    now = to_iso(ctx.clock.now())
+    day = local_date_of(now)
+    start, end = local_day_bounds(day)
+    어제 = _shift(day, -1)
+    시작2, 끝2 = local_day_bounds(어제)
+    return templates.TemplateResponse(
+        request, "home.html",
+        {
+            "view": todayview.build(ctx, day),
+            "today": day,
+            "weekday": _weekday(day),
+            # 세는 것이 목적이 아니라 **어제와 견주는 것**이 목적이다.
+            # "오늘 0건" 만으로는 그게 이상한 일인지 알 수 없다.
+            "made": len(ctx.records.list_records(since=start, until=end, limit=200)),
+            "made_before": len(
+                ctx.records.list_records(since=시작2, until=끝2, limit=200)),
+            "token": ctx.settings.token,
+        },
+    )
+
+
+_WEEK = ("월", "화", "수", "목", "금", "토", "일")
+
+
+def _weekday(day: str) -> str:
+    from datetime import date as _date
+
+    return _WEEK[_date.fromisoformat(day).weekday()]
+
+
+def _shift(day: str, delta: int) -> str:
+    from datetime import date as _date, timedelta
+
+    return (_date.fromisoformat(day) + timedelta(days=delta)).isoformat()
 
 
 @router.get("/d/{date}")

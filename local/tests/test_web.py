@@ -38,10 +38,18 @@ def _seed(client, work_id="wrk_A", tool="codex", title="작업 제목"):
     )
 
 
-def test_루트는_오늘로_보낸다(client):
+def test_루트는_오늘_할_것을_보여준다(client):
+    """2026-09-08 까지 `/` 는 `/d/{오늘}` 로 보내는 리다이렉트였다.
+
+    아침에 열면 그날 남긴 것이 없어 화면이 통째로 비었다 — "이 날짜에는
+    기록이 없습니다" 한 줄이 전부였고, **할 일이 하나도 안 보이니 닫고
+    나갔다.** 손이 가는 기능이 전부 0건이었던 것과 같은 이야기다.
+    """
     response = client.get("/", follow_redirects=False)
-    assert response.status_code in (302, 307)
-    assert response.headers["location"] == f"/d/{TODAY}"
+    assert response.status_code == 200
+    assert "<h2>오늘 할 것</h2>" in response.text
+    # 남긴 것은 맨 아래로 내렸다. 그날 기록은 `/d/{날짜}` 에 그대로 있다.
+    assert 'href="/d/' in response.text
 
 
 def test_날짜_화면이_열린다(client):
@@ -379,7 +387,7 @@ def test_모든_화면에서_주제_홈으로_돌아갈_수_있다(client, home)
                  "/t/connection-pool", f"/c/{TODAY[:7]}",
                  f"/drafts/{draft['draft_id']}"):
         page = client.get(path).text
-        assert 'class="home-link" href="/t"' in page, path
+        assert 'class="home-link" href="/"' in page, path
         assert 'aria-label="홈으로"' in page, path
 
 

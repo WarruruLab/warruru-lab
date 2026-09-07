@@ -1379,3 +1379,52 @@ def test_접수가_할_일이면_거기로_가는_링크가_붙는다(client, ct
     오늘 = careerview.build_cert(ctx, "topcit")["today"]
     assert 오늘[0]["url"].endswith("evalList.do")     # 소개 페이지가 아니다
     assert "바로가기" in client.get("/career/cert/topcit").text
+
+
+# ── 홈이 오늘 할 것을 세운다 (2026-09-08) ─────────────────────────
+#
+# `/` 가 `/d/{오늘}` 로 보내고 있었다. 아침에 열면 그날 남긴 것이 없어
+# 화면이 통째로 비었다 — **할 일이 하나도 안 보이니 닫고 나간다.**
+# 축마다 '오늘'을 만들어 뒀는데 그것을 모으는 자리가 없었다.
+
+def test_홈이_축마다_하나씩_세운다(client, home):
+    """한 축이 화면을 독점하면 다시 목록이 된다."""
+    from warruru_local.daemon import today as todayview
+
+    _topic_note(home, "net-tcp", ["TCP 와 UDP 의 차이는?"])
+    ctx = client.app.state.ctx
+    view = todayview.build(ctx, "2026-07-22")
+    축 = [row["axis"] for row in view["todo"]]
+    assert len(축) == len(set(축)), 축          # 같은 축이 두 번 안 선다
+    assert len(view["todo"]) <= todayview.MAX_ITEMS
+
+
+def test_마감에_선_것이_오늘_할_것에_또_안_선다(client, home):
+    """접수 마감은 마감이기도 하고 오늘 할 일이기도 해서,
+    그냥 두면 같은 줄이 화면에 두 번 뜬다."""
+    from warruru_local.daemon import today as todayview
+
+    _cert(home, "topcit", (
+        "---\nstatus: 준비중\n"
+        "stages:\n  - 접수 | 준비중\n"
+        "exams:\n  - 2026-07-30 | 접수 마감 | | | 접수\n"
+        "---\n\n# 메모\n"
+    ))
+    view = todayview.build(client.app.state.ctx, "2026-07-22")
+    마감 = {row["label"] for row in view["due"]}
+    assert "접수 마감" in 마감
+    assert "접수 마감" not in {row["title"] for row in view["todo"]}
+
+
+def test_한_축이_비어도_홈은_뜬다(client):
+    """홈이 안 뜨면 다른 모든 화면으로 가는 길이 같이 막힌다."""
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "<h2>오늘 할 것</h2>" in res.text
+
+
+def test_홈은_남긴_것을_맨_아래로_내린다(client):
+    """아침에 여는 사람에게 '어제 뭘 했나' 는 답이 아니다."""
+    page = client.get("/").text
+    # 네비에도 '오늘 기록' 이 있으므로 본문의 표식으로 잰다.
+    assert page.index("<h2>오늘 할 것</h2>") < page.index('class="made-n')
