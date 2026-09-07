@@ -255,6 +255,74 @@
   .material .ready { color: var(--ink); }
   .material .short { color: var(--ink-faint); }
 
+  /* ── 오늘 읽기 · 노트 ────────────────────────────────────────
+     노트가 화면의 대부분이다. 위에 붙는 것은 셋뿐 — 반납 · 진도 · 상태. */
+
+  .read-head { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: .6rem; }
+  .read-head h1 { font-size: var(--t-xl); }
+  .read-head p { margin: .3rem 0 0; }
+  .read-tags { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+               margin-bottom: 1rem; }
+  .read-tags form.inline { display: inline-flex; margin: 0; }
+  .read-head #note-status { font-family: var(--mono); font-size: var(--t-xs);
+                            align-self: center; }
+  .read-tags select { font-size: var(--t-sm); padding: .25rem .5rem;
+                      border-radius: 999px; border: 0; background: var(--rule-soft);
+                      color: var(--ink-soft); font-weight: 600; }
+
+  .read-body { display: flex; gap: 1rem; align-items: stretch; }
+  .read-past {
+    width: 9.5rem; flex: none; background: var(--panel); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 1rem .9rem;
+    display: flex; flex-direction: column; gap: .2rem;
+  }
+  .read-past h4 { font-size: var(--t-xs); color: var(--ink-faint); margin: 0 0 .4rem;
+                  font-weight: 700; }
+  .read-past .day { font-family: var(--mono); font-size: var(--t-sm);
+                    color: var(--ink-soft); padding: .3rem .4rem; border-radius: 7px; }
+  .read-past .day:hover { background: var(--rule-soft); color: var(--ink); }
+  .read-hint { margin-top: .8rem; font-size: var(--t-xs); line-height: 1.5; }
+
+  .read-main { flex: 1; min-width: 0; background: var(--panel);
+               border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem; }
+  #note {
+    width: 100%; min-height: 26rem; border: 0; background: transparent;
+    color: var(--ink); resize: vertical;
+    font-family: var(--mono); font-size: var(--t-md); line-height: 1.85;
+  }
+  #note:focus { outline: none; }
+
+  .read-foot { display: flex; align-items: center; gap: .7rem; margin-top: 1rem; }
+
+  .promote-result {
+    background: var(--key-soft); border-radius: var(--radius);
+    padding: .9rem 1.1rem; margin-bottom: .9rem; font-size: var(--t-md);
+  }
+  .pr-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .7rem; }
+  .pr-list { list-style: none; margin: .5rem 0 0; padding: 0;
+             display: flex; flex-direction: column; gap: .25rem; font-size: var(--t-sm); }
+  .pr-skip { margin: .6rem 0 0; font-size: var(--t-sm); color: var(--ink-soft);
+             padding-top: .6rem; border-top: 1px solid var(--rule); }
+
+  /* 날짜 띠 — 점이 있으면 그날 노트가 있다 */
+  .daystrip { display: flex; gap: .4rem; margin-bottom: 1rem; }
+  .dcell { width: 2.7rem; padding: .45rem 0 .5rem; border-radius: 10px;
+           text-align: center; background: var(--panel); box-shadow: var(--shadow); }
+  .dcell.on { background: var(--key-soft); box-shadow: inset 0 0 0 1.5px var(--key); }
+  .dcell .n { font-family: var(--mono); font-size: var(--t-md); font-weight: 600;
+              display: block; color: var(--ink); }
+  .dcell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--key);
+                margin: .3rem auto 0; display: block; }
+  .dcell .dot.none { background: var(--rule); }
+
+  .notebook .preview { margin-top: .6rem; }
+
+  @media (max-width: 44rem) {
+    .read-body { flex-direction: column; }
+    .read-past { width: auto; flex-direction: row; flex-wrap: wrap; }
+    .read-hint { display: none; }
+  }
+
   /* ── 공부 챗봇 ────────────────────────────────────────────────
      카드 안에 접혀 있으면 "공부하다 물어본다" 가 아니라 "화면을 찾아가서
      쓴다" 가 된다. 우하단에 띄워 두고, 읽다가 그대로 친다. */

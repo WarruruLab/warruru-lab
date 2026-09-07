@@ -11,10 +11,11 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
+from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, dayview, drafting, learning, publishing,
-    topicview,
+    reading, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -292,6 +293,190 @@ SUMMARY_PROMPT = (
     "내가 한 말과 네가 설명한 것을 구분해서, 내가 이해했다고 말한 것만 ①에 넣어라. "
     "마크다운으로, 500자 안쪽."
 )
+
+
+@router.get("/career/book/{key}/today")
+async def book_today(request: Request, key: str, day: str | None = None):
+    """책 하나의 '오늘 읽기'(명세 §2.9 b). 노트가 화면의 대부분이다."""
+    ctx = request.app.state.ctx
+    view = careerview.build_group(ctx, key)
+    if view is None or view["axis"] != "book":
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 책이 없습니다"},
+        )
+    today = local_date_of(to_iso(ctx.clock.now()))
+    when = day if day and reading.DAY.match(day) else today
+    view["day"] = when
+    view["today"] = today
+    view["note"] = reading.read_note(ctx, key, when)
+    view["past_days"] = [d for d in reading.days_of(ctx, key) if d != when]
+    view["progress"] = reading.covered(ctx, key)
+    return templates.TemplateResponse(
+        request, "book_today.html",
+        {"view": view, "today": today, "token": ctx.settings.token},
+    )
+
+
+@router.post("/web/books/{key}/note")
+async def save_note_form(
+    request: Request,
+    key: str,
+    day: str = Form(...),
+    text: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+) -> dict:
+    """자동 저장. **입력이 멈췄을 때 한 번**만 온다(명세 §2.9 b).
+
+    돌려주는 것은 화면이 아니라 저장 시각이다 — 페이지를 다시 그리면
+    커서가 튄다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not reading.write_note(ctx, key, day, text):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 책이 없습니다"},
+        )
+    return {"saved_at": to_iso(ctx.clock.now())}
+
+
+@router.post("/web/books/{key}/promote")
+async def promote_note_form(
+    request: Request,
+    key: str,
+    day: str = Form(...),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """노트를 읽고 **바로 기록으로 올린다**(명세 §2.9 c). 확인 단계가 없다.
+
+    되돌릴 길이 있어서 뺄 수 있다 — `/d/{날짜}` 에서 지우고 `?deleted=1`
+    에서 되살린다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if cli not in ("codex", "claude"):
+        raise HTTPException(status_code=400, detail={
+            "code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"})
+    note = reading.read_note(ctx, key, day)
+    진도 = reading.covered(ctx, key)
+    if not note["text"].strip():
+        raise HTTPException(status_code=400, detail={
+            "code": "EMPTY_NOTE", "message": "노트가 비어 있습니다"})
+
+    ask = asking.Ask(
+        topic_slug=f"book-{key}",
+        prompt=reading.promote_prompt(note["text"], 진도["slugs"]),
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        모은글 = ""
+        async for name, data in asking.run(ask):
+            if name == "message":
+                모은글 += data["text"]
+            elif name == "error":
+                yield _sse("error", data)
+        made = reading.parse_candidates(모은글, 진도["slugs"])
+        if made["broken"]:
+            yield _sse("error", {"message": "정리한 결과를 읽지 못했습니다.",
+                                 "fix": "다시 눌러 보세요."})
+            yield _sse("done", {"added": [], "skipped": [], "before": 진도, "after": 진도})
+            return
+
+        now = to_iso(ctx.clock.now())
+        올린것, ids = [], list(note["records"])
+        for row in made["records"]:
+            got = learning.record(ctx, {
+                "record_id": f"rec_{uuid4().hex[:24]}",
+                "client_instance_id": "web", "tool": "web",
+                "kind": row["kind"], "topic": row["topic"],
+                "title": row["title"], "body": row["body"],
+                # **그날 날짜로 들어간다.** 지난 노트를 나중에 올려도
+                # 그때 공부한 것으로 남아야 한다(명세 §2.9 e).
+                "occurred_at": f"{day}T12:00:00.000Z",
+            })
+            ids.append(got["record_id"])
+            올린것.append({"title": row["title"], "slug": got.get("topic_slug"),
+                          "label": topics.label_of(got.get("topic_slug") or "")})
+        reading.write_note(ctx, key, day, note["text"], records=ids)
+        yield _sse("done", {
+            "added": 올린것, "skipped": made["skipped"],
+            "before": {"covered": 진도["covered"], "total": 진도["total"]},
+            "after": {"covered": reading.covered(ctx, key)["covered"],
+                      "total": 진도["total"]},
+        })
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store",
+                                      "X-Accel-Buffering": "no"})
+
+
+@router.post("/web/books/{key}/state")
+async def book_state_form(
+    request: Request,
+    key: str,
+    state: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """읽는 중 · 다음에 · 중단 · 다 읽음. **노트 파일은 안 건드린다** —
+    앞머리만 고쳐서 옵시디언과 섞일 여지를 줄인다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not reading.SLUG.match(key) or state not in careerview.BOOK_STATES:
+        raise HTTPException(status_code=400, detail={
+            "code": "BAD_STATE", "message": "그런 상태가 없습니다"})
+    careerview.set_book_state(ctx, key, state)
+    return RedirectResponse(f"/career/book/{quote(key)}/today", status_code=303)
+
+
+@router.get("/career/books")
+async def books_index(request: Request):
+    """책 목록(명세 §2.9 f). 읽는 중이 맨 위, 다음에 읽을 것은
+    **공고가 요구하는 주제를 많이 덮는 순**이다."""
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "books.html",
+        {"view": careerview.build_books(ctx), "token": ctx.settings.token,
+         "today": local_date_of(to_iso(ctx.clock.now()))},
+    )
+
+
+@router.get("/notes/{day}")
+async def notes_day(request: Request, day: str):
+    """노트 전용 날짜 화면(명세 §2.9 e). **여기서 보는 것은 원문이다** —
+    정리된 기록(`/d/{날짜}`)도 챗봇 답도 아니다."""
+    ctx = request.app.state.ctx
+    _validate_date(day)
+    ctx_day = local_date_of(to_iso(ctx.clock.now()))
+    return templates.TemplateResponse(
+        request, "notes_day.html",
+        {
+            "view": {
+                "day": day,
+                "notes": (오늘노트 := reading.notes_on(ctx, day)),
+                "promoted": sum(len(n["records"]) for n in 오늘노트),
+                "strip": _recent_days(ctx, ctx_day),
+                "records": dayview.build_day(ctx, day)["learnings"],
+            },
+            "today": ctx_day, "token": ctx.settings.token,
+        },
+    )
+
+
+def _recent_days(ctx, today: str) -> list[dict]:
+    """최근 7일 띠. 점이 있으면 그날 노트가 있다."""
+    from datetime import date as _date, timedelta
+
+    끝 = _date.fromisoformat(today)
+    made = []
+    for n in range(6, -1, -1):
+        d = (끝 - timedelta(days=n)).isoformat()
+        made.append({"day": d, "num": d[8:], "has": bool(reading.notes_on(ctx, d)),
+                     "today": d == today})
+    return made
 
 
 @router.post("/web/topics/{topic_slug}/promote")
