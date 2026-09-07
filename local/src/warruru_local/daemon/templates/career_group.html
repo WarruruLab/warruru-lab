@@ -107,6 +107,20 @@
       <a class="badge" href="/t/{{ pick.slug }}">{{ pick.label }}</a>
       <button type="button" class="try" data-ask="{{ pick.hash }}"
               data-slug="{{ pick.slug }}" data-text="{{ pick.text }}">답해보기</button>
+      {# 이전 답변은 **접혀 있다**. 보여주려는 것이 아니라, 다시 물을 때
+         백지에서 시작하지 않으려는 것이다. #}
+      {% if pick.answers %}
+      <details class="mine">
+        <summary>이전 답변 {{ pick.answers|length }}</summary>
+        {% for mine in pick.answers %}
+        <div class="mine-one">
+          <span class="quiet">{{ mine.day }}</span>
+          <p>{{ mine.text }}</p>
+          {% if mine.review %}<blockquote>{{ mine.review }}</blockquote>{% endif %}
+        </div>
+        {% endfor %}
+      </details>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -118,6 +132,8 @@
   <p class="empty">이 과목은 오늘 볼 것이 없다. 아래에서 골라 보거나 다른 과목으로.</p>
   {% endif %}
 </section>
+
+{% with back = "/career/stack/" ~ view.key %}{% include "_try_box.html" %}{% endwith %}
 
 {% if view.books %}
 <section class="tool">

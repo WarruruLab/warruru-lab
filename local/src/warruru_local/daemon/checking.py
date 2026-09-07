@@ -104,8 +104,15 @@ def answer_path(ctx, slug: str, hash_: str):
     return paths.topic_note_dir(ctx.settings.home) / slug / "answers" / f"{hash_}.md"
 
 
+def _quoted(review: str) -> str:
+    """짚어준 것은 인용부호로 접어 둔다. **내 문장과 섞이면 안 된다** —
+    3개월 뒤에 파일을 열었을 때 어느 쪽이 내 말인지 구분이 안 되면,
+    남의 문장을 내 것으로 착각한 채 면접에 들고 간다."""
+    return "\n".join(f"> {줄}".rstrip() for 줄 in review.strip().splitlines())
+
+
 def my_answers(ctx, slug: str, hash_: str) -> list[dict]:
-    """이 질문에 내가 답한 것들. 최신순."""
+    """이 질문에 내가 답한 것들. 최신순. `text` 는 내 말, `review` 는 짚어준 것."""
     path = answer_path(ctx, slug, hash_)
     if path is None or not path.is_file():
         return []
@@ -115,7 +122,19 @@ def my_answers(ctx, slug: str, hash_: str) -> list[dict]:
         if not 덩이:
             continue
         날짜, _, 본문 = 덩이.partition("\n")
-        made.append({"day": 날짜.strip("# ").strip(), "text": 본문.strip()})
+        줄들 = 본문.splitlines()
+        짚음 = []
+        # 뒤에서부터 인용 줄만 걷어낸다. 앞에서 찾으면 내 답 안의 인용문이
+        # 리뷰로 둔갑한다.
+        while 줄들 and (not 줄들[-1].strip() or 줄들[-1].lstrip().startswith(">")):
+            줄 = 줄들.pop()
+            if 줄.strip():
+                짚음.insert(0, 줄.lstrip().lstrip(">").strip())
+        made.append({
+            "day": 날짜.strip("# ").strip(),
+            "text": "\n".join(줄들).strip(),
+            "review": "\n".join(짚음).strip(),
+        })
     return list(reversed(made))
 
 
@@ -129,7 +148,22 @@ def save_answer(ctx, slug: str, hash_: str, day: str, text: str,
     path.parent.mkdir(parents=True, exist_ok=True)
     덩이 = f"# {day}\n{text.strip()}\n"
     if review.strip():
-        덩이 += f"\n> {review.strip()}\n"
+        덩이 += f"\n{_quoted(review)}\n"
     with path.open("a", encoding="utf-8") as handle:
         handle.write(("\n---\n" if path.stat().st_size else "") + 덩이)
+    return True
+
+
+def attach_review(ctx, slug: str, hash_: str, review: str) -> bool:
+    """마지막 답에 짚어준 것을 덧댄다.
+
+    **내 답을 먼저 저장한 뒤에 온다.** 챗봇을 기다렸다가 한 번에 쓰면,
+    자식 프로세스가 죽거나 브라우저를 닫는 순간 내가 쓴 문장이 통째로
+    날아간다. 짚어준 것은 다시 받을 수 있지만 내 문장은 아니다.
+    """
+    path = answer_path(ctx, slug, hash_)
+    if path is None or not path.is_file() or not review.strip():
+        return False
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n{_quoted(review)}\n")
     return True

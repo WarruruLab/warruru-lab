@@ -14,8 +14,8 @@ from fastapi.templating import Jinja2Templates
 from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
-    asking, calendarview, careerview, dayview, drafting, learning, publishing,
-    reading, topicview,
+    asking, calendarview, careerview, checking, dayview, drafting, learning,
+    publishing, reading, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -619,6 +619,103 @@ async def ask_form(
         media_type="text/event-stream",
         # 프록시가 없어도 붙여 둔다. 이 줄이 없으면 어떤 브라우저는
         # 답이 다 올 때까지 아무것도 안 그린다.
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+# 답해보기의 프롬프트. **채점하지 않는다**(명세 §2.10 d).
+#
+# 점수를 매기면 점수를 올리려고 답을 쓰게 되고, 그러면 남는 것이 내 말이
+# 아니라 모범답안의 사본이다. AGENTS.md §5 가 금지하는 바로 그것이다 —
+# "옮겨 적은 문장은 기록이 아니라 사본이고, 면접에서 그대로 드러난다".
+# 그래서 이 프롬프트는 모범답안을 **금지**하고 빠진 것만 짚게 한다.
+REVIEW_PROMPT = (
+    "면접 질문에 대한 내 답을 보고 **빠진 것만 짚어줘.**\n"
+    "점수를 매기지 마라. 모범답안을 쓰지도 마라 — 내가 그것을 베끼면 "
+    "내 말이 아니게 되고, 면접에서 그대로 드러난다.\n"
+    "두 줄이면 된다 — ① 제대로 짚은 것 한 줄, ② 빠진 것 (많아야 셋, 각각 한 줄). "
+    "빠진 것이 없으면 없다고 말해라. 300자 안쪽, 마크다운 없이.\n\n"
+    "질문: {question}\n"
+    "내 답: {answer}"
+)
+
+
+@router.post("/web/topics/{topic_slug}/answer")
+async def answer_form(
+    request: Request,
+    topic_slug: str,
+    ask: str = Form(...),
+    text: str = Form(...),
+    question: str = Form(""),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """질문 하나에 **말로 답해 본다**(명세 §2.10 d).
+
+    체크는 "알고 있나" 를 3초에 묻고, 이 라우트는 "말할 수 있나" 를 묻는다.
+    체크만 있으면 안다고 생각했는데 입이 안 떨어지는 자리가 안 걸리는데,
+    면접에서 터지는 곳이 정확히 거기다.
+
+    **내 답을 먼저 저장하고 그다음 묻는다.** 순서가 뒤바뀌면 자식 프로세스가
+    죽거나 창을 닫는 순간 내가 쓴 문장이 통째로 없어진다. 짚어준 것은 다시
+    받을 수 있지만 내 문장은 아니다.
+
+    **대화 스레드를 쓰지 않는다.** 이건 한 번의 판정이라 이어 물을 것이
+    없고, 공부 대화에 끼워 넣으면 그 대화가 판정문으로 더럽혀진다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+
+    # 슬러그도 해시도 그대로 디렉터리·파일 이름이 된다. `answer_path` 가
+    # 둘 다 검사하고 `None` 을 주므로, 그 값을 관문으로 쓴다.
+    if not careerview.SLUG.match(topic_slug) or \
+            checking.answer_path(ctx, topic_slug, ask) is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 질문이 없습니다"},
+        )
+    답 = text.strip()
+    if not 답:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "EMPTY_ANSWER", "message": "답을 적어 주세요"},
+        )
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+
+    today = local_date_of(to_iso(ctx.clock.now()))
+    checking.save_answer(ctx, topic_slug, ask, today, 답)
+
+    물음 = asking.Ask(
+        topic_slug=topic_slug,
+        prompt=REVIEW_PROMPT.format(question=question.strip() or "(질문 없음)",
+                                    answer=답),
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        parts: list[str] = []
+        # 저장은 이미 끝났다. 여기서 나오는 것은 덤이다.
+        yield _sse("saved", {"day": today})
+        async for name, data in asking.run(물음):
+            if name == "started":
+                continue
+            if name == "message":
+                parts.append(data["text"])
+            yield _sse(name, data)
+        붙임 = ""
+        if parts:
+            붙임 = "\n\n".join(parts)
+            checking.attach_review(ctx, topic_slug, ask, 붙임)
+        yield _sse("done", {"reviewed": bool(붙임)})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
 
