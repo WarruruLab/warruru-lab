@@ -15,6 +15,7 @@
 </header>
 
 <p class="read-tags">
+  {% if view.state %}<span class="badge">{{ view.state }}</span>{% endif %}
   {% if view.days is not none %}
     <span class="badge {{ 'due' if view.days <= 7 }}">
       {% if view.days < 0 %}반납 {{ -view.days }}일 지남{% else %}D-{{ view.days }}{% endif %}
@@ -26,7 +27,7 @@
     <input type="hidden" name="_token" value="{{ token }}">
     <select name="state" onchange="this.form.submit()">
       {% for s in ["읽는 중", "다음에", "중단", "다 읽음"] %}
-      <option value="{{ s }}" {{ 'selected' if view.state == s }}>{{ s }}</option>
+      <option value="{{ s }}" {{ 'selected' if view.reading_state == s }}>{{ s }}</option>
       {% endfor %}
     </select>
   </form>

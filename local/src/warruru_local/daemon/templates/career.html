@@ -135,7 +135,8 @@
   <ul class="picks">
     {% for book in books[:3] %}
     <li>
-      <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+      {# 허브에서 바로 **읽는 자리**로 간다. 책 정보는 그 안에서 한 번 더. #}
+      <a href="/career/book/{{ book.key }}/today">{{ book.label }}</a>
       {% if book.days is not none %}
         <span class="dday-sm {{ 'near' if book.days <= 7 }}">
           {% if book.days < 0 %}지남{% else %}D-{{ book.days }}{% endif %}
@@ -145,9 +146,7 @@
     </li>
     {% endfor %}
   </ul>
-  {% if books|length > 3 %}
-  <a class="more" href="/career/stack">{{ books|length }}권 전체 →</a>
-  {% endif %}
+  <a class="more" href="/career/books">{{ books|length }}권 전체 →</a>
 </section>
 
 </div>

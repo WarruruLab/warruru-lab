@@ -226,9 +226,10 @@ def test_상태를_화면에서_바꾼다(client, ctx, home):
     res = client.post("/web/books/kafka-practice/state", data={
         "state": "중단", "_token": _token(client)}, follow_redirects=False)
     assert res.status_code == 303
-    from warruru_local.daemon import careerview
     text = (paths.book_note_dir(home) / "kafka-practice.md").read_text(encoding="utf-8")
-    assert "state: 중단" in text
+    assert "reading: 중단" in text
+    # 소장 형태는 안 건드린다 — 빌린 책은 중단해도 여전히 빌린 책이다
+    assert "state: 빌림" in text or "state:" not in text
 
 
 def test_모르는_상태는_거절한다(client):
@@ -261,3 +262,51 @@ def test_안_쓴_날은_모른다고_말한다(client):
     page = client.get("/notes/2026-09-06").text
     assert "노트를 안 썼다" in page
     assert "이 화면이 모른다" in page
+
+
+def test_새_화면으로_가는_길이_있다(client):
+    """**만들어 놓고 길을 안 내면 없는 것과 같다**(2026-09-08 실측으로 확인).
+    주소를 직접 쳐야만 나오는 화면은 안 쓰인다.
+    """
+    허브 = client.get("/career").text
+    assert 'href="/career/books"' in 허브                     # 책 목록
+    assert "/today" in 허브                                    # 줄에서 바로 읽기
+
+    나브 = client.get("/t").text
+    assert 'href="/career/books"' in 나브                     # 어느 화면에서든
+
+    책 = client.get("/career/book/kafka-practice").text
+    assert "/career/book/kafka-practice/today" in 책          # 책 정보 → 읽기
+
+    그날 = client.get("/d/2026-09-08").text
+    assert 'href="/notes/2026-09-08"' in 그날                 # 기록 → 노트
+
+
+def test_소장_형태와_읽기_상태는_다른_축이다(ctx):
+    """`state` 는 빌림·전자책·공식문서(어떻게 갖고 있나),
+    `reading` 은 읽는 중·중단(지금 읽고 있나). 한 필드에 넣으면
+    "빌렸지만 아직 안 읽는 책" 을 못 적는다(2026-09-08 실측으로 드러남).
+    """
+    from warruru_local.daemon import careerview
+
+    # 반납일이 있으면 안 적어도 읽는 중으로 본다 —
+    # 빌려 놓고 목록 맨 아래에 처박히면 그 책이 안 읽힌다.
+    assert careerview.reading_state({"days": 27, "reading": ""}) == "읽는 중"
+    assert careerview.reading_state({"days": None, "reading": ""}) == "안 정한 것"
+    assert careerview.reading_state({"days": 27, "reading": "중단"}) == "중단"
+
+
+def test_빌린_책이_읽는_중에_선다(client, ctx, home):
+    """빌린 3권이 목록 맨 아래로 밀려 있었다. 반납일이 곧 읽는 중이다."""
+    (paths.book_note_dir(home)).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "kafka-practice.md").write_text(
+        "---\nstate: 빌림\ndue: 2026-10-04\n---\n", encoding="utf-8")
+    page = client.get("/career/books").text
+    읽는중 = page[page.index("<h2>읽는 중</h2>"):page.index("<h2>다음에 읽을 것</h2>")]
+    assert "실전 카프카" in 읽는중
+
+
+def test_버튼이_글자로_안_새어_나온다(client):
+    """macro 에 HTML 문자열을 넘겼더니 그대로 화면에 찍혔다."""
+    page = client.get("/career/books").text
+    assert "&lt;a class=" not in page and '<a class="btn" href' in page

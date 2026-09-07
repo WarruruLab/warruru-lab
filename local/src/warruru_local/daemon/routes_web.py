@@ -312,6 +312,7 @@ async def book_today(request: Request, key: str, day: str | None = None):
     view["note"] = reading.read_note(ctx, key, when)
     view["past_days"] = [d for d in reading.days_of(ctx, key) if d != when]
     view["progress"] = reading.covered(ctx, key)
+    view["reading_state"] = careerview.reading_state(view)
     return templates.TemplateResponse(
         request, "book_today.html",
         {"view": view, "today": today, "token": ctx.settings.token},
