@@ -854,14 +854,20 @@ NAT Gateway 는 비용이 크다 — 쓸지 말지의 판단과 그 비용이 `n
 `local/src/warruru_local/topics.py` 의 권장 슬러그 상수는 이 목록에서 온다.
 옮기는 것은 사람이 한다(§0.5). 중복 등장하는 슬러그는 한 번만 적었다.
 
-### CS 루틴 계열 (31주 내내 재사용)
+### CS 루틴 계열 22개는 **여기서 뺐다** (2026-09-08)
 
-- `net-tcp` `net-udp` `net-http` `net-tls` `net-dns` `net-subnet-nat`
-  `net-socket` `net-load-balancing`
-- `os-process-thread` `os-context-switch` `os-scheduling` `os-memory`
-  `os-virtual-memory` `os-io` `os-deadlock`
-- `db-index` `db-transaction` `db-isolation` `db-lock`
-  `db-normalization` `db-join` `db-execution-plan`
+네트워크 8 · OS 7 · DB 7 은 도구에서 **CS 축**으로 옮겼다.
+이 문서가 처음부터 "CS 루틴 계열" 이라 부르던 것이고, 실제로도 31주
+내내 재사용하는 기초라 한 주차에 묶이지 않는다.
+
+옮긴 이유는 화면이다 — 도구의 `CS 지식` 을 눌러도 **면접 3대 과목이
+안 나왔다.** 축을 나눈 기준("만들면서 겪나 / 앉아서 공부하나")으로는
+맞았지만, 면접을 준비하는 사람의 머릿속과 안 맞았다.
+
+**31주 학습 순서는 그대로다.** 아래 주차 설명에서 이 22개를 지우지
+않았다 — 공부하는 순서로는 여전히 1~15주에 있다. 바뀐 것은
+"어느 화면에서 점검하는가" 뿐이고, 목록은
+`topics.py` 의 `CS_GROUPS` 에 있다.
 
 ### Java / Spring
 

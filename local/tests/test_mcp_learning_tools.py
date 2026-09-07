@@ -266,8 +266,8 @@ def test_권장_슬러그를_그대로_적으면_응답이_그렇다고_말한�
     similar_slugs 로는 증명할 수 없다. 자기 자신을 빼므로 권장 슬러그를
     그대로 적으면 빈 목록이 오고, 그것은 '목록 밖' 과 구분되지 않는다.
     """
-    service, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "net-tcp"}, "DAEMON", "ok"))
-    assert _call(service, topic="net tcp")["recommended"] is True
+    service, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "spring-di"}, "DAEMON", "ok"))
+    assert _call(service, topic="spring di")["recommended"] is True
 
 
 def test_권장_목록_밖이면_아니라고_말한다():
@@ -281,10 +281,10 @@ def test_권장_판정은_데몬_생사와_무관하다():
     이 값이 온라인/오프라인에서 갈리면 에이전트가 데몬 상태에 따라
     다른 주제를 적게 된다 — 힌트가 가장 필요한 첫날이 바로 오프라인이다.
     """
-    online, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "net-tcp"}, "DAEMON", "ok"))
+    online, _ = _service(Outcome({**DAEMON_BODY, "topic_slug": "spring-di"}, "DAEMON", "ok"))
     offline, _ = _service(Outcome(None, "SPOOL", "보관했습니다."))
-    assert _call(online, topic="net tcp")["recommended"] is True
-    assert _call(offline, topic="net tcp")["recommended"] is True
+    assert _call(online, topic="spring di")["recommended"] is True
+    assert _call(offline, topic="spring di")["recommended"] is True
 
 
 def test_보관하면_쌓인_건수가_응답에_실린다():

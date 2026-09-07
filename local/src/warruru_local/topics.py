@@ -263,12 +263,10 @@ SLUG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("java", "Java / JVM", ("jvm-gc", "java-concurrency")),
     ("spring", "Spring / Spring Boot", ("spring-di", "spring-mvc", "spring-transactional",
                               "tx-boundary", "filter-vs-interceptor")),
-    ("api", "REST API / API 설계", ("api-error-handling", "dto-separation", "net-http")),
+    ("api", "REST API / API 설계", ("api-error-handling", "dto-separation")),
     ("jpa", "JPA / ORM", ("jpa-persistence-context", "jpa-lazy-loading", "jpa-n-plus-one",
                    "jpa-fetch-join", "jpa-batch-size", "entity-association", "querydsl")),
-    ("db", "RDBMS / SQL / DB 설계", ("db-index", "db-transaction", "db-isolation", "db-lock",
-                              "db-normalization", "db-join", "db-execution-plan",
-                              "composite-index", "domain-erd")),
+    ("modeling", "데이터 모델링", ("composite-index", "domain-erd")),
     ("concurrency", "동시성 / 데이터 정합성", ("optimistic-vs-pessimistic-lock", "race-condition",
                           "idempotency")),
     ("redis", "Redis / 캐싱", ("redis-data-types", "redis-ttl-eviction", "cache-target-selection",
@@ -294,11 +292,7 @@ SLUG_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
                         "aws-elasticache", "aws-deploy")),
     ("terraform", "Terraform / IaC", ("terraform-state", "terraform-module")),
     ("nginx", "Nginx / 로드밸런싱", ("nginx-reverse-proxy", "nginx-tls-termination",
-                       "load-balancing", "net-load-balancing")),
-    ("network", "네트워크", ("net-tcp", "net-udp", "net-tls", "net-dns", "net-subnet-nat",
-               "net-socket")),
-    ("os", "Linux / OS", ("os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
-                    "os-virtual-memory", "os-io", "os-deadlock")),
+                       "load-balancing")),
     ("test", "테스트", ("test-strategy", "mockito-unit-test", "spring-integration-test")),
     ("architecture", "아키텍처 / 구조", ("package-structure",)),
 )
@@ -549,6 +543,23 @@ def certs_of(slug: str) -> list[tuple[str, str]]:
 # 문서가 곧 데이터다. 여기 것을 섞으면 "로드맵 위인가" 라는 질문에 답할 수
 # 없게 된다 — 기록의 `recommended` 플래그가 뜻을 잃는다.
 CS_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    # **면접 3대 과목이 맨 앞이다**(2026-09-08 재편). 전에는 이 22개가
+    # '프로젝트 주제' 축에 있었다 — 축을 나눈 기준이 "만들면서 겪나 /
+    # 앉아서 공부하나" 였기 때문인데, 분류로는 맞았지만 면접 준비하는
+    # 머릿속과 안 맞았다. CS 를 눌러도 OS·네트워크·DB 가 안 나왔고,
+    # 준비된 질문 74개가 어느 화면에도 안 떴다.
+    ("os", "OS 운영체제", (
+        "os-process-thread", "os-context-switch", "os-scheduling", "os-memory",
+        "os-virtual-memory", "os-io", "os-deadlock",
+    )),
+    ("network", "네트워크", (
+        "net-tcp", "net-udp", "net-http", "net-tls", "net-dns",
+        "net-subnet-nat", "net-socket", "net-load-balancing",
+    )),
+    ("db", "데이터베이스", (
+        "db-index", "db-transaction", "db-isolation", "db-lock",
+        "db-normalization", "db-join", "db-execution-plan",
+    )),
     ("ds", "자료구조", (
         "ds-array-linkedlist", "ds-stack-queue", "ds-hash", "ds-tree-bst",
         "ds-heap", "ds-graph", "ds-btree", "ds-trie",
@@ -841,28 +852,25 @@ CERTIFICATIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 # 자동 반영은 없으므로 문서를 고치면 여기도 함께 고친다.
 # 이미 기록이 쌓인 슬러그의 이름은 바꾸지 않는다 — 바꾸면 그 주제가 둘로 갈라진다.
 RECOMMENDED_SLUGS: tuple[str, ...] = (
-    "net-tcp", "net-udp", "net-http", "net-tls", "net-dns", "net-subnet-nat", "net-socket",
-    "net-load-balancing", "os-process-thread", "os-context-switch", "os-scheduling",
-    "os-memory", "os-virtual-memory", "os-io", "os-deadlock", "db-index", "db-transaction",
-    "db-isolation", "db-lock", "db-normalization", "db-join", "db-execution-plan", "spring-di",
-    "spring-mvc", "filter-vs-interceptor", "dto-separation", "api-error-handling",
-    "spring-transactional", "tx-boundary", "jvm-gc", "java-concurrency", "test-strategy",
-    "mockito-unit-test", "spring-integration-test", "package-structure", "domain-erd",
-    "entity-association", "jpa-persistence-context", "jpa-lazy-loading", "jpa-n-plus-one",
-    "jpa-fetch-join", "jpa-batch-size", "querydsl", "composite-index",
-    "optimistic-vs-pessimistic-lock", "race-condition", "redis-data-types",
-    "redis-ttl-eviction", "cache-target-selection", "cache-aside", "cache-invalidation",
-    "cache-ttl-policy", "k6-load-test", "latency-p95", "redis-cache-effect", "sync-to-async",
-    "rabbitmq-basics", "rabbitmq-exchange-routing", "rabbitmq-ack", "rabbitmq-retry",
-    "rabbitmq-dlq", "poison-message", "message-persistence", "consumer-failure", "idempotency",
-    "sse-reconnect", "consumer-restart", "kafka-basics", "kafka-partition-offset",
-    "kafka-consumer-group", "kafka-partition-throughput", "kafka-delivery-semantics",
-    "kafka-offset-commit", "kafka-rebalancing", "rabbitmq-vs-kafka",
-    "task-queue-vs-event-stream", "dockerfile-multistage", "docker-compose",
-    "docker-image-optimization", "nginx-reverse-proxy", "nginx-tls-termination",
-    "load-balancing", "aws-vpc", "public-private-subnet", "nat-gateway", "security-group-nacl",
-    "ec2-vs-ecs", "aws-rds", "aws-elasticache", "aws-deploy", "terraform-state",
-    "terraform-module", "github-actions-pipeline", "k8s-pod-deployment", "k8s-service-ingress",
+    "spring-di", "spring-mvc", "filter-vs-interceptor", "dto-separation",
+    "api-error-handling", "spring-transactional", "tx-boundary", "jvm-gc",
+    "java-concurrency", "test-strategy", "mockito-unit-test", "spring-integration-test",
+    "package-structure", "domain-erd", "entity-association", "jpa-persistence-context",
+    "jpa-lazy-loading", "jpa-n-plus-one", "jpa-fetch-join", "jpa-batch-size", "querydsl",
+    "composite-index", "optimistic-vs-pessimistic-lock", "race-condition",
+    "redis-data-types", "redis-ttl-eviction", "cache-target-selection", "cache-aside",
+    "cache-invalidation", "cache-ttl-policy", "k6-load-test", "latency-p95",
+    "redis-cache-effect", "sync-to-async", "rabbitmq-basics", "rabbitmq-exchange-routing",
+    "rabbitmq-ack", "rabbitmq-retry", "rabbitmq-dlq", "poison-message",
+    "message-persistence", "consumer-failure", "idempotency", "sse-reconnect",
+    "consumer-restart", "kafka-basics", "kafka-partition-offset", "kafka-consumer-group",
+    "kafka-partition-throughput", "kafka-delivery-semantics", "kafka-offset-commit",
+    "kafka-rebalancing", "rabbitmq-vs-kafka", "task-queue-vs-event-stream",
+    "dockerfile-multistage", "docker-compose", "docker-image-optimization",
+    "nginx-reverse-proxy", "nginx-tls-termination", "load-balancing", "aws-vpc",
+    "public-private-subnet", "nat-gateway", "security-group-nacl", "ec2-vs-ecs", "aws-rds",
+    "aws-elasticache", "aws-deploy", "terraform-state", "terraform-module",
+    "github-actions-pipeline", "k8s-pod-deployment", "k8s-service-ingress",
     "k8s-configmap-secret", "k8s-probe", "k8s-hpa", "prometheus-grafana", "k8s-necessity"
 )
 

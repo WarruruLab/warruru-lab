@@ -257,9 +257,9 @@ def test_허브가_두_갈래를_보여준다(client, home):
     assert 'href="/career/stack"' in page
 
 
-def test_기술스택_화면이_로드맵_100개를_다_보여준다(client):
+def test_기술스택_화면이_로드맵_전부를_보여준다(client):
     page = client.get("/career/stack").text
-    assert "0 / 100 슬러그" in page
+    assert "0 / 78 슬러그" in page
     assert "db-index" in page and "k8s-hpa" in page
 
 
@@ -275,19 +275,21 @@ def test_회사가_많이_요구하는_슬러그가_위로_온다(ctx, home):
     _write(home, "hyundai-autoever.md", WITH_META)
     _write(home, "lg-cns.md", WITH_META
            .replace("company: 현대오토에버", "company: LG CNS")
-           .replace("  - Java 21 | jvm-gc, java-concurrency\n", ""))
+           .replace("jvm-gc, java-concurrency", "jvm-gc"))
     first = careerview.build_stack(ctx)["first"]
-    assert first[0]["slug"] in ("db-index", "db-transaction")
+    # 두 회사가 겹치게 요구하는 것이 맨 위다
+    assert first[0]["slug"] == "jvm-gc"
     assert len(first[0]["companies"]) == 2
-    assert first[-1]["slug"] in ("java-concurrency", "jvm-gc")
+    assert first[-1]["slug"] == "java-concurrency"
+    assert len(first[-1]["companies"]) == 1
 
 
 def test_기록한_슬러그는_먼저_할_것에서_빠진다(client, home):
     _write(home, "hyundai-autoever.md", WITH_META)
-    _record(client, "db-index")
+    _record(client, "jvm-gc")
     page = client.get("/career/stack").text
     # 기록이 생기면 '먼저 할 것' 에서 사라지고 전체 막대가 오른다.
-    assert "1 / 100 슬러그" in page
+    assert "1 / 78 슬러그" in page
 
 
 def test_로드맵_밖_주제도_숨기지_않는다(client):
@@ -500,14 +502,14 @@ def test_CS_묶음_화면이_열린다(client):
 def test_두_축을_한_막대로_합치지_않는다(ctx):
     """로드맵은 만들어 보는 것, CS 는 묻는 것이다. 합치면 어느 쪽이 비었는지 모른다."""
     view = careerview.build_stack(ctx)
-    assert view["coverage"]["total"] == 100
-    assert view["cs_coverage"]["total"] == 49
+    assert view["coverage"]["total"] == 78
+    assert view["cs_coverage"]["total"] == 71
 
 
 def test_CS_기록도_그_자리에서_센다(client):
-    assert "0 / 49 슬러그" in client.get("/career/stack").text
+    assert "0 / 71 슬러그" in client.get("/career/stack").text
     _record(client, "ds-hash")
-    assert "1 / 49 슬러그" in client.get("/career/stack").text
+    assert "1 / 71 슬러그" in client.get("/career/stack").text
 
 
 def test_CS_슬러그는_로드맵_밖_구획에_안_간다(client):
@@ -672,8 +674,8 @@ def test_머리말이_없어도_묶음_화면은_열린다(client):
 def test_로드맵_묶음이_로드맵_순서로_선다(ctx):
     """공고에 나오는 말로 묶은 순서로는 다음에 뭘 할지가 안 나온다."""
     labels = [g["label"] for g in careerview.build_stack(ctx)["groups"]]
-    assert labels[0] == "네트워크"          # `net-tcp` 가 로드맵 첫 주제다
-    assert labels.index("네트워크") < labels.index("Kubernetes")
+    assert labels[0] == "Spring / Spring Boot"   # 22개가 CS 로 간 뒤의 첫 묶음
+    assert labels.index("Spring / Spring Boot") < labels.index("Kubernetes")
 
 
 def test_묶음_안_슬러그도_로드맵_순서다(ctx):
@@ -684,8 +686,9 @@ def test_묶음_안_슬러그도_로드맵_순서다(ctx):
 
 
 def test_로드맵_묶음은_진도가_맨_위다(client):
+    """`db` 는 2026-09-08 재편으로 CS 축이 됐다 — 로드맵 묶음은 `spring` 이다."""
     """'어디까지 왔는가' 를 물으러 오는 화면이다."""
-    page = client.get("/career/stack/db").text
+    page = client.get("/career/stack/spring").text
     assert "어디까지 왔나" in page
     assert page.index("어디까지 왔나") < page.index("면접에서 묻는 것")
 
@@ -700,9 +703,9 @@ def test_CS_묶음은_질문이_맨_위다(client):
 def test_다음에_할_것이_로드맵_순서에서_나온다(ctx, client):
     """'먼저 할 것'(회사가 많이 요구) 과 다른 값이다 — 이쪽은 순서를 본다."""
     ahead = careerview.build_stack(ctx)["ahead"]
-    assert ahead[0]["slug"] == "net-tcp"
-    _record(client, "net-tcp")
-    assert careerview.build_stack(ctx)["ahead"][0]["slug"] == "net-udp"
+    assert ahead[0]["slug"] == "spring-di"
+    _record(client, "spring-di")
+    assert careerview.build_stack(ctx)["ahead"][0]["slug"] == "spring-mvc"
 
 
 # ── 공고는 '요구 + 자소서' 다 (2026-09-01 확정) ───────────────────────

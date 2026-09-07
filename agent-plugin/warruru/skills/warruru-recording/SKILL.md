@@ -71,40 +71,39 @@ description: Record development learnings into the local Warruru daemon through 
 한글 슬러그가 되어 이 목록과 절대 만나지 않는다. 목록에 없는 주제라면
 영문 소문자 하이픈으로 짓되, 그 뒤로는 그 표기를 고수한다.
 
-`net-tcp` · `net-udp` · `net-http` · `net-tls`
-`net-dns` · `net-subnet-nat` · `net-socket` · `net-load-balancing`
-`os-process-thread` · `os-context-switch` · `os-scheduling` · `os-memory`
-`os-virtual-memory` · `os-io` · `os-deadlock` · `db-index`
-`db-transaction` · `db-isolation` · `db-lock` · `db-normalization`
-`db-join` · `db-execution-plan` · `spring-di` · `spring-mvc`
-`filter-vs-interceptor` · `dto-separation` · `api-error-handling` · `spring-transactional`
-`tx-boundary` · `jvm-gc` · `java-concurrency` · `test-strategy`
-`mockito-unit-test` · `spring-integration-test` · `package-structure` · `domain-erd`
-`entity-association` · `jpa-persistence-context` · `jpa-lazy-loading` · `jpa-n-plus-one`
-`jpa-fetch-join` · `jpa-batch-size` · `querydsl` · `composite-index`
-`optimistic-vs-pessimistic-lock` · `race-condition` · `redis-data-types` · `redis-ttl-eviction`
+`spring-di` · `spring-mvc` · `filter-vs-interceptor` · `dto-separation`
+`api-error-handling` · `spring-transactional` · `tx-boundary` · `jvm-gc`
+`java-concurrency` · `test-strategy` · `mockito-unit-test`
+`spring-integration-test` · `package-structure` · `domain-erd` · `entity-association`
+`jpa-persistence-context` · `jpa-lazy-loading` · `jpa-n-plus-one` · `jpa-fetch-join`
+`jpa-batch-size` · `querydsl` · `composite-index` · `optimistic-vs-pessimistic-lock`
+`race-condition` · `redis-data-types` · `redis-ttl-eviction`
 `cache-target-selection` · `cache-aside` · `cache-invalidation` · `cache-ttl-policy`
 `k6-load-test` · `latency-p95` · `redis-cache-effect` · `sync-to-async`
 `rabbitmq-basics` · `rabbitmq-exchange-routing` · `rabbitmq-ack` · `rabbitmq-retry`
 `rabbitmq-dlq` · `poison-message` · `message-persistence` · `consumer-failure`
 `idempotency` · `sse-reconnect` · `consumer-restart` · `kafka-basics`
-`kafka-partition-offset` · `kafka-consumer-group` · `kafka-partition-throughput` · `kafka-delivery-semantics`
-`kafka-offset-commit` · `kafka-rebalancing` · `rabbitmq-vs-kafka` · `task-queue-vs-event-stream`
-`dockerfile-multistage` · `docker-compose` · `docker-image-optimization` · `nginx-reverse-proxy`
+`kafka-partition-offset` · `kafka-consumer-group` · `kafka-partition-throughput`
+`kafka-delivery-semantics` · `kafka-offset-commit` · `kafka-rebalancing`
+`rabbitmq-vs-kafka` · `task-queue-vs-event-stream` · `dockerfile-multistage`
+`docker-compose` · `docker-image-optimization` · `nginx-reverse-proxy`
 `nginx-tls-termination` · `load-balancing` · `aws-vpc` · `public-private-subnet`
-`nat-gateway` · `security-group-nacl` · `ec2-vs-ecs` · `aws-rds`
-`aws-elasticache` · `aws-deploy` · `terraform-state` · `terraform-module`
-`github-actions-pipeline` · `k8s-pod-deployment` · `k8s-service-ingress` · `k8s-configmap-secret`
-`k8s-probe` · `k8s-hpa` · `prometheus-grafana` · `k8s-necessity`
+`nat-gateway` · `security-group-nacl` · `ec2-vs-ecs` · `aws-rds` · `aws-elasticache`
+`aws-deploy` · `terraform-state` · `terraform-module` · `github-actions-pipeline`
+`k8s-pod-deployment` · `k8s-service-ingress` · `k8s-configmap-secret` · `k8s-probe`
+`k8s-hpa` · `prometheus-grafana` · `k8s-necessity`
 
 ## CS 기초는 이쪽 목록에서 고른다
 
-로드맵 100개에는 자료구조·알고리즘·컴퓨터구조·디자인패턴·웹 기초가 없다.
+로드맵 78개에는 자료구조·알고리즘·컴퓨터구조·디자인패턴·웹 기초가 없다.
 로드맵이 **직접 만들어 보는 것**을 다루기 때문인데, 면접에서는 이쪽을 묻는다.
 그래서 목록을 하나 더 둔다.
 
 | 묶음 | 슬러그 |
 |---|---|
+| OS 운영체제 | `os-process-thread` `os-context-switch` `os-scheduling` `os-memory` `os-virtual-memory` `os-io` `os-deadlock` |
+| 네트워크 | `net-tcp` `net-udp` `net-http` `net-tls` `net-dns` `net-subnet-nat` `net-socket` `net-load-balancing` |
+| 데이터베이스 | `db-index` `db-transaction` `db-isolation` `db-lock` `db-normalization` `db-join` `db-execution-plan` |
 | 자료구조 | `ds-array-linkedlist` `ds-stack-queue` `ds-hash` `ds-tree-bst` `ds-heap` `ds-graph` `ds-btree` `ds-trie` |
 | 알고리즘 | `algo-complexity` `algo-sorting` `algo-binary-search` `algo-dfs-bfs` `algo-dp` `algo-greedy` `algo-shortest-path` |
 | 컴퓨터구조 | `arch-cpu` `arch-cache-memory` `arch-memory-hierarchy` `arch-floating-point` `arch-von-neumann` |

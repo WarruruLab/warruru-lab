@@ -224,7 +224,9 @@ def test_권장_슬러그는_권장으로_표시된다():
     `similar_slugs` 로는 증명할 수 없다 — 그쪽은 자기 자신을 빼므로
     권장 슬러그를 그대로 적으면 오히려 빈 목록이 온다(A13 채점 참조).
     """
-    assert topics.is_recommended("net-tcp") is True
+    assert topics.is_recommended("spring-di") is True
+    # 2026-09-08 재편으로 CS 축으로 갔다 — 로드맵 위가 아니다
+    assert topics.is_recommended("net-tcp") is False
     assert topics.is_recommended(topics.RECOMMENDED_SLUGS[0]) is True
 
 
@@ -305,12 +307,13 @@ def test_묶음_열쇠가_겹치지_않고_URL_에_넣을_수_있다():
     assert all(re.match(r"^[a-z0-9][a-z0-9-]*$", key) for key in keys)
 
 
-def test_자격증_슬러그가_전부_로드맵_위에_있다():
+def test_자격증_슬러그가_전부_아는_주제다():
     """로드맵 밖 슬러그를 적으면 그 줄은 어느 화면에서도 안 보인다."""
-    from warruru_local.topics import CERTIFICATIONS, RECOMMENDED_SLUGS
+    from warruru_local.topics import CERTIFICATIONS, CS_SLUGS, RECOMMENDED_SLUGS
 
+    known = set(RECOMMENDED_SLUGS) | set(CS_SLUGS)
     for _, name, slugs in CERTIFICATIONS:
-        assert set(slugs) <= set(RECOMMENDED_SLUGS), name
+        assert set(slugs) <= known, name
         assert len(slugs) == len(set(slugs)), name
 
 
