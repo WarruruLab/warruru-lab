@@ -115,6 +115,15 @@
     --shadow-lg: 0 8px 40px rgba(0, 0, 0, .5);
   }
 
+  /* **스크롤바 자리를 늘 잡아 둔다**(2026-09-08).
+
+     `main` 이 가운데 정렬이라, 세로 스크롤이 없는 화면에서는 스크롤바가
+     사라지면서 내용이 7px 오른쪽으로 밀린다. 포트폴리오만 짧아서 그
+     화면을 오갈 때마다 글자와 카드가 좌우로 튀었다 — 실측으로 잡았다
+     (career x=144 · 나머지 x=137). 화면마다 길이가 다른 것은 정상이므로
+     자리를 미리 비워 두는 쪽이 맞다. */
+  html { scrollbar-gutter: stable; }
+
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
 
