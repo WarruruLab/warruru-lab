@@ -772,6 +772,24 @@ def build_group(ctx, key: str) -> dict | None:
         # 틀린 자리에 쌓인 기록은 아무 화면에서도 안 보인다.
         group["ask_slugs"] = [{"slug": row["slug"], "label": row["label"]}
                               for row in group["slugs"]]
+
+        # CS 축만 **점검 도구**를 얹는다(명세 §2.10). 책은 입력이고 로드맵은
+        # 결과라 여기 붙일 것이 없다 — 붙이면 세 화면이 다시 같아진다.
+        if group["axis"] == "cs":
+            from warruru_local.daemon import checking
+
+            today = local_date_of(to_iso(ctx.clock.now()))
+            group["picks"] = checking.picks(ctx, key, today)
+            group["stale"] = checking.stale_count(ctx, key, today)
+            group["books"] = checking.books_for(key)
+            낡음 = {}
+            for row in group["slugs"]:
+                ages = ctx.records.check_ages(row["slug"])
+                for ask in row["asks"]:
+                    ask["checked_at"] = ages.get(ask["hash"], "")
+                    ask["stale"] = checking.is_stale(ask["checked_at"], today)
+                    낡음[row["slug"]] = 낡음.get(row["slug"], 0) + int(ask["stale"])
+                row["stale"] = 낡음.get(row["slug"], 0)
         return group
     return None
 
