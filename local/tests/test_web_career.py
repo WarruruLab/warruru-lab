@@ -244,12 +244,17 @@ def test_목록에도_막대와_배지가_선다(client, home):
 # ── 두 갈래 (2026-08-31) ─────────────────────────────────────────────
 
 def test_허브가_두_갈래를_보여준다(client, home):
-    """묻는 것이 다르다 — 무엇을 공부할까 / 어디에 지원할까."""
+    """묻는 것이 다르다 — 무엇을 공부할까 / 어디에 지원할까.
+
+    2026-09-08 부터 허브는 **균등 카드 그리드**다. 두 갈래를 큰 칸 둘로
+    나누는 대신 카드 여섯으로 흩는다 — 목록 길이가 8배 차이 나는 두 칸을
+    나란히 놓으니 오른쪽 아래가 화면 절반 넘게 비었다.
+    """
     _write(home, "hyundai-autoever.md", WITH_META)
     page = client.get("/career").text
-    assert 'href="/career/stack"' in page
+    assert 'class="board"' in page
     assert 'href="/career/companies"' in page
-    assert "회사 1곳" in page
+    assert 'href="/career/stack"' in page
 
 
 def test_기술스택_화면이_로드맵_100개를_다_보여준다(client):
@@ -302,13 +307,11 @@ def test_회사_상세는_c_아래에_있다(client, home):
 
 # ── 허브 두 칸 (2026-08-31) ──────────────────────────────────────────
 
-def test_허브의_왼쪽_칸에서_주제를_눌러_들어간다(client, home):
-    """기술스택 칸의 항목은 묶음이다 — Spring · DB · Redis · 네트워크 …"""
-    _write(home, "hyundai-autoever.md", WITH_META)
+def test_허브에서_축을_눌러_들어간다(client):
+    """허브는 요약이라 주제 하나하나를 걸지 않는다. 축으로 들어간다."""
     page = client.get("/career").text
-    assert 'href="/career/stack/spring"' in page
-    assert 'href="/career/stack/db"' in page
-    assert "Spring / Spring Boot" in page
+    assert "채워지는 정도" in page
+    assert 'href="/career/stack"' in page
 
 
 def test_허브의_오른쪽_칸에서_회사를_눌러_들어간다(client, home):
@@ -339,11 +342,36 @@ def test_묶음_화면의_건수도_그_자리에서_센다(client, home):
 
 # ── 자격증 (2026-08-31) ──────────────────────────────────────────────
 
-def test_허브_왼쪽_칸에_자격증이_선다(client):
+STAGED = """---
+status: 필기 합격
+issuer: 한국산업인력공단
+stages:
+  - 필기 | 합격
+  - 실기 | 준비중
+exams:
+  - 2026-07-10 | 필기 발표 | 지난 것 | 해당없음 | 필기
+  - 2026-07-30 | 실기 접수 | 사흘뿐이다 | | 실기
+  - 2026-08-20 | 실기 시험 | | | 실기
+---
+
+# 필기 — 끝났다
+
+# 실기 — 남은 것
+
+## 문제 유형
+
+필답형. 부분 점수가 없다.
+"""
+
+
+def test_허브에_자격증이_상위_셋만_선다(client, home):
+    """허브는 요약이다. 여섯 개를 다 펼치면 카드 높이가 무너진다."""
+    _cert(home, "jeongcheogi", STAGED)
     page = client.get("/career").text
-    assert 'href="/career/cert/sqld"' in page
-    assert "네트워크관리사 2급" in page
-    assert "AWS SAA" in page
+    카드 = page[page.index("<h2>자격증</h2>"):]
+    카드 = 카드[:카드.index("</section>")]
+    assert 카드.count('href="/career/cert/') <= 3
+    assert "전체 →" in 카드
 
 
 def test_자격증_화면이_겹치는_주제만_보여준다(client):
@@ -453,10 +481,14 @@ def test_수상한_링크는_걸지_않는다(client, home):
 
 # ── CS 지식 (2026-08-31) ─────────────────────────────────────────────
 
-def test_허브에_CS_묶음이_선다(client):
+def test_허브에_세_축이_격자로_선다(client):
+    """프로젝트 · CS · AI 셋을 한 카드에 격자로 놓는다.
+    막대가 아니라 칸이라 **몇 칸이 비었는지**가 먼저 읽힌다."""
     page = client.get("/career").text
-    assert 'href="/career/stack/ds"' in page
-    assert "자료구조" in page and "디자인패턴" in page
+    카드 = page[page.index("채워지는 정도"):]
+    for 이름 in ("프로젝트 주제", "CS 지식", "AI · 에이전트"):
+        assert 이름 in 카드, 이름
+    assert 카드.count('class="grid-gauge"') >= 3
 
 
 def test_CS_묶음_화면이_열린다(client):
@@ -534,35 +566,12 @@ def test_상태를_안_적으면_미시작이다(ctx):
     assert all(cert["status"] == "미시작" for cert in careerview.build_certs(ctx))
 
 
-def test_허브가_다음에_할_일을_이름으로_보여준다(client, home):
-    """D-8 만 있으면 무엇이 8일 남았는지 모른다."""
-    _cert(home, "network-2")
+def test_허브가_마감을_가까운_순으로_보여준다(client, home):
+    """허브가 먼저 답해야 하는 것은 '다음에 뭐가 닥치나' 다."""
+    _write(home, "sk-ax.md", WITH_META.replace("2026-07-10", "2026-07-28"))
     page = client.get("/career").text
-    assert "D-8" in page and "4회 접수 시작" in page
-
-
-# ── 자격증은 시험이다 — 단계로 나눈다 (2026-09-01 확정) ──────────────
-
-STAGED = """---
-status: 필기 합격
-issuer: 한국산업인력공단
-stages:
-  - 필기 | 합격
-  - 실기 | 준비중
-exams:
-  - 2026-07-10 | 필기 발표 | 지난 것 | 해당없음 | 필기
-  - 2026-07-30 | 실기 접수 | 사흘뿐이다 | | 실기
-  - 2026-08-20 | 실기 시험 | | | 실기
----
-
-# 필기 — 끝났다
-
-# 실기 — 남은 것
-
-## 문제 유형
-
-필답형. 부분 점수가 없다.
-"""
+    카드 = page[page.index("<h2>마감</h2>"):]
+    assert "D-6" in 카드[:600]
 
 
 def test_단계마다_칸이_선다(client, home):
@@ -749,21 +758,13 @@ def test_자소서가_요구_기술_뒤에_온다(client, home):
     assert page.index("<h2>준비도</h2>") < page.index("<h2>자소서</h2>")
 
 
-def test_왼쪽_박스와_구획_이름이_성격을_말한다(client):
-    """'나의 기술스택' 이 박스 이름이자 그중 한 구획처럼 읽혔다(2026-09-01 정리).
-
-    셋의 성격이 정해졌으니 이름이 그걸 말해야 한다 —
-    마감이 있는 것 · 면접에서 묻는 것 · 만들면서 겪는 것.
-    """
+def test_카드_이름이_성격을_말한다(client):
+    """이름이 '자격증 목록' 이 아니라 '마감' 인 것이 이 화면의 태도다 —
+    무엇이 담겼나가 아니라 **무엇에 답하나**로 부른다."""
     page = client.get("/career").text
-    assert "내가 채울 것" in page
-    assert "나의 기술스택" not in page
-    assert "프로젝트 주제" in page
-    assert "마감이 있는 것" in page and "면접에서 묻는 것" in page
-    assert "만들면서 겪는 것" in page
+    for 이름 in ("마감", "쌓인 것", "채워지는 정도"):
+        assert f"<h2>{이름}</h2>" in page or f"{이름}</a></h2>" in page, 이름
 
-
-# ── 면접 질문 체크 (2026-09-01) ──────────────────────────────────────
 
 def _ask_note(home, slug, asks):
     from warruru_local import paths
@@ -968,10 +969,12 @@ def test_뷰_키가_dict_메서드를_가리지_않는다(ctx, home):
 
 # ── 책 (2026-09-02) ──────────────────────────────────────────────────
 
-def test_허브에_책이_선다(client):
+def test_허브에_책이_상위_셋만_선다(client):
     page = client.get("/career").text
-    assert 'href="/career/book/real-mysql"' in page
-    assert "Real MySQL" in page
+    카드 = page[page.index("<h2>책</h2>"):]
+    카드 = 카드[:카드.index("</section>")]
+    assert 0 < 카드.count('href="/career/book/') <= 3
+    assert "전체 →" in 카드
 
 
 def test_책_화면이_덮는_주제를_보여준다(client):
@@ -1005,11 +1008,13 @@ def test_책은_기록_구획을_따로_두지_않는다(client):
 
 # ── AI 는 세 번째 축이다 (2026-09-04 추가) ──────────────────────────
 
-def test_허브에_AI_묶음이_선다(client):
-    """로드맵도 CS 도 아닌 자리. 허브에 안 서면 있는 줄도 모른다."""
+def test_아래_요약이_그리드가_안_여는_곳을_연다(client):
+    """A 안의 아래 줄을 가져오되 자격증·공고·책은 이미 카드로 있다.
+    같은 것을 두 번 놓는 대신 기록·초안·달력으로 채운다 —
+    그 셋은 상단 nav 말고는 들어갈 길이 없었다."""
     page = client.get("/career").text
-    assert 'href="/career/stack/mcp"' in page
-    assert "MCP · 에이전트 확장" in page
+    줄 = page[page.index('class="entries"'):]
+    assert "주제 기록" in 줄 and "초안" in 줄 and "달력" in 줄
 
 
 def test_AI_묶음_화면이_열린다(client):
@@ -1045,15 +1050,15 @@ def test_반납일이_지나도_지우지_않는다(client, home):
     """연장했는지 반납했는지는 사람만 안다. 화면이 임의로 지우면
     그 사실이 조용히 사라진다."""
     _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 2026-07-20\n---\n")
-    page = client.get("/career").text
+    page = client.get("/career/book/real-mysql").text
     assert "반납 2일 지남" in page
 
 
 def test_노트가_없는_책도_그대로_선다(client):
     """대부분의 책은 노트가 없다. 없다고 화면이 깨지면 안 된다."""
+    assert client.get("/career/book/effective-java").status_code == 200
     page = client.get("/career").text
-    assert 'href="/career/book/effective-java"' in page
-    assert "D-" not in page.split("이펙티브 자바")[1][:200]
+    assert 'class="board"' in page
 
 
 def test_책_화면이_기한과_진도를_보여준다(client, home):
@@ -1070,11 +1075,9 @@ def test_책_화면이_기한과_진도를_보여준다(client, home):
 def test_망가진_반납일은_없는_것으로_친다(client, home):
     """틀린 D-day 는 없는 것보다 나쁘다 — 그걸 믿고 일정을 짠다."""
     _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 곧\n---\n")
-    page = client.get("/career").text
-    assert "D-" not in page.split("Real MySQL")[1][:200]
+    page = client.get("/career/book/real-mysql").text
+    assert "D-" not in page.split("이 책이 덮는 주제")[1][:400]
 
-
-# ── 점수제 시험은 목표를 적는다 (2026-09-05 추가) ────────────────────
 
 def test_목표가_있으면_맨_위에_뜬다(client, home):
     """TOPCIT 처럼 점수가 나오는 시험은 목표를 안 정하면 무엇을 버릴지
@@ -1134,47 +1137,51 @@ def test_한쪽만_있는_따옴표는_값의_일부다(ctx, home):
 
 def test_마감이_자격증과_공고를_섞어_한_줄로_선다(client, home):
     """아침에 묻는 것은 '자격증이 언제인가' 도 '공고가 언제인가' 도 아니라
-    '다음에 뭐가 닥치나' 하나다. 두 목록을 번갈아 보며 머릿속에서 합치게
-    두면 그게 곧 놓치는 자리다."""
+    '다음에 뭐가 닥치나' 하나다."""
     _write(home, "sk-ax.md", WITH_META.replace("2026-07-10", "2026-07-28"))
     _cert(home, "jeongcheogi", STAGED)
-    page = client.get("/career").text
-    lane = page[page.index("다음에 닥치는 것"):]
+    줄 = careerview.deadlines(client.app.state.ctx)
+    이름 = [row["name"] for row in 줄]
     # 공고 마감(7/28)이 실기 접수(7/30)보다 먼저다
-    assert lane.index("현대오토에버") < lane.index("실기 접수")
-    assert "공고" in lane and "자격증" in lane
+    assert 이름.index("현대오토에버") < 이름.index("정보처리기사")
+    assert {row["kind"] for row in 줄} == {"공고", "자격증"}
+
+    카드 = client.get("/career").text
+    카드 = 카드[카드.index("<h2>마감</h2>"):]
+    assert "현대오토에버" in 카드[:600]
 
 
 def test_지난_마감은_레인에_안_선다(client, home):
     """못 하는 일을 카운트다운하면 그 숫자가 거짓말이다."""
     _write(home, "sk-ax.md", WITH_META)          # deadline 2026-07-10, 오늘은 7/22
-    page = client.get("/career").text
-    assert "다음에 닥치는 것" not in page
+    카드 = client.get("/career").text
+    카드 = 카드[카드.index("<h2>마감</h2>"):]
+    assert "다가오는 마감이 없다" in 카드[:400]
 
 
 def test_0_인_칸이_눈에_띄게_선다(client):
     """만들어 두고 안 쓰는 자리를 숫자로 드러낸다. 안 보이면 계속 0 이다."""
     page = client.get("/career").text
-    board = page[page.index('class="stats"'):]
-    assert board.count("stat zero") >= 2      # 질문 체크 0 · 발행 0
-    assert "답할 수 있다" in board and "발행" in board
+    칸 = page[page.index('class="tally"'):]
+    칸 = 칸[:칸.index("</section>")]
+    assert 칸.count("stat zero") >= 2      # 질문 체크 0 · 발행 0
+    assert "답할 수 있다" in 칸 and "발행" in 칸
 
 
 def test_면접_문장이_적으면_경고로_뜬다(client, home):
     """나머지 필드는 96% 넘게 차는데 이것만 15% 다(2026-09-07 실측).
-    취업이 목적인 도구에서 면접에 들고 갈 문장이 없다는 뜻이라, 그 숫자가
-    화면에 계속 보여야 한다. 기록의 1/3 을 못 넘으면 경고로 칠한다.
+    면접에 들고 갈 문장이 그것뿐이라 기록의 1/3 을 못 넘으면 경고로 칠한다.
     """
     for n in range(4):
         _record(client, f"db-index-{n}")                     # interview 없이 4건
-    stats = client.get("/career").text
-    칸 = stats[stats.index('class="stats"'):stats.index("면접 문장")]
+    page = client.get("/career").text
+    칸 = page[page.index('class="tally"'):page.index("면접 문장")]
     assert "stat zero" in 칸
 
     _record(client, "extra", interview="인덱스를 왜 이렇게 잡았는지 설명했습니다")
     _record(client, "extra2", interview="두 번째 문장")
-    stats = client.get("/career").text                       # 5건 중 2건 → 1/3 넘음
-    칸 = stats[stats.index('class="stats"'):stats.index("면접 문장")]
+    page = client.get("/career").text                        # 5건 중 2건 → 1/3 넘음
+    칸 = page[page.index('class="tally"'):page.index("면접 문장")]
     assert "stat zero" not in 칸
 
 

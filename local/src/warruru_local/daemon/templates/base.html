@@ -213,11 +213,11 @@
      이 도구가 매번 답하려는 질문은 후자다. */
 
   .grid-gauge {
-    display: flex; flex-wrap: wrap; gap: 4px;
+    display: flex; flex-wrap: wrap; gap: 3px;
     margin: .6rem 0 .4rem;
   }
   .grid-gauge .cell {
-    width: 11px; height: 11px; border-radius: 3px;
+    width: 10px; height: 10px; border-radius: 3px;
     border: 0;
     background: var(--rule);
     display: block;
@@ -253,6 +253,66 @@
   .material .seg.none { background: var(--rule); opacity: .5; }
   .material .ready { color: var(--ink); }
   .material .short { color: var(--ink-faint); }
+
+  /* ── 허브 — 균등 카드 그리드 ─────────────────────────────────
+     이전 판은 목록 길이가 8배 차이 나는 두 칸을 나란히 놓아 오른쪽
+     아래가 화면 절반 넘게 비었다. **높이가 비슷한 카드 여섯 개**로
+     바꾼다 — 각 카드는 상위 셋만 보여주고 나머지는 눌러 들어간다.
+     허브는 요약이고, 목록 전체를 여기 펼치면 어느 것도 안 읽힌다. */
+
+  .board {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem; align-items: stretch; margin-bottom: 1rem;
+  }
+  .board > .tool { display: flex; flex-direction: column; }
+  /* 링크는 카드 바닥에 붙는다. 카드마다 목록 길이가 달라도 '전체 →' 가
+     같은 선에 서야 여섯 칸이 한 판으로 읽힌다. */
+  .board > .tool > .more { margin-top: auto; padding-top: .7rem; }
+  .board > .tool { margin-bottom: 0; }
+  /* **여섯 칸이 전부 1칸짜리다.** 하나만 넓히면 3열이 안 나눠떨어져
+     그 아래가 빈다 — 고치려던 문제가 그 자리에 다시 생긴다. */
+
+  .more {
+    display: inline-block; margin-top: .7rem;
+    font-size: var(--t-sm); font-weight: 600; color: var(--key);
+  }
+
+  /* 목록 안의 작은 D-day. 레인의 큰 숫자와 역할이 다르다 —
+     저쪽은 '언제', 이쪽은 '이 줄이 급한가' 다. */
+  .dday-sm {
+    font-family: var(--mono); font-size: var(--t-sm); font-weight: 600;
+    letter-spacing: -.03em; color: var(--ink-soft); white-space: nowrap;
+  }
+  .dday-sm.near { color: var(--alert); }
+
+  .tally { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem .8rem;
+           margin-top: .2rem; }
+  .tally .stat { background: transparent; padding: 0; box-shadow: none;
+                 border-radius: 0; }
+
+  .axes { display: flex; flex-direction: column; gap: 1rem; margin-top: .2rem; }
+  .axis-head { display: flex; align-items: baseline; justify-content: space-between;
+               gap: .6rem; margin-bottom: .1rem; }
+  .axis-head strong { font-size: var(--t-md); }
+
+  /* 아래 요약 — 그리드가 안 여는 화면으로 들어가는 자리 */
+  .entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  .entry {
+    background: var(--panel); border-radius: var(--radius);
+    padding: 1.1rem 1.3rem; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: .2rem;
+  }
+  .entry b { font-size: var(--t-md); }
+  .entry span { font-size: var(--t-sm); color: var(--ink-faint); }
+  .entry:hover { box-shadow: 0 1px 2px rgba(25,31,40,.06), 0 6px 20px rgba(25,31,40,.09); }
+  .entry.flag span { color: var(--alert); }
+
+  @media (max-width: 60rem) {
+    .board, .entries { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 40rem) {
+    .board, .entries { grid-template-columns: 1fr; }
+  }
 
   /* ── 마감 레인 ────────────────────────────────────────────── */
 
