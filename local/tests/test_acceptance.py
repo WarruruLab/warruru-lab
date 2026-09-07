@@ -279,7 +279,7 @@ def test_DL01_기록_세_건이_기록_화면에_한_줄로_묶인다(client):
         _learn(client, f"rec_{index}")
     page = client.get("/t").text
     assert "connection-pool" in page
-    assert "3건" in page
+    assert ">3</b>건" in page          # 오늘의 기록 3건
 
 
 def test_DL02_주제에서_초안까지_한_번에_간다(client, home):

@@ -135,9 +135,11 @@ async def topics_index(request: Request, date: str | None = None):
         request, "topics.html",
         {
             "view": todayview.day_records(ctx, day),
-            # **날짜와 무관한 칸.** 그날 것이 없어도 쓸 수 있는 것은 있다 —
-            # 그날로만 자르면 0건인 날에 화면이 통째로 빈다.
-            "writable": todayview.writable(ctx),
+            # **만든 글.** 초안이 57건인데 목록 화면이 없어 주제를 거쳐야만
+            # 닿았다 — 만든 것을 못 찾으면 만든 적이 없는 것과 같다.
+            # 이 칸은 날짜와 무관하다. 그날 것이 없어도 화면이 안 빈다.
+            "drafts": ctx.records.list_drafts(limit=10),
+            "templates": [(key, name) for key, (name, _) in WRITE_TEMPLATES.items()],
             "day": day,
             "weekday": _weekday(day),
             "prev_day": 어제 if not 처음 or 어제 >= 처음 else "",
@@ -1154,6 +1156,135 @@ async def push_draft_form(
         )
     state = "pushed" if result.pushed else "committed"
     return RedirectResponse(f"/drafts/{draft_id}?push={state}", status_code=302)
+
+
+# 글 템플릿. **재료를 늘리지 말라**가 셋에 공통으로 붙는다 —
+# 없는 수치와 없는 이유가 생기면 그 글은 면접에서 무너진다(AGENTS.md §5).
+#
+# 조립기(`draft_builder`)는 그대로다. 저쪽은 **결정적**이고 LLM 호출이
+# 0 이며, 이 경로는 사람이 고른 기록을 CLI 에게 넘겨 문장을 받는 다른 길이다.
+# 둘 다 남긴다 — 붙었을 때 못 쓰는 날이 있어서다(§2.4 · §3.7).
+WRITE_TEMPLATES: dict[str, tuple[str, str]] = {
+    "six": ("6단 기술 글", (
+        "아래 기록들을 **한 편의 기술 글**로 써라. 6단으로 나눈다 —"
+        " 문제 · 선택 · 구현 · 측정 · 결과 · 한계.\n"
+        "재료가 없는 절은 `TODO:` 한 줄로 남겨라. **채우지 마라** —"
+        " 그 자리는 내가 아직 답 못 하는 곳이라 표시로 남아야 한다.\n"
+    )),
+    "retro": ("하루 회고", (
+        "아래 기록들을 **그날의 회고**로 묶어라. 셋이면 된다 —"
+        " ① 오늘 알게 된 것 ② 막힌 것 ③ 다음에 볼 것.\n"
+        "기록에 없는 감상을 지어내지 마라. 짧게, 800자 안쪽.\n"
+    )),
+    "interview": ("면접 답변", (
+        "아래 기록들을 **면접에서 말할 문장**으로 바꿔라. 기록 하나에"
+        " 질문 하나와 답 하나를 붙인다.\n"
+        "답은 말하듯이 세 문장 안쪽으로, 수치가 있으면 그대로 쓴다.\n"
+        "**없는 수치를 만들지 마라** — 면접장에서 바로 드러난다.\n"
+    )),
+}
+
+_WRITE_TAIL = (
+    "**재료를 늘리지 마라.** 아래에 없는 수치 · 이유 · 링크를 쓰면 안 된다.\n"
+    "마크다운 전문만 답으로 내라. 설명이나 인사말을 붙이지 마라.\n"
+)
+
+
+def _material(row: dict) -> str:
+    """기록 한 건을 프롬프트에 넣을 모양으로 편다."""
+    조각 = [f"## {row['title']}  ({row['kind']} · {row['topic_slug']})",
+           row.get("body") or ""]
+    for 이름, 열쇠 in (("왜 그렇게 판단했나", "rationale"),
+                    ("그래서 어떻게 됐나", "outcome"),
+                    ("어디까지만 맞나", "limitation"),
+                    ("면접에서 어떻게 말할까", "interview")):
+        값 = (row.get(열쇠) or "").strip()
+        if 값:
+            조각.append(f"- {이름}: {값}")
+    return "\n".join(조각)
+
+
+@router.post("/web/drafts/compose")
+async def compose_draft_form(
+    request: Request,
+    record_id: list[str] = Form(default=[]),
+    template: str = Form("six"),
+    prompt: str = Form(""),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """**체크한 기록을 에이전트에게 넘겨 글로 만든다** (명세 §2.14 e).
+
+    화면이 하는 일은 '무엇을 재료로 쓸지 고르는 것' 하나다. 한 주제 안에서도
+    이번 글에 넣을 것과 뺄 것이 갈리므로, 주제 단위가 아니라 **기록 단위**로
+    고른다.
+
+    **저장하지 않는다.** 받은 글을 화면에 보여주고 사람이 [초안으로 저장] 을
+    눌러야 파일이 생긴다 — 마음에 안 드는 글이 초안 목록에 쌓이면 그 목록을
+    안 보게 된다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+    rows = [row for row in (ctx.records.get_record(rid) for rid in record_id)
+            if row is not None and not row.get("deleted_at")]
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "NO_RECORDS", "message": "기록을 하나 이상 고르세요"},
+        )
+    rows.sort(key=lambda row: (row.get("occurred_at") or "", row["record_id"]))
+
+    머리 = WRITE_TEMPLATES.get(template, WRITE_TEMPLATES["six"])[1]
+    if prompt.strip():
+        머리 += f"\n특별히 이렇게 써라: {prompt.strip()}\n"
+    재료 = "\n\n".join(_material(row) for row in rows)
+
+    물음 = asking.Ask(
+        # 주제가 섞여 있으면 **가장 최근 기록의 주제**로 묶는다 —
+        # 조립기가 제목을 고르는 규칙과 같다.
+        topic_slug=rows[-1]["topic_slug"],
+        prompt=f"{머리}{_WRITE_TAIL}\n---\n{재료}",
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        yield _sse("picked", {"count": len(rows), "topic": rows[-1]["topic_slug"]})
+        async for name, data in asking.run(물음):
+            if name == "started":
+                continue
+            yield _sse(name, data)
+        yield _sse("done", {"topic": rows[-1]["topic_slug"]})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/web/drafts/from-text")
+async def save_composed_form(
+    request: Request,
+    topic_slug: str = Form(...),
+    markdown: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """받아 본 글을 초안으로 앉힌다. `save_draft` 툴과 **같은 함수**로 간다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not markdown.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "EMPTY_DRAFT", "message": "본문이 비어 있습니다"},
+        )
+    made = drafting.create(ctx, topic_slug, markdown=markdown)
+    return RedirectResponse(f"/drafts/{made['draft_id']}?saved=1", status_code=303)
 
 
 @router.post("/web/drafts/from-records")
