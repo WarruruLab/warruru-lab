@@ -1128,3 +1128,61 @@ def test_한쪽만_있는_따옴표는_값의_일부다(ctx, home):
     """벗기면 없던 값이 만들어진다."""
     _write(home, "sk-ax.md", '---\ncompany: 그는 "말했다\n---\n# 메모\n')
     assert careerview.build_company(ctx, "sk-ax")["company"] == '그는 "말했다'
+
+
+# ── 계기판 (2026-09-07 재설계) ───────────────────────────────────
+
+def test_마감이_자격증과_공고를_섞어_한_줄로_선다(client, home):
+    """아침에 묻는 것은 '자격증이 언제인가' 도 '공고가 언제인가' 도 아니라
+    '다음에 뭐가 닥치나' 하나다. 두 목록을 번갈아 보며 머릿속에서 합치게
+    두면 그게 곧 놓치는 자리다."""
+    _write(home, "sk-ax.md", WITH_META.replace("2026-07-10", "2026-07-28"))
+    _cert(home, "jeongcheogi", STAGED)
+    page = client.get("/career").text
+    lane = page[page.index("다음에 닥치는 것"):]
+    # 공고 마감(7/28)이 실기 접수(7/30)보다 먼저다
+    assert lane.index("현대오토에버") < lane.index("실기 접수")
+    assert "공고" in lane and "자격증" in lane
+
+
+def test_지난_마감은_레인에_안_선다(client, home):
+    """못 하는 일을 카운트다운하면 그 숫자가 거짓말이다."""
+    _write(home, "sk-ax.md", WITH_META)          # deadline 2026-07-10, 오늘은 7/22
+    page = client.get("/career").text
+    assert "다음에 닥치는 것" not in page
+
+
+def test_0_인_칸이_눈에_띄게_선다(client):
+    """만들어 두고 안 쓰는 자리를 숫자로 드러낸다. 안 보이면 계속 0 이다."""
+    page = client.get("/career").text
+    board = page[page.index('class="stats"'):]
+    assert board.count("stat zero") >= 2      # 질문 체크 0 · 발행 0
+    assert "답할 수 있다" in board and "발행" in board
+
+
+def test_면접_문장이_적으면_경고로_뜬다(client, home):
+    """나머지 필드는 96% 넘게 차는데 이것만 15% 다(2026-09-07 실측).
+    취업이 목적인 도구에서 면접에 들고 갈 문장이 없다는 뜻이라, 그 숫자가
+    화면에 계속 보여야 한다. 기록의 1/3 을 못 넘으면 경고로 칠한다.
+    """
+    for n in range(4):
+        _record(client, f"db-index-{n}")                     # interview 없이 4건
+    stats = client.get("/career").text
+    칸 = stats[stats.index('class="stats"'):stats.index("면접 문장")]
+    assert "stat zero" in 칸
+
+    _record(client, "extra", interview="인덱스를 왜 이렇게 잡았는지 설명했습니다")
+    _record(client, "extra2", interview="두 번째 문장")
+    stats = client.get("/career").text                       # 5건 중 2건 → 1/3 넘음
+    칸 = stats[stats.index('class="stats"'):stats.index("면접 문장")]
+    assert "stat zero" not in 칸
+
+
+def test_준비도가_막대가_아니라_칸이다(client, home):
+    """막대는 '얼마나 왔나', 칸은 '몇 칸이 비었나' 를 말한다.
+    이 도구가 매번 답하려는 질문은 후자다."""
+    _write(home, "hyundai-autoever.md", WITH_META)
+    page = client.get("/career/c/hyundai-autoever").text
+    assert 'class="grid-gauge"' in page
+    assert page.count('class="cell ') >= 4      # 슬러그 4개 = 칸 4개
+    assert "0 / 4 슬러그" in page               # 글자는 이어져 있어야 한다
