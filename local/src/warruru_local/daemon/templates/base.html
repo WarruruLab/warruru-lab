@@ -821,6 +821,22 @@
 
   .say { font-size: var(--t-md); color: var(--ink-soft); }
   .say-tag { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-faint); }
+  /* ── 갈래 탭 (2026-09-08) ─────────────────────────────────────
+     네 칸이 한 덩어리라 **"이 중 하나"** 라는 것이 눈에 먼저 온다.
+     링크 여섯이 나란하던 때는 어느 것이 매일 여는 것이고 어느 것이
+     주에 한 번인지가 안 드러났다. */
+
+  nav .tabs { display: inline-flex; background: var(--rule-soft);
+              border-radius: 999px; padding: 3px; gap: 2px; }
+  nav a.way { font-size: var(--t-sm); font-weight: 600; color: var(--ink-faint);
+              padding: .35rem .95rem; border-radius: 999px; white-space: nowrap; }
+  nav a.way:hover { color: var(--ink); }
+  nav a.way.on { background: var(--panel); color: var(--ink);
+                 box-shadow: 0 1px 3px rgba(25, 31, 40, .10); }
+  @media (max-width: 34rem) {
+    nav a.way { padding: .35rem .6rem; }
+  }
+
   .home-link { font-family: var(--mono); font-size: var(--t-sm); }
   .seg { display: inline-flex; gap: .3rem; }
   details summary { cursor: pointer; }

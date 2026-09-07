@@ -3,12 +3,10 @@
 {% block content %}
 <header>
   <h1>{{ view.date }} · 삭제 항목</h1>
-  <nav>
-    <a class="home-link" href="/" aria-label="홈으로">Warruru 홈</a>
-    <a href="/d/{{ view.date }}">◀ 돌아가기</a>
-    {% include "_theme_toggle.html" %}
-  </nav>
+  {% include "_nav.html" %}
 </header>
+
+<p class="meta"><a href="/d/{{ view.date }}">◀ {{ view.date }} 로 돌아가기</a></p>
 
 {% if not view.groups %}
   <p class="empty">삭제한 기록이 없습니다.</p>

@@ -374,8 +374,13 @@ def test_모든_화면이_내용을_한_컨테이너에_담는다(client, home):
         assert "</main>" in page, path
 
 
-def test_모든_화면에서_주제_홈으로_돌아갈_수_있다(client, home):
-    """세부 화면에 들어가도 주소를 고치지 않고 시작 화면으로 돌아간다."""
+def test_모든_화면에_갈래_탭이_있다(client, home):
+    """네 갈래가 **한 덩어리로** 선다(2026-09-08 확정).
+
+    전에는 링크 여섯이 나란했다 — 홈 · 오늘 기록 · 주제 · 달력 · 책 ·
+    포트폴리오. 묶음이 없어서 어느 것이 매일 여는 것이고 어느 것이 주에
+    한 번인지가 안 드러났다. 세부 화면에서도 주소를 고치지 않고 옮겨 간다.
+    """
     _seed(client)
     client.post("/v1/records", json={
         "record_id": "rec_H", "kind": "CONCEPT", "topic": "connection pool",
@@ -387,8 +392,9 @@ def test_모든_화면에서_주제_홈으로_돌아갈_수_있다(client, home)
                  "/t/connection-pool", f"/c/{TODAY[:7]}",
                  f"/drafts/{draft['draft_id']}"):
         page = client.get(path).text
-        assert 'class="home-link" href="/"' in page, path
-        assert 'aria-label="홈으로"' in page, path
+        assert 'class="tabs"' in page, path
+        for 갈래 in ("오늘", "기록", "책", "취업 준비"):
+            assert f">{갈래}</a>" in page, (path, 갈래)
 
 
 def test_모든_화면에서_일반_다크_모드를_바꿀_수_있다(client, home):

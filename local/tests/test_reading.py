@@ -268,12 +268,12 @@ def test_새_화면으로_가는_길이_있다(client):
     """**만들어 놓고 길을 안 내면 없는 것과 같다**(2026-09-08 실측으로 확인).
     주소를 직접 쳐야만 나오는 화면은 안 쓰인다.
     """
-    허브 = client.get("/career").text
-    assert 'href="/career/books"' in 허브                     # 책 목록
-    assert "/today" in 허브                                    # 줄에서 바로 읽기
-
+    # 책은 위 갈래로 올라갔다(2026-09-08). 탭이 어느 화면에서든 데려간다.
     나브 = client.get("/t").text
-    assert 'href="/career/books"' in 나브                     # 어느 화면에서든
+    assert 'href="/career/books"' in 나브
+
+    목록 = client.get("/career/books").text
+    assert "/today" in 목록                                    # 줄에서 바로 읽기
 
     책 = client.get("/career/book/kafka-practice").text
     assert "/career/book/kafka-practice/today" in 책          # 책 정보 → 읽기

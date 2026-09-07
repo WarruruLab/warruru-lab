@@ -3,18 +3,18 @@
 {% block content %}
 <header>
   <h1>{{ view.date }}</h1>
-  <nav>
-    <a class="home-link" href="/" aria-label="홈으로">Warruru 홈</a>
-    <a href="/d/{{ view.prev_date }}">◀ 이전</a>
-    <a href="/d/{{ view.next_date }}">다음 ▶</a>
-    <a href="/notes/{{ view.date }}">이 날 쓴 노트</a> ·
-    <a href="/d/{{ view.date }}?deleted=1">삭제 항목 보기</a>
-    {# 들어오는 문이 이 화면이다(`/` 가 여기로 보낸다). 여기에 없으면
-       포트폴리오 축은 주소를 아는 사람만 쓰게 된다. #}
-    <a href="/career">포트폴리오</a>
-    {% include "_theme_toggle.html" %}
-  </nav>
+  {% include "_nav.html" %}
 </header>
+
+{# **이 화면의 것**이지 갈래가 아니다. 전에는 이 링크들이 네비에 섞여 있어
+   '이 날의 앞뒤로 가는 길' 과 '다른 갈래로 가는 길' 이 같은 줄에 있었다. #}
+<p class="meta">
+  <a href="/d/{{ view.prev_date }}">◀ 이전</a> ·
+  <a href="/d/{{ view.next_date }}">다음 ▶</a> ·
+  <a href="/notes/{{ view.date }}">이 날 쓴 노트</a> ·
+  <a href="/c/{{ view.date[:7] }}">달력</a> ·
+  <a href="/d/{{ view.date }}?deleted=1">삭제 항목</a>
+</p>
 
 {% if view.learnings %}
 <section class="tool">

@@ -993,12 +993,14 @@ def test_뷰_키가_dict_메서드를_가리지_않는다(ctx, home):
 
 # ── 책 (2026-09-02) ──────────────────────────────────────────────────
 
-def test_허브에_책이_상위_셋만_선다(client):
+def test_허브는_책을_안_들고_있다(client):
+    """**책이 위 갈래로 올라갔다**(2026-09-08). 탭에 '책' 이 있는데
+    허브 안에 또 두면 같은 것으로 가는 문이 둘이 되고, 어느 쪽이
+    제자리인지 흐려진다. 카드 여섯이 다섯이 됐다."""
     page = client.get("/career").text
-    카드 = page[page.index("<h2>책</h2>"):]
-    카드 = 카드[:카드.index("</section>")]
-    assert 0 < 카드.count('href="/career/book/') <= 3
-    assert "전체 →" in 카드
+    assert "<h2>책</h2>" not in page
+    # 길이 막히는 것은 아니다 — 탭이 데려간다.
+    assert 'href="/career/books"' in page
 
 
 def test_책_화면이_덮는_주제를_보여준다(client):
@@ -1032,13 +1034,18 @@ def test_책은_기록_구획을_따로_두지_않는다(client):
 
 # ── AI 는 세 번째 축이다 (2026-09-04 추가) ──────────────────────────
 
-def test_아래_요약이_그리드가_안_여는_곳을_연다(client):
-    """A 안의 아래 줄을 가져오되 자격증·공고·책은 이미 카드로 있다.
-    같은 것을 두 번 놓는 대신 기록·초안·달력으로 채운다 —
-    그 셋은 상단 nav 말고는 들어갈 길이 없었다."""
-    page = client.get("/career").text
-    줄 = page[page.index('class="entries"'):]
-    assert "주제 기록" in 줄 and "초안" in 줄 and "달력" in 줄
+def test_아래_요약은_기록_갈래에_있다(client):
+    """그날 기록 · 달력 · 초안 셋은 **기록에 딸린 것**이다(2026-09-08).
+
+    취업 준비 허브에 있었는데, 탭이 갈래를 가른 뒤로는 거기 있을 이유가
+    없다. 같은 것으로 가는 문이 두 갈래에 있으면 어느 쪽이 제자리인지
+    흐려진다.
+    """
+    허브 = client.get("/career").text
+    assert 'class="entries"' not in 허브
+    줄 = client.get("/t").text
+    줄 = 줄[줄.index('class="entries"'):]
+    assert "그날 기록" in 줄 and "초안" in 줄 and "달력" in 줄
 
 
 def test_AI_묶음_화면이_열린다(client):
@@ -1066,7 +1073,7 @@ def _book_note(home, key: str, text: str):
 def test_빌린_책에_반납_D_day_가_붙는다(client, home):
     """기한이 안 보이면 빌린 책은 그냥 반납일에 사라진다."""
     _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 2026-08-04\n---\n")
-    page = client.get("/career").text
+    page = client.get("/career/books").text
     assert "D-13" in page
 
 
