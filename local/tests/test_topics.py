@@ -360,12 +360,20 @@ def test_모든_슬러그에_한글_이름이_있다():
     assert all(name.strip() for name in SLUG_LABELS.values())
 
 
-def test_이름이_없으면_슬러그를_그대로_쓴다():
-    """도구를 만들며 남긴 주제처럼 목록 밖 슬러그도 화면에 떠야 한다."""
-    from warruru_local.topics import label_of
+def test_이름이_없으면_슬러그에서_키워드를_만든다():
+    """도구를 만들며 남긴 주제처럼 목록 밖 슬러그도 화면에 떠야 한다.
 
-    assert label_of("db-index") == "인덱스"
-    assert label_of("spool-durability") == "spool-durability"
+    **슬러그를 그대로 띄우지 않는다**(2026-09-08). 목록에서 한 번 더 옮겨
+    읽어야 하고, 새 주제가 생길 때마다 표를 고쳐야 한다. 뜻을 지어내지는
+    않는다 — 붙임표를 띄우고 아는 약어만 대문자로 되돌린다.
+    """
+    from warruru_local.topics import keyword_of, label_of
+
+    assert label_of("db-index") == "인덱스"                   # 적어 둔 것이 이긴다
+    assert label_of("spool-durability") == "스풀 내구성"       # 프로젝트 이름표
+    assert label_of("없는-주제-hello") == "없는 주제 hello"     # 만들어 낸 키워드
+    assert keyword_of("aws-vpc-tcp") == "AWS VPC TCP"
+    assert keyword_of("") == ""
 
 
 def test_책이_덮는_슬러그가_전부_목록_위에_있다():

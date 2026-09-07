@@ -192,6 +192,9 @@ def day_records(ctx, day: str) -> dict:
         "id": row["record_id"],
         "title": row["title"],
         "slug": row["topic_slug"],
+        # **태그는 한글로 보여준다**(2026-09-08). 목록에 영문 슬러그가 서면
+        # 무슨 주제인지 한 번 더 옮겨 읽어야 한다. 매핑에 없는 슬러그는
+        # 슬러그 그대로다 — 지어내지 않는다.
         "label": topics.label_of(row["topic_slug"]),
         "kind": KIND.get(row["kind"], row["kind"]),
         # **면접 문장이 비었는지 그 자리에서 보인다.** 205건 중 43건뿐이라,

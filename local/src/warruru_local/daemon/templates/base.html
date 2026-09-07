@@ -385,6 +385,9 @@
   .sect-text { width: 100%; resize: vertical; }
   .badge.alert { background: var(--alert-soft); color: var(--alert); }
   .grow-1 { flex: 1; min-width: 16rem; }
+  /* 열 줄이 넘으면 그 안에서 스크롤한다 — 고르는 자리와 누르는 자리가
+     한 화면에 있어야 흐름이 안 끊긴다. `li` 하나가 대략 2.7rem 이다. */
+  ul.asks.scroll-10 { max-height: 27rem; overflow-y: auto; }
   .pick-box { display: inline-flex; align-items: center; flex: none; }
   .pick-box input { width: 17px; height: 17px; accent-color: var(--key-fill);
                     cursor: pointer; }
