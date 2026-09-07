@@ -330,15 +330,23 @@ def streak(ctx, today: str, weeks: int = STREAK_WEEKS) -> dict:
     }
 
 
-def month_grid(ctx, day: str) -> dict:
-    """그달을 달력으로. 같은 재료를 **다른 모양으로** 본다 (명세 §2.13 g).
+def month_grid(ctx, day: str, month: str | None = None) -> dict:
+    """그달을 **진짜 달력으로**. 같은 재료를 다른 모양으로 본다 (명세 §2.13 g).
 
     스트릭은 "이어지고 있나" 를 묻고 달력은 "며칟날 했나" 를 묻는다. 둘 다
-    같은 건수를 쓰므로 숫자가 어긋날 일이 없다 — 화면 둘이 다른 질의를
-    돌리면 언젠가 다른 값을 말한다.
+    같은 건수를 쓰므로 숫자가 어긋날 일이 없다.
 
-    **기록이 없는 날은 `-` 다.** 빈칸으로 두면 '그날이 없는 것' 과
-    '그날 안 한 것' 이 같아 보인다.
+    **날짜가 주인공이다.** 달력에서 먼저 읽는 것은 며칟날이고 건수는 그
+    아래 붙는다. 기록이 없는 날은 `-` 다 — 빈칸으로 두면 '그날이 없는 것'
+    과 '그날 안 한 것' 이 같아 보인다.
+
+    **일요일에 시작한다.** 스트릭은 월요일에 시작하지만(GitHub 관례) 이쪽은
+    사람이 아는 달력이라 그 관례를 따른다. 다만 일요일을 붉게 칠하지는
+    않는다 — 이 화면에서 빨강은 마감과 0을 뜻하고, 색이 셋이 되는 순간
+    어느 것도 신호가 못 된다.
+
+    달을 넘길 수 있다. **앞으로는 이번 달까지, 뒤로는 첫 기록의 달까지** —
+    없는 날을 넘겨 보는 것은 길이 아니라 구멍이다.
     """
     from calendar import Calendar
     from datetime import date as _date
@@ -346,11 +354,28 @@ def month_grid(ctx, day: str) -> dict:
     from warruru_local.clock import local_date_of, local_day_bounds
 
     오늘 = _date.fromisoformat(day)
-    첫날 = 오늘.replace(day=1)
-    끝날 = (첫날.replace(year=첫날.year + (첫날.month // 12),
-                       month=첫날.month % 12 + 1) - _date.resolution)
+    보는달 = 오늘.replace(day=1)
+    if month:
+        try:
+            해, 달 = month.split("-")
+            보는달 = _date(int(해), int(달), 1)
+        except (ValueError, TypeError):
+            보는달 = 오늘.replace(day=1)
 
-    시작, _ = local_day_bounds(첫날.isoformat())
+    이번달 = 오늘.replace(day=1)
+    if 보는달 > 이번달:
+        보는달 = 이번달
+    처음 = ctx.records.first_record_day()
+    바닥 = _date.fromisoformat(처음).replace(day=1) if 처음 else 보는달
+    if 보는달 < 바닥:
+        보는달 = 바닥
+
+    def 옆달(기준, 걸음):
+        n = 기준.month - 1 + 걸음
+        return _date(기준.year + n // 12, n % 12 + 1, 1)
+
+    끝날 = 옆달(보는달, 1) - _date.resolution
+    시작, _ = local_day_bounds(보는달.isoformat())
     _, 끝 = local_day_bounds(끝날.isoformat())
     세기: dict[str, int] = {}
     for stamp in ctx.records.occurred_between(시작, 끝):
@@ -358,11 +383,12 @@ def month_grid(ctx, day: str) -> dict:
         세기[하루] = 세기.get(하루, 0) + 1
 
     열들 = []
-    for 주 in Calendar(firstweekday=0).monthdatescalendar(오늘.year, 오늘.month):
+    # 6 = 일요일부터. 사람이 아는 달력의 모양이다.
+    for 주 in Calendar(firstweekday=6).monthdatescalendar(보는달.year, 보는달.month):
         칸들 = []
         for 날 in 주:
             글자 = 날.isoformat()
-            이달 = 날.month == 오늘.month
+            이달 = 날.month == 보는달.month
             앞날 = 날 > 오늘
             건수 = 세기.get(글자, 0) if 이달 and not 앞날 else 0
             칸들.append({
@@ -372,9 +398,16 @@ def month_grid(ctx, day: str) -> dict:
                 "today": 글자 == day,
             })
         열들.append(칸들)
+
+    앞 = 옆달(보는달, -1)
+    뒤 = 옆달(보는달, 1)
     return {
         "weeks": 열들,
-        "month": f"{오늘.year}-{오늘.month:02d}",
+        "month": f"{보는달.year}-{보는달.month:02d}",
+        "title": f"{보는달.year}년 {보는달.month}월",
+        "prev": f"{앞.year}-{앞.month:02d}" if 앞 >= 바닥 else "",
+        "next": f"{뒤.year}-{뒤.month:02d}" if 뒤 <= 이번달 else "",
+        "is_now": 보는달 == 이번달,
         "total": sum(세기.values()),
         "days": sum(1 for n in 세기.values() if n),
     }
