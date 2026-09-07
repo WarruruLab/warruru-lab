@@ -6,7 +6,7 @@
   {% include "_nav.html" %}
 </header>
 
-<p class="meta">
+<p class="meta subline">
   <a href="/t/{{ view.topic_slug }}">← {{ view.topic }}</a>
   · <span class="badge {{ 'ok' if view.status == 'PUBLISHED' else '' }}">{{ view.status }}</span>
   · 남은 TODO {{ view.todo_count }}개

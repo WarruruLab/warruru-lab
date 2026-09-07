@@ -256,3 +256,75 @@ def writable(ctx, limit: int = 6) -> list[dict]:
     # 이미 발행한 주제를 먼저 보여줄 이유가 없다.
     made.sort(key=lambda row: (row["published"], -row["ready"], -row["count"]))
     return made[:limit]
+
+
+# 스트릭이 되짚는 길이. 26주면 반년이고, 가로로 한 화면에 든다.
+STREAK_WEEKS = 26
+
+# 색의 단계. **한 색의 밝기 차이만 쓴다**(순차 척도) — 색을 갈아 쓰면
+# "많다/적다" 가 아니라 "종류가 다르다" 로 읽힌다. 화면의 색 규칙과도 같다
+# (파랑 · 빨강 둘뿐이고, 여기는 파랑 하나를 네 단계로 나눈다).
+STREAK_STEPS = (1, 3, 6, 11)
+
+
+def level_of(count: int) -> int:
+    """건수를 색 단계 0~4 로. 경계는 `STREAK_STEPS` 다."""
+    return sum(1 for 문턱 in STREAK_STEPS if count >= 문턱)
+
+
+def streak(ctx, today: str, weeks: int = STREAK_WEEKS) -> dict:
+    """**매일 얼마나 남겼나**를 주 단위 격자로 (명세 §2.13 g).
+
+    한 열이 한 주이고 한 칸이 하루다. GitHub·solved.ac 가 쓰는 모양인데,
+    이 화면에서 답하려는 것이 같아서다 — **끊겼나 이어졌나.** 달력(`/c`)은
+    "그 달 어느 날에 남겼나" 를 묻고, 이쪽은 "요즘 이어지고 있나" 를 묻는다.
+
+    **미래 칸은 비운다.** 이번 주의 아직 안 온 요일에 무엇을 그려도 거짓이다.
+    """
+    from datetime import date as _date, timedelta
+
+    from warruru_local.clock import local_date_of, local_day_bounds
+
+    끝날 = _date.fromisoformat(today)
+    # 주는 월요일에 시작한다. 마지막 열이 이번 주가 되도록 뒤에서 맞춘다.
+    이번주월 = 끝날 - timedelta(days=끝날.weekday())
+    첫날 = 이번주월 - timedelta(weeks=weeks - 1)
+
+    시작, _ = local_day_bounds(첫날.isoformat())
+    _, 끝 = local_day_bounds(today)
+    세기: dict[str, int] = {}
+    for stamp in ctx.records.occurred_between(시작, 끝):
+        하루 = local_date_of(stamp)
+        세기[하루] = 세기.get(하루, 0) + 1
+
+    열들 = []
+    for w in range(weeks):
+        월요일 = 첫날 + timedelta(weeks=w)
+        칸들 = []
+        for d in range(7):
+            날 = 월요일 + timedelta(days=d)
+            글자 = 날.isoformat()
+            앞날 = 날 > 끝날
+            건수 = 0 if 앞날 else 세기.get(글자, 0)
+            칸들.append({
+                "day": 글자, "count": 건수,
+                "level": 0 if 앞날 else level_of(건수),
+                "future": 앞날,
+                "today": 글자 == today,
+            })
+        열들.append({"days": 칸들, "month": 월요일.month})
+
+    # **달 이름을 붙인다.** 없으면 어느 칸이 언제인지 알 수 없어서, 색만
+    # 보이고 "언제 끊겼나" 에는 답이 안 된다. 그 달이 처음 나오는 열에만
+    # 적는다 — 열마다 적으면 라벨이 격자보다 시끄럽다.
+    앞달 = None
+    for 열 in 열들:
+        열["label"] = f"{열['month']}월" if 열["month"] != 앞달 else ""
+        앞달 = 열["month"]
+    return {
+        "weeks": 열들,
+        "total": sum(세기.values()),
+        "days": sum(1 for n in 세기.values() if n),
+        "best": max(세기.values(), default=0),
+        "steps": STREAK_STEPS,
+    }

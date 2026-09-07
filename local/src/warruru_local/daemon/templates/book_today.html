@@ -14,7 +14,7 @@
   {% include "_nav.html" %}
 </header>
 
-<p class="read-tags">
+<p class="read-tags subline">
   {% if view.state %}<span class="badge">{{ view.state }}</span>{% endif %}
   {% if view.days is not none %}
     <span class="badge {{ 'due' if view.days <= 7 }}">
