@@ -6,185 +6,168 @@
   {% include "_nav.html" %}
 </header>
 
-{# ── 마감 레인 ──────────────────────────────────────────────────
-   **자격증과 공고를 섞는다.** 아침에 묻는 것은 "자격증이 언제인가" 도
-   "공고가 언제인가" 도 아니라 "다음에 뭐가 닥치나" 하나다.
-   D-day 옆에 준비도 격자를 붙여야 급한지 아닌지가 판단된다. #}
-{% if deadlines %}
+{# ── 균등 카드 그리드 (2026-09-08 확정) ────────────────────────────
+   이전 판은 '내가 채울 것'(68줄)과 '채용공고'(8줄)를 2열로 놓아서
+   오른쪽 아래가 화면 절반 넘게 비었다. **높이가 비슷한 카드 여섯 개**로
+   바꾼다 — 각 카드는 상위 셋만 보여주고 나머지는 눌러 들어간다.
+
+   허브는 요약이다. 목록 전체를 여기 펼치면 어느 것도 안 읽힌다. #}
+<div class="board">
+
+{# 1. 마감 — 자격증과 공고를 섞어 가까운 순. 첫 칸인 것이 곧 우선순위다. #}
 <section class="tool">
-  <h2>다음에 닥치는 것</h2>
-  <div class="lane">
-    {% for row in deadlines[:6] %}
-    <div class="lane-row">
-      <span class="dday {{ 'near' if row.days <= 7 }}">
-        {{ row.days }}<span class="unit">일</span>
-      </span>
-      <span class="who">
-        <a href="{{ row.url }}">{{ row.name }}</a>
-        <span class="note">{{ row.label }} · {{ row.date }}</span>
-      </span>
-      {# 시그니처: 진도를 막대가 아니라 **칸**으로 그린다.
-         막대는 "얼마나 왔나", 칸은 "몇 칸이 비었나" 를 말한다. #}
-      <span>
-        {% if row.total %}
-        <span class="grid-gauge">
-          {%- for n in range(row.total) -%}
-          <span class="cell {{ 'on' if n < row.have }}"></span>
-          {%- endfor -%}
-        </span>
-        <span class="gauge-read">{{ row.have }} / {{ row.total }} 채움</span>
-        {% else %}
-        <span class="gauge-read quiet">요구 기술 미확인</span>
-        {% endif %}
-      </span>
-      <span>
-        <span class="badge">{{ row.kind }}</span>
-        {% if row.blocked %}<span class="badge due">자격 {{ row.blocked }}</span>{% endif %}
-      </span>
-    </div>
+  <h2>마감</h2>
+  {% if deadlines %}
+  <ul class="picks">
+    {% for row in deadlines[:3] %}
+    <li>
+      <span class="dday-sm {{ 'near' if row.days <= 7 }}">D-{{ row.days }}</span>
+      <a href="{{ row.url }}">{{ row.name }}</a>
+      {% if row.total %}<span class="gauge-read">{{ row.have }}/{{ row.total }}</span>{% endif %}
+    </li>
     {% endfor %}
+  </ul>
+  {% if deadlines|length > 3 %}
+  <a class="more" href="/career/companies">{{ deadlines|length }}건 전체 →</a>
+  {% endif %}
+  {% else %}
+  <p class="empty">다가오는 마감이 없다.</p>
+  {% endif %}
+</section>
+
+{# 2. 쌓인 것 — 0 인 칸은 붉게. 만들어 두고 안 쓰는 자리를 드러낸다. #}
+<section class="tool">
+  <h2>쌓인 것</h2>
+  <div class="tally">
+    <span class="stat">
+      <span class="n">{{ tally.records }}</span><span class="k">기록</span>
+    </span>
+    <span class="stat {{ 'zero' if tally.interview * 3 < tally.records }}">
+      <span class="n">{{ tally.interview }}</span><span class="k">면접 문장</span>
+    </span>
+    <span class="stat {{ 'zero' if not tally.checks }}">
+      <span class="n">{{ tally.checks }}</span><span class="k">답할 수 있다</span>
+    </span>
+    <span class="stat {{ 'zero' if not tally.published }}">
+      <span class="n">{{ tally.published }}</span><span class="k">발행</span>
+    </span>
   </div>
 </section>
-{% endif %}
 
-{# ── 0 인 것들 ───────────────────────────────────────────────────
-   만들어 두고 안 쓰는 자리를 숫자로 드러낸다. 안 보이면 계속 0 으로 남는다.
-   `interview` 를 여기 세운 이유는 §소재뱅크에 있다 — 나머지 필드는 96% 넘게
-   차 있는데 이것만 15% 이고, 면접에 들고 갈 문장이 그것뿐이라서다. #}
-<section class="stats">
-  <span class="stat">
-    <span class="n">{{ tally.records }}</span>
-    <span class="k">기록</span>
-  </span>
-  <span class="stat {{ 'zero' if tally.interview * 3 < tally.records }}">
-    <span class="n">{{ tally.interview }}</span>
-    <span class="k">면접 문장</span>
-  </span>
-  <span class="stat {{ 'zero' if not tally.checks }}">
-    <span class="n">{{ tally.checks }}</span>
-    <span class="k">답할 수 있다</span>
-  </span>
-  <span class="stat {{ 'zero' if not tally.published }}">
-    <span class="n">{{ tally.published }}</span>
-    <span class="k">발행</span>
-  </span>
-</section>
-
-{# 두 축을 **나란히** 놓는다. 위아래로 쌓으면 아래쪽이 스크롤 밖으로 밀리고,
-   그러면 두 축이 대등하다는 사실이 화면에서 사라진다. #}
-<div class="two">
-
+{# 3. 자격증 #}
 <section class="tool">
-  <h2><a href="/career/stack">내가 채울 것</a></h2>
-  <h3 class="sub">자격증 <span class="quiet">마감이 있는 것 · 접수 가까운 순</span></h3>
+  <h2>자격증</h2>
   <ul class="picks">
-    {% for cert in certs %}
+    {% for cert in certs[:3] %}
     <li>
       <a class="{{ 'quiet' if cert.done }}" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
       {% if cert.done %}
         <span class="badge ok">합격</span>
       {% elif cert.next %}
-        {# 일정이 먼저다. 준비도는 그다음이다. #}
-        <span class="badge {{ 'warn' if cert.next.days <= 30 else '' }}">D-{{ cert.next.days }}</span>
-        <span class="meta">{{ cert.next.label }}</span>
+        <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">D-{{ cert.next.days }}</span>
       {% else %}
-        <span class="meta quiet">{{ cert.status }} · 일정 미정</span>
+        <span class="badge">일정 미정</span>
       {% endif %}
-      <span class="badge {{ 'ok' if cert.coverage.covered == cert.coverage.total else '' }}">
-        {{ cert.coverage.covered }}/{{ cert.coverage.total }}
-      </span>
+      <span class="gauge-read">{{ cert.coverage.covered }}/{{ cert.coverage.total }}</span>
     </li>
     {% endfor %}
   </ul>
-
-  <h3 class="sub">책 <span class="quiet">읽으면 채워지는 주제 · 반납 가까운 순</span></h3>
-  <ul class="picks">
-    {% for book in books %}
-    <li>
-      <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
-      {# 빌린 책만 D-day 가 붙는다. 소장한 책은 기한이 없는 것이 사실이다. #}
-      {% if book.days is not none %}
-        <span class="badge {{ 'warn' if book.days <= 7 else '' }}">
-          {% if book.days < 0 %}반납 {{ -book.days }}일 지남{% else %}D-{{ book.days }}{% endif %}
-        </span>
-      {% elif book.state %}
-        <span class="meta quiet">{{ book.state }}</span>
-      {% endif %}
-      <span class="badge {{ 'ok' if book.have == book.total else '' }}">{{ book.have }}/{{ book.total }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-
-  <h3 class="sub">CS 지식 <span class="quiet">면접에서 묻는 것 · {{ stack.cs_coverage.covered }}/{{ stack.cs_coverage.total }}</span></h3>
-  <ul class="picks">
-    {% for group in stack.cs_groups %}
-    <li>
-      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
-      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-
-  <h3 class="sub">AI · 에이전트 <span class="quiet">만들면서 쓰는 것 · {{ stack.ai_coverage.covered }}/{{ stack.ai_coverage.total }}</span></h3>
-  <ul class="picks">
-    {% for group in stack.ai_groups %}
-    <li>
-      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
-      <span class="badge {{ 'ok' if group.have == group.total else '' }}">{{ group.have }}/{{ group.total }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-
-  <h3 class="sub">프로젝트 주제 <span class="quiet">만들면서 겪는 것 · {{ stack.coverage.covered }}/{{ stack.coverage.total }}</span></h3>
-  <ul class="picks">
-    {% for group in stack.groups %}
-    <li>
-      <a href="/career/stack/{{ group.key }}">{{ group.label }}</a>
-      {# 회사가 요구하는데 0건인 칸은 **테두리를 다르게** 그린다.
-         같은 빈칸이라도 그 자리가 먼저다. #}
-      <span class="grid-gauge">
-        {%- for item in group.slugs -%}
-        <a class="cell {{ 'on' if item.count }}{{ ' want' if not item.count and item.companies }}"
-           href="/t/{{ item.slug }}" title="{{ item.label }}"></a>
-        {%- endfor -%}
-      </span>
-      <span class="gauge-read">{{ group.have }}/{{ group.total }}</span>
-    </li>
-    {% endfor %}
-  </ul>
+  {% if certs|length > 3 %}
+  <a class="more" href="/career/stack">{{ certs|length }}개 전체 →</a>
+  {% endif %}
 </section>
 
+{# 4. 채용공고 #}
 <section class="tool">
   <h2><a href="/career/companies">채용공고</a></h2>
-  <p class="meta">회사 {{ companies|length }}곳</p>
   {% if companies %}
   <ul class="picks">
-    {% for row in companies %}
+    {% for row in companies[:3] %}
     <li>
       {% if row.slug %}
-        <a href="/career/c/{{ row.slug }}">{{ row.company }}</a>
-        {% if row.confidence %}<span class="badge">{{ row.confidence }}</span>{% endif %}
-        {% if row.blocked %}<span class="badge warn">자격 {{ row.blocked|length }}</span>{% endif %}
+        <a href="/career/c/{{ row.slug }}">{{ row.company or row.title }}</a>
         {% if row.deadline and not row.deadline.past %}
-          <span class="badge">D-{{ row.deadline.days }}</span>
+          <span class="dday-sm {{ 'near' if row.deadline.days <= 7 }}">D-{{ row.deadline.days }}</span>
         {% endif %}
         {% if row.coverage.total %}
-          <span class="badge {{ 'ok' if row.coverage.covered else 'warn' }}">{{ row.coverage.covered }}/{{ row.coverage.total }}</span>
+          <span class="gauge-read">{{ row.coverage.covered }}/{{ row.coverage.total }}</span>
         {% endif %}
       {% else %}
         <span class="quiet">{{ row.title }}</span>
-        <span class="badge warn">파일 이름이 규칙 밖</span>
+        <span class="badge warn">이름이 규칙 밖</span>
       {% endif %}
     </li>
     {% endfor %}
   </ul>
+  <a class="more" href="/career/companies">{{ companies|length }}곳 전체 →</a>
   {% else %}
   <p class="empty">
-    아직 없다. 공고를 노션에 넣고 에이전트에게 <code>career-prep</code> 으로
-    대조하게 하면 여기 줄이 선다.
+    아직 없다. 공고를 노션에 넣고 <code>career-prep</code> 으로 대조하면 줄이 선다.
   </p>
   {% endif %}
 </section>
 
+{# 5. 채워지는 정도 — 세 축의 격자. 이 도구의 시그니처다. #}
+<section class="tool">
+  <h2><a href="/career/stack">채워지는 정도</a></h2>
+  <div class="axes">
+    {% for axis, label in [(stack.coverage, "프로젝트 주제"), (stack.cs_coverage, "CS 지식"),
+                           (stack.ai_coverage, "AI · 에이전트")] %}
+    <div class="axis">
+      <div class="axis-head">
+        <strong>{{ label }}</strong>
+        <span class="gauge-read">{{ axis.covered }} / {{ axis.total }}</span>
+      </div>
+      <span class="grid-gauge" role="img" aria-label="{{ label }} {{ axis.covered }}/{{ axis.total }}">
+        {%- for n in range(axis.total) -%}
+        <span class="cell {{ 'on' if n < axis.covered }}"></span>
+        {%- endfor -%}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  <a class="more" href="/career/stack">주제별로 보기 →</a>
+</section>
+
+{# 6. 책 — 반납일이 있는 것부터 #}
+<section class="tool">
+  <h2>책</h2>
+  <ul class="picks">
+    {% for book in books[:3] %}
+    <li>
+      <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+      {% if book.days is not none %}
+        <span class="dday-sm {{ 'near' if book.days <= 7 }}">
+          {% if book.days < 0 %}지남{% else %}D-{{ book.days }}{% endif %}
+        </span>
+      {% endif %}
+      <span class="gauge-read">{{ book.have }}/{{ book.total }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if books|length > 3 %}
+  <a class="more" href="/career/stack">{{ books|length }}권 전체 →</a>
+  {% endif %}
+</section>
+
+</div>
+
+{# ── 아래 요약 (A 안에서 가져옴) ────────────────────────────────────
+   A 안의 그 줄은 자격증·공고·책이었는데 C 그리드에 이미 카드로 있다.
+   같은 것을 두 번 놓는 대신 **그리드가 안 여는 화면**으로 채운다 —
+   기록·초안·달력은 지금 상단 nav 말고는 들어갈 길이 없다. #}
+<div class="entries">
+  <a class="entry" href="/t">
+    <b>주제 기록</b>
+    <span>기록 {{ tally.records }}건이 주제로 묶여 있다</span>
+  </a>
+  <a class="entry {{ 'flag' if not tally.published }}" href="/t">
+    <b>초안</b>
+    <span>{% if tally.published %}{{ tally.published }}편 발행{% else %}발행한 글이 아직 없다{% endif %}</span>
+  </a>
+  <a class="entry" href="/c/{{ today[:7] }}">
+    <b>달력</b>
+    <span>{{ today[:7] }} · 어느 날에 남겼나</span>
+  </a>
 </div>
 {% endblock %}
