@@ -125,44 +125,13 @@
   <a class="more" href="/career/stacks">{{ stacks|length }}개 전체 · 정리하기 →</a>
 </section>
 
-{# 6. 책 — 반납일이 있는 것부터 #}
-<section class="tool">
-  <h2>책</h2>
-  <ul class="picks">
-    {% for book in books[:3] %}
-    <li>
-      {# 허브에서 바로 **읽는 자리**로 간다. 책 정보는 그 안에서 한 번 더. #}
-      <a href="/career/book/{{ book.key }}/today">{{ book.label }}</a>
-      {% if book.days is not none %}
-        <span class="dday-sm {{ 'near' if book.days <= 7 }}">
-          {% if book.days < 0 %}지남{% else %}D-{{ book.days }}{% endif %}
-        </span>
-      {% endif %}
-      <span class="gauge-read">{{ book.have }}/{{ book.total }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-  <a class="more" href="/career/books">{{ books|length }}권 전체 →</a>
-</section>
+{# 책 카드는 여기서 뺐다(2026-09-08). **책이 위 갈래로 올라갔다** —
+   탭에 '책' 이 있는데 이 안에 또 두면 같은 것으로 가는 문이 둘이 되고,
+   어느 쪽이 제자리인지 흐려진다. 카드 여섯이 다섯이 됐다. #}
 
 </div>
 
-{# ── 아래 요약 (A 안에서 가져옴) ────────────────────────────────────
-   A 안의 그 줄은 자격증·공고·책이었는데 C 그리드에 이미 카드로 있다.
-   같은 것을 두 번 놓는 대신 **그리드가 안 여는 화면**으로 채운다 —
-   기록·초안·달력은 지금 상단 nav 말고는 들어갈 길이 없다. #}
-<div class="entries">
-  <a class="entry" href="/t">
-    <b>주제 기록</b>
-    <span>기록 {{ tally.records }}건이 주제로 묶여 있다</span>
-  </a>
-  <a class="entry {{ 'flag' if not tally.published }}" href="/t">
-    <b>초안</b>
-    <span>{% if tally.published %}{{ tally.published }}편 발행{% else %}발행한 글이 아직 없다{% endif %}</span>
-  </a>
-  <a class="entry" href="/c/{{ today[:7] }}">
-    <b>달력</b>
-    <span>{{ today[:7] }} · 어느 날에 남겼나</span>
-  </a>
-</div>
+{# 아래 요약 세 칸(주제 기록 · 초안 · 달력)은 **기록 갈래로 옮겼다**
+   (2026-09-08). 셋 다 기록에 딸린 것인데 취업 준비 안에 있었다 —
+   탭이 갈래를 가른 뒤로는 여기 있을 이유가 없다. `/t` 아래에 있다. #}
 {% endblock %}

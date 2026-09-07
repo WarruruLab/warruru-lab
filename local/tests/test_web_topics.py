@@ -251,13 +251,15 @@ def test_상세는_그_주제의_전체_기간을_보여준다(client):
     assert "2건" in page
 
 
-def test_nav_로_날짜_화면과_오갈_수_있다(client):
+def test_기록_갈래_안에서_날짜_화면과_오갈_수_있다(client):
+    """탭은 갈래끼리만 잇는다. 그날 기록과 달력은 **기록 갈래 안**이라
+    그 화면에서 간다 — 전에는 둘 다 네비에 있었다(2026-09-08 재편)."""
     _record(client, "rec_A")
-    for path in ("/t", "/t/connection-pool"):
-        page = client.get(path).text
-        assert "<nav>" in page
-        assert 'href="/d/2026-08-24"' in page
-        assert 'href="/t"' in page
+    page = client.get("/t").text
+    assert 'class="tabs"' in page
+    assert 'href="/d/2026-08-24"' in page
+    page = client.get("/t/connection-pool").text
+    assert 'href="/t"' in page
 
 
 def test_발행한_주제에는_체크_표시가_붙는다(client):

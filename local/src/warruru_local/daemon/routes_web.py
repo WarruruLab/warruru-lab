@@ -104,7 +104,10 @@ async def topics_index(request: Request, date: str | None = None):
     selected = _validate_date(date) if date else today
     view = topicview.build_index(ctx, selected)
     return templates.TemplateResponse(
-        request, "topics.html", {"view": view, "today": today}
+        request, "topics.html",
+        # 초안·발행 수는 갈래 아래 요약이 읽는다. 취업 준비 허브에 있던
+        # 것을 기록 갈래로 옮겼다(2026-09-08).
+        {"view": view, "today": today, "tally": ctx.records.tally()},
     )
 
 

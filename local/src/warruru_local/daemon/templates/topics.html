@@ -6,6 +6,13 @@
   {% include "_nav.html" %}
 </header>
 
+{# **기록 갈래 안의 길이다.** 탭은 갈래끼리만 잇고, 그날 기록과 달력은
+   이 갈래 안에 있으므로 여기서 간다 — 전에는 둘 다 네비에 있었다. #}
+<p class="meta">
+  <a href="/d/{{ view.date }}">{{ view.date }} 기록</a> ·
+  <a href="/c/{{ view.date[:7] }}">달력</a>
+</p>
+
 <nav class="date-switcher" aria-label="날짜 이동">
   <a href="/t?date={{ view.prev_date }}" aria-label="전날">←</a>
   <strong>{{ view.date }}</strong>
@@ -84,4 +91,21 @@
   {% endfor %}
 </section>
 {% endif %}
+
+{# **기록 갈래에 딸린 것 셋.** 취업 준비 허브에 있었는데(2026-09-08 이전)
+   셋 다 기록의 것이라 갈래를 가른 뒤로는 여기가 제자리다. #}
+<div class="entries">
+  <a class="entry" href="/d/{{ view.date }}">
+    <b>그날 기록</b>
+    <span>{{ view.date }} 에 남긴 것</span>
+  </a>
+  <a class="entry" href="/c/{{ view.date[:7] }}">
+    <b>달력</b>
+    <span>{{ view.date[:7] }} · 어느 날에 남겼나</span>
+  </a>
+  <a class="entry {{ 'flag' if not tally.published }}" href="/d/{{ view.date }}">
+    <b>초안</b>
+    <span>{% if tally.published %}{{ tally.published }}편 발행{% else %}발행한 글이 아직 없다{% endif %}</span>
+  </a>
+</div>
 {% endblock %}
