@@ -678,6 +678,12 @@ def build_group(ctx, key: str) -> dict | None:
         group["asks_total"] = sum(len(row["asks"]) for row in group["slugs"])
         group["asked_total"] = sum(row["asked"] for row in group["slugs"])
         group["intro"] = _group_intro(ctx, key)
+        # **책과 묶음도 대화 상대다.** 공부는 주제 하나가 아니라 "이 책을
+        # 읽는 중" 으로 흐를 때가 많아서, 그 자리에 물을 칸이 없으면
+        # 터미널로 나가야 한다. 키가 겹치지 않게 접두사를 붙인다.
+        group["ask_key"] = f"{group['axis']}-{key}"
+        group["thread"] = ctx.records.ask_thread(group["ask_key"])
+        group["answers"] = topicview.answers(ctx, group["ask_key"])
         return group
     return None
 

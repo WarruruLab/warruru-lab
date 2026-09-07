@@ -53,7 +53,8 @@ class Ask:
     def argv(self) -> list[str]:
         exe = self.program or self.cli
         if self.cli == "claude":
-            # Claude Code 는 이어 묻기 인자가 다르다. 여기서만 갈린다.
+            # `--verbose` 가 있어야 `-p` 에서 stream-json 이 줄 단위로 나온다.
+            # **도구 권한을 주지 않는다** — 답만 받고 파일은 데몬이 쓴다.
             head = [exe, "-p", "--output-format", "stream-json", "--verbose"]
             if self.thread_id:
                 head += ["--resume", self.thread_id]
@@ -88,6 +89,37 @@ def translate(line: str) -> tuple[str, dict] | None:
         return None
 
     kind = event.get("type")
+
+    # ── Claude Code (`--output-format stream-json`) ──────────────
+    # **Codex 와 이벤트 이름도 모양도 겹치지 않는다**(2026-09-08 실측).
+    # 저쪽은 `thread.started` / `item.completed`, 이쪽은
+    # `system.init` / `assistant` / `result` 다. 한 함수가 둘 다 받되
+    # 분기는 여기 한 곳에만 둔다 — 화면은 어느 CLI 인지 몰라야 한다.
+    if kind == "system" and event.get("subtype") == "init":
+        thread = event.get("session_id")
+        return ("started", {"thread_id": thread}) if thread else None
+
+    if kind == "assistant":
+        blocks = (event.get("message") or {}).get("content") or []
+        text = "".join(
+            str(b.get("text") or "") for b in blocks
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+        return ("message", {"text": text}) if text.strip() else None
+
+    if kind == "result":
+        if event.get("is_error"):
+            return "error", {"message": str(event.get("result") or "실패")[:400]}
+        usage = event.get("usage") or {}
+        total = 0
+        for key in ("input_tokens", "output_tokens"):
+            try:
+                total += int(usage.get(key) or 0)
+            except (TypeError, ValueError):
+                pass
+        return "usage", {"tokens": total}
+
+    # ── Codex (`--json`) ─────────────────────────────────────────
     if kind in ("thread.started", "session.started"):
         thread = event.get("thread_id") or event.get("session_id")
         return ("started", {"thread_id": thread}) if thread else None
