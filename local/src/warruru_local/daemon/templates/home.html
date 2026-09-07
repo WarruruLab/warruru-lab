@@ -137,37 +137,73 @@
 </section>
 {% endif %}
 
-{# ── 스트릭 — **끊겼나 이어졌나** ──
-   한 열이 한 주, 한 칸이 하루다. 색은 **파랑 하나를 네 단계로** 나눈다 —
-   색을 갈아 쓰면 "많다/적다" 가 아니라 "종류가 다르다" 로 읽힌다. #}
+{# ── 매일 얼마나 — **한 재료를 두 모양으로** ──
+   스트릭은 "이어지고 있나", 달력은 "며칟날 했나" 를 묻는다. 같은 건수를
+   쓰므로 두 화면이 다른 값을 말할 일이 없다. #}
 <section class="tool streak-card">
   <div class="work-head">
     <h2>매일 얼마나</h2>
-    <span class="meta">반년 · 기록 {{ streak.total }}건 · 남긴 날 {{ streak.days }}일</span>
+    <span class="seg-switch" role="group" aria-label="보는 모양">
+      <button type="button" class="on" data-view="streak">스트릭</button>
+      <button type="button" data-view="month">달력</button>
+    </span>
+    <span class="meta" id="mm-note">반년 · 기록 {{ streak.total }}건 · 남긴 날 {{ streak.days }}일</span>
   </div>
-  <div class="streak-months" aria-hidden="true">
-    {% for week in streak.weeks %}<span class="mo">{{ week.label }}</span>{% endfor %}
+
+  <div id="mm-streak">
+    <div class="streak-months" aria-hidden="true">
+      {% for week in streak.weeks %}<span class="mo">{{ week.label }}</span>{% endfor %}
+    </div>
+    <div class="streak" role="img"
+         aria-label="최근 26주 동안 남긴 기록 {{ streak.total }}건">
+      {% for week in streak.weeks %}
+      <span class="wk">
+        {% for cell in week.days %}
+          {% if cell.future %}
+          <span class="cell gone" aria-hidden="true"></span>
+          {% else %}
+          <a class="cell lv{{ cell.level }} {{ 'now' if cell.today }}"
+             href="/?date={{ cell.day }}"
+             title="{{ cell.day }} · 기록 {{ cell.count }}건">{{ cell.count or "" }}</a>
+          {% endif %}
+        {% endfor %}
+      </span>
+      {% endfor %}
+    </div>
+    <p class="meta quiet streak-key">
+      적게 <span class="cell lv0"></span><span class="cell lv1"></span><span class="cell lv2"></span><span class="cell lv3"></span><span class="cell lv4"></span> 많이
+      · 칸을 누르면 그날로 간다 · 가장 많이 남긴 날 {{ streak.best }}건
+    </p>
   </div>
-  <div class="streak" role="img"
-       aria-label="최근 26주 동안 남긴 기록 {{ streak.total }}건">
-    {% for week in streak.weeks %}
-    <span class="wk">
-      {% for cell in week.days %}
-        {% if cell.future %}
-        <span class="cell gone" aria-hidden="true"></span>
+
+  {# 달력. **기록이 없는 날은 `-` 다** — 빈칸으로 두면 '그날이 없는 것' 과
+     '그날 안 한 것' 이 같아 보인다. #}
+  <div id="mm-month" hidden>
+    <div class="cal-head" aria-hidden="true">
+      {% for 요일 in ["월", "화", "수", "목", "금", "토", "일"] %}
+      <span>{{ 요일 }}</span>
+      {% endfor %}
+    </div>
+    {% for week in month.weeks %}
+    <div class="cal-row">
+      {% for cell in week %}
+        {% if cell.out or cell.future %}
+        <span class="cell cal-cell gone" aria-hidden="true"></span>
         {% else %}
-        <a class="cell lv{{ cell.level }} {{ 'now' if cell.today }}"
+        {# `cell` 을 같이 단다 — 색 사다리(`.cell.lvN`)가 그 이름에 걸려 있다. #}
+        <a class="cell cal-cell lv{{ cell.level }} {{ 'now' if cell.today }}"
            href="/?date={{ cell.day }}"
-           title="{{ cell.day }} · 기록 {{ cell.count }}건">{{ cell.count or "" }}</a>
+           title="{{ cell.day }} · 기록 {{ cell.count }}건">
+          <i>{{ cell.num }}</i>{{ cell.count or "-" }}</a>
         {% endif %}
       {% endfor %}
-    </span>
+    </div>
     {% endfor %}
+    <p class="meta quiet">
+      <strong>{{ month.month }}</strong> · 기록 {{ month.total }}건 ·
+      남긴 날 {{ month.days }}일 · 칸을 누르면 그날로 간다
+    </p>
   </div>
-  <p class="meta quiet streak-key">
-    적게 <span class="cell lv0"></span><span class="cell lv1"></span><span class="cell lv2"></span><span class="cell lv3"></span><span class="cell lv4"></span> 많이
-    · 칸을 누르면 그날로 간다 · 가장 많이 남긴 날 {{ streak.best }}건
-  </p>
 </section>
 
 {# 남긴 것은 아래다. 지난날에도 같은 줄을 쓴다 — 그 날과 그 전날을 견준다. #}
@@ -182,4 +218,25 @@
     <a href="/c/{{ day[:7] }}">달력</a>
   </span>
 </section>
+<script>
+(function () {
+  // 보는 모양을 기억한다. 매번 고르게 하면 토글이 일이 된다.
+  var 스트릭 = document.getElementById("mm-streak");
+  var 달력 = document.getElementById("mm-month");
+  var 버튼들 = document.querySelectorAll(".seg-switch button");
+  if (!스트릭 || !달력) return;
+  function 보이기(어느) {
+    스트릭.hidden = 어느 !== "streak";
+    달력.hidden = 어느 !== "month";
+    버튼들.forEach(function (b) { b.classList.toggle("on", b.dataset.view === 어느); });
+    try { localStorage.setItem("warruru.daily", 어느); } catch (e) {}
+  }
+  버튼들.forEach(function (b) {
+    b.addEventListener("click", function () { 보이기(b.dataset.view); });
+  });
+  var 지난것 = null;
+  try { 지난것 = localStorage.getItem("warruru.daily"); } catch (e) {}
+  if (지난것 === "month") 보이기("month");
+}());
+</script>
 {% endblock %}

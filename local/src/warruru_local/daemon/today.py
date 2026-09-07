@@ -328,3 +328,53 @@ def streak(ctx, today: str, weeks: int = STREAK_WEEKS) -> dict:
         "best": max(세기.values(), default=0),
         "steps": STREAK_STEPS,
     }
+
+
+def month_grid(ctx, day: str) -> dict:
+    """그달을 달력으로. 같은 재료를 **다른 모양으로** 본다 (명세 §2.13 g).
+
+    스트릭은 "이어지고 있나" 를 묻고 달력은 "며칟날 했나" 를 묻는다. 둘 다
+    같은 건수를 쓰므로 숫자가 어긋날 일이 없다 — 화면 둘이 다른 질의를
+    돌리면 언젠가 다른 값을 말한다.
+
+    **기록이 없는 날은 `-` 다.** 빈칸으로 두면 '그날이 없는 것' 과
+    '그날 안 한 것' 이 같아 보인다.
+    """
+    from calendar import Calendar
+    from datetime import date as _date
+
+    from warruru_local.clock import local_date_of, local_day_bounds
+
+    오늘 = _date.fromisoformat(day)
+    첫날 = 오늘.replace(day=1)
+    끝날 = (첫날.replace(year=첫날.year + (첫날.month // 12),
+                       month=첫날.month % 12 + 1) - _date.resolution)
+
+    시작, _ = local_day_bounds(첫날.isoformat())
+    _, 끝 = local_day_bounds(끝날.isoformat())
+    세기: dict[str, int] = {}
+    for stamp in ctx.records.occurred_between(시작, 끝):
+        하루 = local_date_of(stamp)
+        세기[하루] = 세기.get(하루, 0) + 1
+
+    열들 = []
+    for 주 in Calendar(firstweekday=0).monthdatescalendar(오늘.year, 오늘.month):
+        칸들 = []
+        for 날 in 주:
+            글자 = 날.isoformat()
+            이달 = 날.month == 오늘.month
+            앞날 = 날 > 오늘
+            건수 = 세기.get(글자, 0) if 이달 and not 앞날 else 0
+            칸들.append({
+                "day": 글자, "num": 날.day, "count": 건수,
+                "level": level_of(건수) if 이달 and not 앞날 else 0,
+                "out": not 이달, "future": 앞날,
+                "today": 글자 == day,
+            })
+        열들.append(칸들)
+    return {
+        "weeks": 열들,
+        "month": f"{오늘.year}-{오늘.month:02d}",
+        "total": sum(세기.values()),
+        "days": sum(1 for n in 세기.values() if n),
+    }
