@@ -380,23 +380,45 @@
   .seg-switch button.on { background: var(--panel); color: var(--ink);
                           box-shadow: 0 1px 3px rgba(25, 31, 40, .10); }
 
-  /* 달력 — 같은 재료를 다른 모양으로. **없는 날은 `-`** 다. */
+  /* 달력 — **날짜가 주인공이다.** 달력에서 먼저 읽는 것은 며칟날이고
+     건수는 그 아래 붙는다. 일요일에 시작하되 일요일을 붉게 칠하지는
+     않는다 — 이 화면에서 빨강은 마감과 0을 뜻하고, 색이 셋이 되면
+     어느 것도 신호가 못 된다. */
+  .cal-top { display: flex; align-items: baseline; gap: .5rem; margin: .2rem 0 .7rem; }
+  .cal-top b { font-size: var(--t-lg); letter-spacing: -.02em; min-width: 7.5rem; }
+  .cal-move { font-family: var(--mono); font-size: var(--t-lg);
+              color: var(--ink-soft); padding: 0 .3rem; }
+  .cal-move:hover { color: var(--key); }
+  .cal-move.stop { color: var(--rule); }
+  .cal-top .meta { margin-left: auto; }
+
   .cal-head, .cal-row { display: grid; grid-template-columns: repeat(7, 1fr);
                         gap: 4px; }
-  .cal-head { margin-bottom: .3rem; }
+  .cal-head { margin-bottom: .35rem; }
   .cal-head span { text-align: center; font-size: var(--t-xs);
-                   color: var(--ink-faint); }
+                   color: var(--ink-faint); font-weight: 600; }
   .cal-row { margin-bottom: 4px; }
   .cal-cell {
-    /* 한 달이 여섯 줄이라 칸이 높으면 카드가 화면을 다 먹는다. */
-    position: relative; aspect-ratio: 1.9; border-radius: 8px;
-    background: var(--rule-soft); display: flex; align-items: center;
-    justify-content: center; font-family: var(--mono); font-size: var(--t-md);
-    color: var(--ink-faint);
+    aspect-ratio: 1.25; border-radius: 8px; background: var(--rule-soft);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: .1rem; font-family: var(--mono);
   }
-  .cal-cell i { position: absolute; top: 4px; left: 6px; font-style: normal;
-                font-size: 10px; color: var(--ink-faint); opacity: .75; }
-  .cal-cell.gone { background: transparent; }
+  .cal-cell b { font-size: var(--t-md); font-weight: 600; color: var(--ink); }
+  .cal-cell i { font-style: normal; font-size: var(--t-xs); color: var(--ink-faint); }
+  /* 채워진 칸에서는 날짜와 건수가 칸 색 위에 앉는다. */
+  .cal-cell.lv3 b, .cal-cell.lv3 i, .cal-cell.lv4 b, .cal-cell.lv4 i { color: inherit; }
+  .cal-cell.lv1 b, .cal-cell.lv2 b { color: var(--ink); }
+  .cal-cell.lv1 i, .cal-cell.lv2 i { color: var(--ink-soft); }
+  /* 지난달·다음달 날짜는 자리만 지킨다. 없애면 주가 밀려 보인다. */
+  .cal-cell.out { background: transparent; color: var(--rule); }
+  .cal-cell.out::before { content: attr(data-n); }
+  .cal-cell.out { font-size: var(--t-md); color: var(--rule);
+                  display: flex; align-items: center; justify-content: center; }
+  /* 아직 안 온 날. `-` 도 안 붙인다 — 안 한 것이 아니라 안 온 것이다. */
+  .cal-cell.ahead { background: transparent; color: var(--ink-faint);
+                    font-size: var(--t-md); display: flex;
+                    align-items: center; justify-content: center;
+                    box-shadow: inset 0 0 0 1px var(--rule-soft); }
   a.cal-cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 1px; }
 
   .streak-key { display: flex; align-items: center; gap: .25rem; margin-top: .7rem; }

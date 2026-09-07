@@ -176,32 +176,47 @@
     </p>
   </div>
 
-  {# 달력. **기록이 없는 날은 `-` 다** — 빈칸으로 두면 '그날이 없는 것' 과
-     '그날 안 한 것' 이 같아 보인다. #}
+  {# 달력. **날짜가 주인공이고** 건수가 그 아래 붙는다. 기록이 없는 날은
+     `-` 다 — 빈칸으로 두면 '그날이 없는 것' 과 '그날 안 한 것' 이 같아
+     보인다. 일요일에 시작한다(사람이 아는 달력의 모양). #}
   <div id="mm-month" hidden>
+    <div class="cal-top">
+      {% if month.prev %}
+      <a class="cal-move" href="/?date={{ day }}&amp;cal={{ month.prev }}"
+         aria-label="지난달">‹</a>
+      {% else %}<span class="cal-move stop" aria-hidden="true">‹</span>{% endif %}
+      <b>{{ month.title }}</b>
+      {% if month.next %}
+      <a class="cal-move" href="/?date={{ day }}&amp;cal={{ month.next }}"
+         aria-label="다음달">›</a>
+      {% else %}<span class="cal-move stop" aria-hidden="true">›</span>{% endif %}
+      <span class="meta quiet">기록 {{ month.total }}건 · 남긴 날 {{ month.days }}일</span>
+    </div>
+
     <div class="cal-head" aria-hidden="true">
-      {% for 요일 in ["월", "화", "수", "목", "금", "토", "일"] %}
+      {% for 요일 in ["일", "월", "화", "수", "목", "금", "토"] %}
       <span>{{ 요일 }}</span>
       {% endfor %}
     </div>
     {% for week in month.weeks %}
     <div class="cal-row">
       {% for cell in week %}
-        {% if cell.out or cell.future %}
-        <span class="cell cal-cell gone" aria-hidden="true"></span>
+        {% if cell.out %}
+        <span class="cal-cell out" aria-hidden="true">{{ cell.num }}</span>
+        {% elif cell.future %}
+        <span class="cal-cell ahead">{{ cell.num }}</span>
         {% else %}
-        {# `cell` 을 같이 단다 — 색 사다리(`.cell.lvN`)가 그 이름에 걸려 있다. #}
         <a class="cell cal-cell lv{{ cell.level }} {{ 'now' if cell.today }}"
            href="/?date={{ cell.day }}"
            title="{{ cell.day }} · 기록 {{ cell.count }}건">
-          <i>{{ cell.num }}</i>{{ cell.count or "-" }}</a>
+          <b>{{ cell.num }}</b><i>{{ cell.count or "-" }}</i></a>
         {% endif %}
       {% endfor %}
     </div>
     {% endfor %}
     <p class="meta quiet">
-      <strong>{{ month.month }}</strong> · 기록 {{ month.total }}건 ·
-      남긴 날 {{ month.days }}일 · 칸을 누르면 그날로 간다
+      숫자는 그날 남긴 기록이고 <strong>-</strong> 는 안 남긴 날이다 ·
+      칸을 누르면 그날로 간다
     </p>
   </div>
 </section>
