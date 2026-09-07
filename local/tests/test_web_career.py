@@ -373,7 +373,7 @@ def test_허브에_자격증이_상위_셋만_선다(client, home):
     카드 = page[page.index("<h2>자격증</h2>"):]
     카드 = 카드[:카드.index("</section>")]
     assert 카드.count('href="/career/cert/') <= 3
-    assert "전체 →" in 카드
+    assert "전체 · 더하기 →" in 카드
 
 
 def test_자격증_화면이_겹치는_주제만_보여준다(client):
@@ -434,7 +434,7 @@ def test_노트가_없어도_자격증_화면이_열린다(client):
 def test_다음에_할_일이_D_day_로_뜬다(client, home):
     _cert(home, "network-2")
     page = client.get("/career/cert/network-2").text
-    assert "다음에 할 일" in page
+    assert "<h2>오늘</h2>" in page
     assert "4회 접수 시작" in page
     assert "D-8" in page                    # 2026-07-22 → 07-30
 
@@ -577,11 +577,17 @@ def test_허브가_마감을_가까운_순으로_보여준다(client, home):
 
 
 def test_단계마다_칸이_선다(client, home):
-    """필기와 실기는 유형도 공부법도 다른 시험이다. 같은 칸에 놓으면 흐려진다."""
+    """필기와 실기는 날짜가 따로 간다. 하나만 띄우면 다른 하나를 잊는다.
+
+    **칸을 둘로 나누지는 않는다**(2026-09-08 재편). 단계마다 카드를 세우고
+    그 안에 커리큘럼을 또 펼쳤더니 같은 9줄이 화면에 두 번 나왔다.
+    이제 남은 날만 한 줄로 서고, 할 일은 '오늘' 한 칸이 받는다.
+    """
     _cert(home, "jeongcheogi", STAGED)
     page = client.get("/career/cert/jeongcheogi").text
-    assert "<h2>필기" in page and "<h2>실기" in page
-    assert "합격" in page and "준비중" in page
+    머리 = page[:page.index("<h2>오늘</h2>")]
+    assert "필기" in 머리 and "실기" in 머리
+    assert "합격" in 머리 and "준비중" in page
 
 
 def test_단계마다_자기_다음_일정을_본다(ctx, home):
@@ -591,10 +597,10 @@ def test_단계마다_자기_다음_일정을_본다(ctx, home):
     assert stages["필기"]["next"] is None      # 지났고 해당없음이다
 
 
-def test_단계가_없으면_예전처럼_다음에_할_일만(client, home):
+def test_단계가_없어도_오늘_칸은_선다(client, home):
     _cert(home, "sqld")                        # stages 없는 노트
     page = client.get("/career/cert/sqld").text
-    assert "다음에 할 일" in page
+    assert "<h2>오늘</h2>" in page
 
 
 def test_일정_목록에_단계가_붙는다(client, home):
@@ -885,13 +891,18 @@ def _cert_hash(text):
     return ask_hash(text)
 
 
-def test_항목마다_오늘_분량을_따로_센다(ctx, home):
-    """회차와 문항은 단위가 달라 더하면 아무 뜻도 없는 숫자가 나온다."""
+def test_오늘_분량을_계산해서_말하지_않는다(client, ctx, home):
+    """**에센스를 0.1 영역 읽을 수는 없다**(2026-09-08 확정).
+
+    전에는 `남은 것 ÷ 남은 날` 을 "오늘 0.1" 로 띄웠다. 항목마다 단위가
+    달라서(영역 · 문항 · 회독 · 세트) 나눗셈이 뜻을 못 만든다. 화면은
+    무엇을 할지만 세우고 얼마나는 사람이 정한다.
+    """
     _cert(home, "jeongcheogi", CURRICULUM)
     stage, = careerview.build_cert(ctx, "jeongcheogi")["stages"]
-    plans = {row["title"]: row["per_day"] for row in stage["plan"]}
-    assert plans["기출 3개년"] == 1.5           # 12 / 8일
-    assert plans["서브네팅 연습"] == 1.2        # 10 / 8일 = 1.25 → 반올림
+    assert all("per_day" not in row for row in stage["plan"])
+    page = client.get("/career/cert/jeongcheogi").text
+    assert "오늘 1.5" not in page and "오늘 1.2" not in page
 
 
 def test_진도를_올리면_오늘_분량이_준다(client, ctx, home):
@@ -927,12 +938,13 @@ def test_전체를_넘거나_0_아래로_안_간다(client, ctx, home):
     assert row["done"] == 0
 
 
-def test_일정을_모르면_오늘_분량을_말하지_않는다(ctx, home):
-    """모르는 것을 그럴듯한 숫자로 채우면 그 숫자를 믿게 된다."""
+def test_일정을_몰라도_오늘_할_것은_선다(ctx, home):
+    """일정이 없다고 화면이 비면 그 자격증은 영영 시작 안 한다."""
     _cert(home, "aws-saa", CURRICULUM.replace(
         "exams:\n  - 2026-07-30 | 실기 접수 | | | 실기\n", ""))
-    stage, = careerview.build_cert(ctx, "aws-saa")["stages"]
-    assert all(row["per_day"] == 0 for row in stage["plan"])
+    오늘 = careerview.build_cert(ctx, "aws-saa")["today"]
+    assert [row["title"] for row in 오늘] == ["기출 3개년", "서브네팅 연습"]
+    assert all(row["days"] is None for row in 오늘)
 
 
 def test_진도_변경도_토큰을_요구한다(client, home):
@@ -1097,9 +1109,8 @@ def test_목표가_없으면_그_줄이_아예_없다(client, home):
     assert "목표 —" not in client.get("/career/cert/sqld").text
 
 
-def test_단계가_다르면_하루_분량이_시험일을_기준으로_잡힌다(client, home):
-    """접수 마감과 시험일이 같은 단계에 있으면 커리큘럼이 접수일까지로
-    나뉜다. 접수는 하루면 끝나는 일이라 그 분량은 거짓말이 된다."""
+def test_급한_단계가_오늘_칸_맨_위에_온다(client, home):
+    """접수 마감과 시험일은 단계가 다르다. 마감이 가까운 쪽이 먼저다."""
     _cert(home, "topcit", (
         "---\nstatus: 준비중\n"
         "stages:\n  - 접수 | 준비중\n  - 정기평가 | 준비중\n"
@@ -1111,7 +1122,12 @@ def test_단계가_다르면_하루_분량이_시험일을_기준으로_잡힌�
     ))
     page = client.get("/career/cert/topcit").text
     assert "D-3" in page and "D-30" in page
-    assert "오늘 2.0" in page          # 60 / 30일. 접수일(3일)로 나누지 않는다
+    # **접수가 맨 위에 선다.** 할 일이 안 적힌 단계라도 마감이 사흘이면
+    # 그것이 오늘 할 일이다 — 그 칸이 비어 있으면 급한 것을 안 말하는
+    # 화면이 된다.
+    오늘 = careerview.build_cert(client.app.state.ctx, "topcit")["today"]
+    assert 오늘[0]["title"] == "접수 마감" and 오늘[0]["kind"] == "exam"
+    assert 오늘[1]["title"] == "손으로 쓰기"
 
 
 # ── 옵시디언과 같은 볼트를 쓴다 (2026-09-07) ─────────────────────
@@ -1256,3 +1272,101 @@ def test_흐린_글자도_읽힌다():
         for 이름 in ("--ink", "--ink-soft", "--ink-faint", "--key", "--alert"):
             색 = re.search(rf"{이름}:\s*(#[0-9A-Fa-f]{{6}})", 블록).group(1)
             assert 대비(색, 땅) >= 4.5, (이름, 색, 땅, round(대비(색, 땅), 2))
+
+
+# ── 자격증을 화면에서 늘리고 내린다 (2026-09-08) ──────────────────
+#
+# `cert_progress` 가 0건이었다. 다섯 개 중 넷이 '미시작' 인 채로 서 있는
+# 목록은 아무것도 안 말한다 — 딴 것도 안 볼 것도 코드 상수에만 있으면
+# 영영 그 자리에 선다.
+
+def test_화면에서_자격증을_더한다(client, home):
+    token = client.app.state.ctx.settings.token
+    res = client.post("/web/certs/add", follow_redirects=False, data={
+        "_token": token, "key": "security-engineer", "name": "정보보안기사",
+        "site": "https://www.q-net.or.kr",
+    })
+    assert res.status_code == 303
+    path = paths.cert_dir(home) / "security-engineer.md"
+    assert path.is_file() and "정보보안기사" in path.read_text(encoding="utf-8")
+    # 코드 상수에 없어도 목록에 선다.
+    assert "정보보안기사" in client.get("/career/certs").text
+
+
+def test_이미_있는_자격증을_빈_노트로_덮지_않는다(client, home):
+    """적어 둔 일정과 커리큘럼을 빈 노트가 지우는 것이 유일한 사고다."""
+    _cert(home, "topcit", CURRICULUM)
+    token = client.app.state.ctx.settings.token
+    res = client.post("/web/certs/add", follow_redirects=False,
+                      data={"_token": token, "key": "topcit", "name": "TOPCIT"})
+    assert res.status_code == 400
+    assert "기출 3개년" in (paths.cert_dir(home) / "topcit.md").read_text(
+        encoding="utf-8")
+
+
+@pytest.mark.parametrize("key", ["../etc", "TOPCIT", "a b", ""])
+def test_자격증_키가_홈_밖으로_안_샌다(client, key):
+    """이 값이 그대로 파일 이름이 된다."""
+    token = client.app.state.ctx.settings.token
+    assert client.post("/web/certs/add", data={
+        "_token": token, "key": key, "name": "무엇",
+    }).status_code == 400
+
+
+def test_내려도_파일은_안_지운다(client, home):
+    """다시 올리면 적어 둔 일정과 커리큘럼이 그 자리에서 이어진다."""
+    _cert(home, "topcit", CURRICULUM)
+    token = client.app.state.ctx.settings.token
+    client.post("/web/certs/topcit/status", follow_redirects=False,
+                data={"_token": token, "status": "안 함"})
+    path = paths.cert_dir(home) / "topcit.md"
+    assert path.is_file() and "기출 3개년" in path.read_text(encoding="utf-8")
+    page = client.get("/career/certs").text
+    assert "내린 것 1" in page and "다시 올린다" in page
+
+
+def test_딴_것은_볼_것에서_빠진다(client, home):
+    _cert(home, "sqld", "---\nstatus: 미시작\n---\n\n# 메모\n")
+    token = client.app.state.ctx.settings.token
+    client.post("/web/certs/sqld/status", follow_redirects=False,
+                data={"_token": token, "status": "보유"})
+    assert "딴 것 1" in client.get("/career/certs").text
+
+
+def test_상태_변경도_토큰을_요구한다(client, home):
+    _cert(home, "topcit", CURRICULUM)
+    assert client.post("/web/certs/topcit/status",
+                       data={"status": "안 함"}).status_code == 401
+
+
+def test_커리큘럼에_주제를_매면_기록이_같이_센다(client, ctx, home):
+    """**체크가 기본이고, 기록이 붙으면 자동이다.** 안 매면 순수하게
+    손으로 세는 항목이다 — 에센스 정독처럼 로드맵과 안 겹치는 것이 그렇다."""
+    _cert(home, "sqld", (
+        "---\nstatus: 준비중\n"
+        "curriculum:\n"
+        "  - | 인덱스 정리 | 3 | db-index\n"
+        "  - | 에센스 정독 | 4\n"
+        "---\n\n# 메모\n"
+    ))
+    _record(client, "db-index")
+    rows = {r["title"]: r for r in careerview.build_cert(ctx, "sqld")["curriculum"]}
+    assert rows["인덱스 정리"]["done"] == 1 and rows["인덱스 정리"]["auto"] == 1
+    assert rows["에센스 정독"]["done"] == 0 and rows["에센스 정독"]["auto"] == 0
+
+
+def test_접수가_할_일이면_거기로_가는_링크가_붙는다(client, ctx, home):
+    """D-4 로 제일 급한 칸에서 공식 사이트를 못 찾으면, 급한 것을 말해 놓고
+    갈 길은 안 알려주는 화면이 된다."""
+    _cert(home, "topcit", (
+        "---\nstatus: 준비중\n"
+        "stages:\n  - 접수 | 준비중\n"
+        "links:\n"
+        "  - 접수하기 (정기평가 목록) | https://www.topcit.or.kr/newreceipt/evalList.do\n"
+        "  - 공식 홈페이지 | https://www.topcit.or.kr\n"
+        "exams:\n  - 2026-07-25 | 접수 마감 | | | 접수\n"
+        "---\n\n# 메모\n"
+    ))
+    오늘 = careerview.build_cert(ctx, "topcit")["today"]
+    assert 오늘[0]["url"].endswith("evalList.do")     # 소개 페이지가 아니다
+    assert "바로가기" in client.get("/career/cert/topcit").text

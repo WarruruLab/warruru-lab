@@ -278,6 +278,29 @@
   .try { font-size: var(--t-xs); font-weight: 600; padding: .3rem .6rem;
          border-radius: 8px; background: var(--panel); color: var(--ink-soft); }
   .try:hover { color: var(--ink); }
+
+  /* ── 자격증 ───────────────────────────────────────────────────
+     +/− 두 폼이 각각 블록이라 세로로 어긋나 있었다. 한 줄에 세운다. */
+
+  .bump { display: inline-flex; gap: .25rem; }
+  .bump form.inline { display: inline-flex; margin: 0; }
+  button.tick.alert { background: var(--alert-soft); border-color: var(--alert);
+                      color: var(--alert); font-weight: 700; }
+  details.rest { margin: 0 0 1rem; }
+  details.rest > summary {
+    cursor: pointer; padding: .7rem 1.1rem; border-radius: var(--radius);
+    background: var(--panel); box-shadow: var(--shadow); font-weight: 600;
+  }
+  details.rest > summary:hover { color: var(--key); }
+  details.rest > ul.asks {
+    background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+    margin-top: .5rem; padding: .3rem 1.1rem;
+  }
+  .cert-ddays { display: flex; flex-wrap: wrap; gap: 1.2rem; margin: 0 0 1rem;
+                font-size: var(--t-md); align-items: center; }
+  .cert-ddays > span { display: inline-flex; align-items: center; gap: .4rem; }
+  .cert-add { display: flex; flex-direction: column; gap: .6rem; max-width: 26rem; }
+  .cert-add button { align-self: flex-start; }
   details.mine { flex-basis: 100%; font-size: var(--t-sm); }
   details.mine summary { color: var(--ink-faint); cursor: pointer; padding: .2rem 0; }
   details.mine summary:hover { color: var(--key); }

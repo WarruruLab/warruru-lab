@@ -14,8 +14,8 @@ from fastapi.templating import Jinja2Templates
 from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
-    asking, calendarview, careerview, checking, dayview, drafting, learning,
-    publishing, reading, topicview,
+    asking, calendarview, careerview, certs, checking, dayview, drafting,
+    learning, publishing, reading, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -151,6 +151,27 @@ async def career_index(request: Request):
             "deadlines": careerview.deadlines(ctx),
             "tally": ctx.records.tally(),
             "today": local_date_of(to_iso(ctx.clock.now())),
+        },
+    )
+
+
+@router.get("/career/certs")
+async def career_certs(request: Request):
+    """자격증 목록 — **여기서 늘리고 내린다**(명세 §2.11 c).
+
+    코드 상수에만 있으면 딴 것도 안 볼 것도 영영 목록에 선다. 다섯 개 중
+    넷이 '미시작' 인 채로 서 있는 화면은 아무것도 안 말한다.
+    """
+    ctx = request.app.state.ctx
+    every = careerview.build_certs(ctx)
+    return templates.TemplateResponse(
+        request, "career_certs.html",
+        {
+            "certs": [c for c in every if not c["held"] and not c["dropped"]],
+            "held": [c for c in every if c["held"]],
+            "dropped": [c for c in every if c["dropped"]],
+            "today": local_date_of(to_iso(ctx.clock.now())),
+            "token": ctx.settings.token,
         },
     )
 
@@ -748,7 +769,49 @@ async def bump_cert_form(
         cert_key, item, text, max(-1, min(1, delta)), total,
         to_iso(ctx.clock.now()),
     )
-    return RedirectResponse(f"/career/cert/{cert_key}", status_code=302)
+    return RedirectResponse(f"/career/cert/{quote(cert_key)}", status_code=302)
+
+
+@router.post("/web/certs/add")
+async def add_cert_form(
+    request: Request,
+    key: str = Form(...),
+    name: str = Form(...),
+    site: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """자격증 하나를 늘린다. 노트 파일 한 장이 생긴다 — **저장소 바깥이다.**"""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.add(ctx, key.strip(), name, site):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_CERT",
+                    "message": "키는 영문 소문자·숫자·붙임표, 이름은 비울 수 없고, "
+                               "이미 있는 것은 덮지 않습니다"},
+        )
+    return RedirectResponse(f"/career/cert/{quote(key.strip())}", status_code=303)
+
+
+@router.post("/web/certs/{cert_key}/status")
+async def cert_status_form(
+    request: Request,
+    cert_key: str,
+    status: str = Form(...),
+    back: str = Form("/career/certs"),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """볼 것 · 딴 것 · 안 볼 것을 가른다. **파일은 안 지운다** —
+    지우면 적어 둔 일정과 커리큘럼이 같이 사라진다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.set_status(ctx, cert_key, status):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    target = back if back.startswith("/") and not back.startswith("//") else "/career/certs"
+    return RedirectResponse(target, status_code=302)
 
 
 @router.post("/web/drafts/{draft_id}/published")
