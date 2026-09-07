@@ -262,3 +262,39 @@ def test_이전_답변이_접힌_채로_화면에_있다(client, ctx, home):
     page = client.get("/career/stack/network").text
     assert "이전 답변 1" in page and "예전에는 이렇게 답했다" in page
     assert 'id="try-box"' in page
+
+
+def test_짚어주기만_하지_않고_답을_설명한다():
+    """처음에는 빠진 것만 짚게 했다가 하루 만에 되돌렸다(2026-09-08).
+
+    **빠진 것을 알려면 그것이 무엇인지 알아야 한다.** "ISN 교환이 빠졌다"
+    는 이미 아는 사람에게만 정보이고, 모르는 사람에게는 검색어 하나가
+    늘 뿐이다. 설명을 빼면 이 버튼은 모르는 것을 확인만 하고 아무것도
+    안 알려주는 자리가 된다.
+    """
+    from warruru_local.daemon.routes_web import REVIEW_PROMPT
+
+    assert "③ 그래서 답은" in REVIEW_PROMPT
+    assert "점수는 매기지 마라" in REVIEW_PROMPT
+    # 모범답안을 금지하던 문장이 남아 있으면 두 지시가 서로 싸운다.
+    assert "모범답안을 쓰지도 마라" not in REVIEW_PROMPT
+
+
+def test_기록_본문은_설명이_아니라_내_답이다(client, ctx, home):
+    """사본을 막는 자리는 프롬프트가 아니라 여기다 —
+    설명은 읽는 것이고, 기록되는 것은 내 말이다."""
+    _note(home, "net-tcp", [QUESTION])
+    page = client.get("/career/stack/network").text
+    assert "설명은 안 올라간다" in page
+    # 설명을 덮고 다시 써 보는 자리가 있어야 설명이 사본으로 안 끝난다.
+    assert 'id="try-again"' in page
+
+
+def test_다시_답하면_앞의_답을_안_지운다(client, ctx, fake_ask):
+    """두 답을 나란히 보는 것이 나아졌는지를 말해 준다."""
+    h = ask_hash(QUESTION)
+    _answer(client, "net-tcp", h, text="세 번이어야 한다")
+    _answer(client, "net-tcp", h, text="양쪽 ISN 이 확인돼야 해서 세 번이다")
+    답 = checking.my_answers(ctx, "net-tcp", h)
+    assert [a["text"] for a in 답] == [
+        "양쪽 ISN 이 확인돼야 해서 세 번이다", "세 번이어야 한다"]

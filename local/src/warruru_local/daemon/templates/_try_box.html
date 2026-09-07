@@ -1,8 +1,10 @@
 {# 답해보기 — **"말할 수 있나"** 를 묻는 자리(명세 §2.10 d).
 
    체크(`○`)와 다른 판정이다. 체크는 3초짜리 자기 판정이고 여기는 내 문장이
-   나온다. 챗봇이 하는 것은 채점이 아니라 **빠진 것 짚기**다 — 점수를 매기면
-   점수를 올리려고 쓰게 되고, 그러면 남는 것이 모범답안의 사본이다.
+   나온다. 챗봇은 점수를 매기지 않지만 **설명은 한다**(2026-09-08 개정) —
+   "ISN 교환이 빠졌다" 는 이미 아는 사람에게만 정보이고, 모르는 사람에게는
+   검색어 하나가 늘 뿐이다. 사본이 되는 것을 막는 자리는 설명을 안 하는
+   것이 아니라 **기록 본문이 언제나 내 답이라는 것**이다.
 
    **내 답은 어느 쪽이든 저장된다.** 보낸 순간 파일에 앉고, 짚어준 것은
    그 뒤에 덧붙는다. 3개월 뒤 같은 질문이 왔을 때 그때 답과 지금 답을
@@ -15,8 +17,8 @@
     </header>
 
     <p class="meta quiet">
-      <strong>아는 만큼, 말하듯이.</strong> 두세 문장이면 된다 —
-      채점하지 않는다. 빠진 것만 짚어 준다.
+      <strong>아는 만큼, 말하듯이.</strong> 두세 문장이면 된다 — 채점하지 않는다.
+      빠진 것을 짚고 <strong>그래서 답이 무엇인지</strong> 설명해 준다.
     </p>
     <textarea id="try-text" rows="6"
               placeholder="예) 클라이언트가 SYN, 서버가 SYN+ACK, 클라이언트가 ACK…"></textarea>
@@ -41,9 +43,13 @@
         <input type="hidden" name="back" value="{{ back }}">
         <button class="primary" type="submit">답할 수 있다고 체크</button>
       </form>
+      <button type="button" id="try-again">읽고 다시 답해보기</button>
       <button type="button" id="try-promote">기록으로 올리기</button>
       <button type="button" id="try-not">아직 아니다</button>
-      <span class="meta quiet">체크한 것은 3개월 뒤 다시 묻는다.</span>
+      <span class="meta quiet">
+        설명을 읽었으면 <strong>덮고 다시 써 보는 것</strong>이 남는다.
+        체크한 것은 3개월 뒤 다시 묻는다.
+      </span>
     </div>
 
     {# **내 답이 그대로 본문이 된다.** 받아 적은 것이 아니라 내 말이라
@@ -58,7 +64,7 @@
         <input type="text" name="title" id="try-title" required>
       </label>
       <label class="chat-field">
-        <span>본문 — 방금 쓴 내 답이다. 고칠 수 있다</span>
+        <span>본문 — <strong>방금 쓴 내 답이다.</strong> 설명은 안 올라간다</span>
         <textarea name="body" id="try-body" rows="6" required></textarea>
       </label>
       <div class="ask-row">
@@ -116,6 +122,17 @@
   box.addEventListener("click", function (e) { if (e.target === box) 닫기(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !box.hidden) 닫기();
+  });
+
+  // **설명을 읽고 덮고 다시 쓴다.** 여기서 남는 것이 실제로 말할 수 있게 된
+  // 문장이다. 앞의 답을 지우지 않는다 — 파일에는 둘 다 쌓이고, 그 둘을
+  // 나란히 보는 것이 나아졌는지를 말해 준다.
+  document.getElementById("try-again").addEventListener("click", function () {
+    text.value = "";
+    review.hidden = true; review.textContent = "";
+    next.hidden = true; rec.hidden = true;
+    status.textContent = "설명은 덮었다. 이번엔 내 말로.";
+    text.focus();
   });
 
   document.getElementById("try-promote").addEventListener("click", function () {
