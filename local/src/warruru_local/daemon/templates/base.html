@@ -114,6 +114,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
 
   body {
     background: var(--ground);
@@ -253,6 +254,106 @@
   .material .seg.none { background: var(--rule); opacity: .5; }
   .material .ready { color: var(--ink); }
   .material .short { color: var(--ink-faint); }
+
+  /* ── 공부 챗봇 ────────────────────────────────────────────────
+     카드 안에 접혀 있으면 "공부하다 물어본다" 가 아니라 "화면을 찾아가서
+     쓴다" 가 된다. 우하단에 띄워 두고, 읽다가 그대로 친다. */
+
+  #chat-open {
+    position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 40;
+    display: flex; align-items: center; gap: .7rem;
+    background: transparent; border: 0; padding: 0; cursor: pointer;
+  }
+  .chat-label {
+    font-size: var(--t-sm); color: var(--ink-soft); background: var(--panel);
+    padding: .45rem .8rem; border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  }
+  .chat-fab {
+    position: relative; width: 3.3rem; height: 3.3rem; border-radius: 50%;
+    background: var(--key); color: #fff; display: grid; place-items: center;
+    box-shadow: 0 6px 24px color-mix(in srgb, var(--key) 40%, transparent);
+  }
+  #chat-open:hover .chat-fab { filter: brightness(1.06); }
+  .chat-badge {
+    position: absolute; top: -3px; right: -3px; min-width: 1.25rem; height: 1.25rem;
+    border-radius: 999px; background: var(--alert); color: #fff;
+    font-family: var(--mono); font-size: 11px; font-style: normal; font-weight: 700;
+    display: grid; place-items: center; padding: 0 .25rem;
+  }
+
+  #chat-panel {
+    position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 41;
+    width: min(25rem, calc(100vw - 2rem));
+    max-height: min(40rem, calc(100vh - 3rem));
+    background: var(--panel); border-radius: 18px; overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, .28);
+    display: flex; flex-direction: column;
+  }
+  [data-theme="dark"] #chat-panel { box-shadow: 0 8px 40px rgba(0, 0, 0, .55); }
+
+  .chat-head {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .85rem 1rem; border-bottom: 1px solid var(--rule);
+  }
+  .chat-head b { font-size: var(--t-md); }
+  .chat-sp { flex: 1; }
+  .chat-head button {
+    background: transparent; padding: .2rem .45rem; font-size: var(--t-sm);
+    color: var(--ink-soft); border-radius: 7px;
+  }
+  .chat-head button:hover { background: var(--rule-soft); }
+
+  .chat-body {
+    padding: 1rem; overflow-y: auto; flex: 1;
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+  .chat-hint { margin: 0; }
+  #chat-log { display: flex; flex-direction: column; gap: .7rem; }
+
+  .bubble { font-size: var(--t-md); line-height: 1.65; white-space: pre-wrap; }
+  .bubble.me {
+    align-self: flex-end; max-width: 88%;
+    background: var(--key-soft); color: var(--ink);
+    padding: .55rem .8rem; border-radius: 14px 14px 4px 14px;
+  }
+  .bubble.ai { align-self: flex-start; max-width: 92%; }
+  .bubble.sum {
+    background: var(--panel-2); border-radius: 14px; padding: .8rem .9rem;
+    font-size: var(--t-sm);
+  }
+  .promote-cue { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+
+  .chat-sess summary { padding: .45rem 0; font-size: var(--t-md); }
+  .chat-sess summary b { margin-right: .4rem; }
+  .chat-sess .preview { margin-top: .5rem; font-size: var(--t-sm); }
+
+  .chat-field { display: flex; flex-direction: column; gap: .3rem; }
+  .chat-field > span { font-size: var(--t-xs); color: var(--ink-faint); font-weight: 600; }
+  .chat-field select, .chat-field input, .chat-field textarea {
+    font-family: var(--sans); font-size: var(--t-md);
+    padding: .55rem .7rem; border-radius: var(--radius-sm);
+    border: 0; background: var(--panel-2); color: var(--ink); width: 100%;
+  }
+
+  .chat-foot { border-top: 1px solid var(--rule); padding: .8rem .9rem;
+               display: flex; flex-direction: column; gap: .6rem; }
+  .input-row { display: flex; gap: .5rem; align-items: flex-end;
+               background: var(--panel-2); border-radius: 12px; padding: .5rem .6rem; }
+  .input-row textarea {
+    flex: 1; border: 0; background: transparent; resize: none;
+    font-family: var(--sans); font-size: var(--t-md); color: var(--ink);
+    padding: .2rem 0; max-height: 8rem;
+  }
+  #ask-send {
+    width: 1.9rem; height: 1.9rem; padding: 0; border-radius: 9px;
+    background: var(--key); color: #fff; font-size: var(--t-md); flex: none;
+  }
+  .chat-cli-line { margin-top: 1rem; }
+
+  @media (max-width: 30rem) {
+    #chat-panel { right: .5rem; left: .5rem; bottom: .5rem; width: auto; }
+    .chat-label { display: none; }
+  }
 
   /* ── 허브 — 균등 카드 그리드 ─────────────────────────────────
      이전 판은 목록 길이가 8배 차이 나는 두 칸을 나란히 놓아 오른쪽

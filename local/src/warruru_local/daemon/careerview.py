@@ -684,6 +684,11 @@ def build_group(ctx, key: str) -> dict | None:
         group["ask_key"] = f"{group['axis']}-{key}"
         group["thread"] = ctx.records.ask_thread(group["ask_key"])
         group["answers"] = topicview.answers(ctx, group["ask_key"])
+        # **주제를 자동으로 정하지 않는다**(2026-09-08 확정). 책 하나가
+        # 주제 열한 개를 덮는데 임의로 고르면 틀린 자리에 쌓이고,
+        # 틀린 자리에 쌓인 기록은 아무 화면에서도 안 보인다.
+        group["ask_slugs"] = [{"slug": row["slug"], "label": row["label"]}
+                              for row in group["slugs"]]
         return group
     return None
 

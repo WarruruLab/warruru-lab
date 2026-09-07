@@ -537,8 +537,10 @@ def test_받은_답이_최신순으로_쌓인다(client, home):
             "---\nasked: 충돌 해결법\ntool: claude-code\n---\n\n체이닝과 개방주소법.\n")
     _answer(home, "ds-hash", "2026-08-30", "---\nasked: 리해싱\n---\n\n부하율.\n")
     page = client.get("/t/ds-hash").text
-    assert "물어본 것 2건" in page
-    assert page.index("충돌 해결법") < page.index("리해싱")   # 최신이 위
+    지난 = page[page.index('id="chat-past-view"'):]
+    지난 = 지난[:지난.index("</div>", 지난.index("</ul>"))]
+    assert "2026-09-01" in 지난 and "2026-08-30" in 지난
+    assert 지난.index("충돌 해결법") < 지난.index("리해싱")   # 최신이 위
 
 
 def test_답은_기록이_아니라고_말한다(client, home):
@@ -680,9 +682,11 @@ def test_답을_못_받으면_스레드를_붙잡지_않는다(client, monkeypat
     assert client.app.state.ctx.records.ask_thread("db-index") is None
 
 
-def test_화면에_묻는_칸이_있다(client, fake_ask):
+def test_화면에_챗봇이_있다(client, fake_ask):
+    """카드 안에 접혀 있으면 '공부하다 물어본다' 가 아니라
+    '화면을 찾아가서 쓴다' 가 된다(2026-09-08 확정)."""
     page = client.get("/t/db-index").text
-    assert 'id="ask-form"' in page
+    assert 'id="chat-panel"' in page and 'id="chat-open"' in page
     # 터미널용 한 줄도 남는다 — JS 가 꺼져도 물어볼 길은 있어야 한다.
     assert "ask topic=db-index" in page
 
@@ -748,3 +752,66 @@ def test_정리는_정해진_프롬프트로_간다(client, fake_ask, home):
     assert res.status_code == 200
     text = next((paths.answer_dir(home) / "db-index").glob("*.md")).read_text(encoding="utf-8")
     assert "## 오늘 정리" in text
+
+
+# ── 기록으로 승격 (명세 §2.8, 2026-09-08) ────────────────────────
+
+def _promote(client, key, **extra):
+    body = {
+        "topic": "db-index", "kind": "CONCEPT",
+        "title": "인덱스는 B+트리다", "body": "범위 검색 때문이다.",
+        "_token": client.app.state.ctx.settings.token,
+    }
+    body.update(extra)
+    return client.post(f"/web/topics/{key}/promote", data=body, follow_redirects=False)
+
+
+def test_정리를_기록으로_올린다(client):
+    """받은 답은 참고 자료이고 기록은 '내 말로 정리했다' 인데, 그 사이를
+    건너는 다리가 없어서 답이 쌓이는 동안 기록은 따로 남겨야 했다."""
+    res = _promote(client, "book-kafka-practice")
+    assert res.status_code == 303
+    assert res.headers["location"] == "/t/db-index"
+
+    rows = client.get("/v1/records", params={"topic_slug": "db-index"}).json()["records"]
+    assert [r["title"] for r in rows] == ["인덱스는 B+트리다"]
+    assert rows[0]["tool"] == "web"       # 어디서 왔는지 남는다
+
+
+def test_주제를_고르게_한다(client):
+    """책 하나가 주제 열한 개를 덮는다. 임의로 고르면 틀린 자리에 쌓이고,
+    틀린 자리에 쌓인 기록은 아무 화면에서도 안 보인다."""
+    page = client.get("/career/book/kafka-practice").text
+    폼 = page[page.index('id="chat-promote"'):]
+    폼 = 폼[:폼.index("</form>")]
+    assert 폼.count("<option value=") >= 11      # 그 책이 덮는 주제들
+    assert "kafka-basics" in 폼
+
+
+def test_면접_문장도_같이_받는다(client):
+    """비우면 면접에 들고 갈 문장이 하나 덜 생긴다 — 지금 15% 인 그 필드다."""
+    _promote(client, "db-index", interview="범위 검색 때문이라고 답했습니다")
+    rows = client.get("/v1/records", params={"topic_slug": "db-index"}).json()["records"]
+    assert rows[0]["interview"] == "범위 검색 때문이라고 답했습니다"
+
+
+def test_빈_기록은_거절한다(client):
+    assert _promote(client, "db-index", title=" ").status_code == 400
+    assert _promote(client, "db-index", body="").status_code == 400
+
+
+def test_토큰_없이는_못_올린다(client):
+    res = client.post("/web/topics/db-index/promote", data={
+        "topic": "db-index", "title": "제목", "body": "본문"})
+    assert res.status_code == 401
+
+
+def test_지난_대화는_읽기만_한다(client, home):
+    """이어가려면 CLI 세션 id 를 날짜별로 들어야 해서 스키마가 는다.
+    읽기만 하기로 정했다(2026-09-08)."""
+    _answer(home, "ds-hash", "2026-09-01", "---\nasked: 충돌\n---\n\n답.\n")
+    지난 = client.get("/t/ds-hash").text
+    지난 = 지난[지난.index('id="chat-past-view"'):]
+    지난 = 지난[:지난.index("</div>", 지난.index("</ul>"))]
+    assert "읽기만 한다" in 지난
+    assert "ask" not in 지난.lower() or "form" not in 지난.lower()
