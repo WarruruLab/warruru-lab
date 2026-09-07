@@ -1479,4 +1479,5 @@ def test_왼쪽은_이름이고_날짜는_그_아래다(client):
     날짜를 옮기는 것이 '다른 화면으로 가는 일' 처럼 보인다."""
     page = client.get("/").text
     assert "<h1>와르르랩</h1>" in page
-    assert page.index("<h1>와르르랩</h1>") < page.index('class="day-move"')
+    # CSS 안에도 `.day-move` 가 있으므로 **본문에만 있는 문자열**로 잰다.
+    assert page.index("<h1>와르르랩</h1>") < page.index('class="day-move subline"')

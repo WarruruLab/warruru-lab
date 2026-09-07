@@ -163,7 +163,18 @@
 
   header {
     display: flex; flex-wrap: wrap; align-items: baseline;
-    gap: .75rem 1rem; margin-bottom: 1.25rem;
+    gap: .75rem 1rem; margin-bottom: 1.1rem;
+  }
+
+  /* **화면의 첫 줄은 한 자리를 쓴다**(2026-09-08). 빵부스러기 · 날짜 이동 ·
+     책 상태 줄이 화면마다 다른 여백으로 앉아서, 갈래를 옮길 때마다 제목
+     아래 첫 줄이 위아래로 흔들렸다. 위로 당겨 붙이고 아래를 1.1rem 으로
+     맞추면 첫 줄이 있든 없든 리듬이 같다. */
+  .subline {
+    margin: -.55rem 0 1.1rem;
+    /* **높이도 맞춘다.** 날짜 줄은 굵은 큰 글자라 한 줄이 더 높다 —
+       그것만으로 첫 카드가 화면마다 8px 씩 어긋났다. */
+    min-height: 1.75rem;
   }
   header nav { margin-left: auto; display: flex; gap: .8rem; flex-wrap: wrap; }
   header nav a { font-size: var(--t-sm); }
@@ -289,7 +300,7 @@
   /* 날짜 이동 — **이름 아래 한 줄**이라 '같은 화면의 다른 날' 로 읽힌다.
      날짜가 제목이면 옮기는 것이 '다른 화면으로 가는 일' 처럼 보인다. */
   .day-move { display: flex; align-items: baseline; gap: .6rem;
-              margin: -.4rem 0 1rem; font-family: var(--mono); }
+              font-family: var(--mono); }
   .day-move b { font-size: var(--t-lg); letter-spacing: -.02em; }
   .day-move .wd { font-family: var(--sans); color: var(--ink-faint);
                   font-size: var(--t-sm); }
@@ -322,6 +333,45 @@
   .todo a.ask-text:hover { color: var(--key); }
   .todo .tick { cursor: default; }
   .todo form .tick { cursor: pointer; }
+
+  /* ── 스트릭 ───────────────────────────────────────────────────
+     한 열이 한 주, 한 칸이 하루. **색은 파랑 하나를 네 단계로** 나눈다 —
+     순차 척도라 색을 갈아 쓰면 '많다/적다' 가 '종류가 다르다' 로 읽힌다.
+     화면 전체의 색 규칙(파랑·빨강 둘뿐)과도 어긋나지 않는다. */
+
+  .streak-months { display: flex; gap: 3px; margin-bottom: .25rem; }
+  .streak-months .mo { flex: 1; min-width: 0; font-size: var(--t-xs);
+                       color: var(--ink-faint); font-family: var(--mono);
+                       white-space: nowrap; }
+  .streak { display: flex; gap: 3px; overflow-x: auto; padding-bottom: .3rem; }
+  .streak .wk { display: flex; flex-direction: column; gap: 3px; flex: 1;
+                min-width: 0; }
+  /* **격자와 범례가 같은 규칙을 쓴다.** 색을 `.streak` 하위로만 걸었더니
+     범례 칸이 색 없이 빈 자리로만 섰다 — 범례는 격자의 형제다. */
+  .streak .cell, .streak-key .cell {
+    aspect-ratio: 1; border-radius: 4px; background: var(--rule-soft);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; line-height: 1;
+    color: transparent; min-width: 0; flex: none;
+  }
+  .streak .cell { flex: 1 1 auto; }
+  a.cell:hover { outline: 2px solid var(--ink-faint); outline-offset: 1px; }
+  .cell.gone { background: transparent; }
+  .cell.lv1 { background: #CFE3FB; color: var(--ink); }
+  .cell.lv2 { background: #93C0F7; color: var(--ink); }
+  .cell.lv3 { background: var(--key-fill); color: #fff; }
+  .cell.lv4 { background: #1B5FC1; color: #fff; }
+  .streak .cell.now { box-shadow: inset 0 0 0 2px var(--ink); }
+  .streak-key { display: flex; align-items: center; gap: .25rem; margin-top: .7rem; }
+  .streak-key .cell { width: 13px; height: 13px; aspect-ratio: auto; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .cell.lv1 { background: #24406A; }
+    :root:not([data-theme="light"]) .cell.lv2 { background: #2F5E9E; }
+    :root:not([data-theme="light"]) .cell.lv4 { background: #8CBEFB; color: #10233F; }
+  }
+  :root[data-theme="dark"] .cell.lv1 { background: #24406A; }
+  :root[data-theme="dark"] .cell.lv2 { background: #2F5E9E; }
+  :root[data-theme="dark"] .cell.lv4 { background: #8CBEFB; color: #10233F; }
 
   .made { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   a.made-n { display: inline-flex; align-items: baseline; gap: .4rem; }

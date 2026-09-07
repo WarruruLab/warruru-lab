@@ -16,7 +16,7 @@
   {% include "_nav.html" %}
 </header>
 
-<div class="daystrip">
+<div class="daystrip subline">
   {% for d in view.strip %}
   <a class="dcell {{ 'on' if d.day == view.day }}" href="/notes/{{ d.day }}">
     <span class="n">{{ d.num }}</span>

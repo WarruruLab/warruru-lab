@@ -9,7 +9,7 @@
   {% include "_nav.html" %}
 </header>
 
-<nav class="day-move" aria-label="날짜 이동">
+<nav class="day-move subline" aria-label="날짜 이동">
   {% if prev_day %}
   <a href="/?date={{ prev_day }}" aria-label="전날">←</a>
   {% else %}
@@ -136,6 +136,39 @@
   {% endif %}
 </section>
 {% endif %}
+
+{# ── 스트릭 — **끊겼나 이어졌나** ──
+   한 열이 한 주, 한 칸이 하루다. 색은 **파랑 하나를 네 단계로** 나눈다 —
+   색을 갈아 쓰면 "많다/적다" 가 아니라 "종류가 다르다" 로 읽힌다. #}
+<section class="tool streak-card">
+  <div class="work-head">
+    <h2>매일 얼마나</h2>
+    <span class="meta">반년 · 기록 {{ streak.total }}건 · 남긴 날 {{ streak.days }}일</span>
+  </div>
+  <div class="streak-months" aria-hidden="true">
+    {% for week in streak.weeks %}<span class="mo">{{ week.label }}</span>{% endfor %}
+  </div>
+  <div class="streak" role="img"
+       aria-label="최근 26주 동안 남긴 기록 {{ streak.total }}건">
+    {% for week in streak.weeks %}
+    <span class="wk">
+      {% for cell in week.days %}
+        {% if cell.future %}
+        <span class="cell gone" aria-hidden="true"></span>
+        {% else %}
+        <a class="cell lv{{ cell.level }} {{ 'now' if cell.today }}"
+           href="/?date={{ cell.day }}"
+           title="{{ cell.day }} · 기록 {{ cell.count }}건">{{ cell.count or "" }}</a>
+        {% endif %}
+      {% endfor %}
+    </span>
+    {% endfor %}
+  </div>
+  <p class="meta quiet streak-key">
+    적게 <span class="cell lv0"></span><span class="cell lv1"></span><span class="cell lv2"></span><span class="cell lv3"></span><span class="cell lv4"></span> 많이
+    · 칸을 누르면 그날로 간다 · 가장 많이 남긴 날 {{ streak.best }}건
+  </p>
+</section>
 
 {# 남긴 것은 아래다. 지난날에도 같은 줄을 쓴다 — 그 날과 그 전날을 견준다. #}
 <section class="tool made">

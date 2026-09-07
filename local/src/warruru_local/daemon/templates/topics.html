@@ -8,7 +8,7 @@
   {% include "_nav.html" %}
 </header>
 
-<nav class="day-move" aria-label="날짜 이동">
+<nav class="day-move subline" aria-label="날짜 이동">
   {% if prev_day %}<a href="/t?date={{ prev_day }}" aria-label="전날">←</a>
   {% else %}<span class="stop" aria-hidden="true">←</span>{% endif %}
   <b>{{ day }}</b><span class="wd">{{ weekday }}</span>

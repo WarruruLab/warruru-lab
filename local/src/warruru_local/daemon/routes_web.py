@@ -61,6 +61,9 @@ async def index(request: Request, date: str | None = None):
             "day": day,
             "prev_day": 어제 if not 처음 or 어제 >= 처음 else "",
             "next_day": _shift(day, 1) if 지난날 else "",
+            # **매일 얼마나 남겼나.** 달력(`/c`)이 "그 달 어느 날에" 를 묻고,
+            # 이쪽은 "요즘 이어지고 있나" 를 묻는다.
+            "streak": todayview.streak(ctx, today),
             "today": today,
             "weekday": _weekday(day),
             # 세는 것이 목적이 아니라 **어제와 견주는 것**이 목적이다.
