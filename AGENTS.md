@@ -41,7 +41,7 @@
   설치법은 `local/README.md`, 규칙 원문은 §5 와 같은 것이다
 - 화면 — `/d/{date}` · `/c/{YYYY-MM}` · `/t` · `/t/{slug}` · `/drafts/{id}`
   · `/career`(허브 — 내가 채울 것 / 채용공고) · `/career/stack`
-  · `/career/stack/{묶음}` — 축 셋(로드맵 · CS · AI)이 같은 주소를 쓴다
+  · `/career/stack/{묶음}` — 축 셋(로드맵 78 · CS 71 · AI 31)이 같은 주소를 쓴다
   · `/career/cert/{자격증}` · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
   · **`/career/books`**(읽는 중 · 다음에 읽을 것) ·

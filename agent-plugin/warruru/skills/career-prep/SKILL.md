@@ -40,16 +40,16 @@ description: Compare target-company job postings kept in the user's Notion archi
 ## 공고 기술 → 로드맵 슬러그
 
 원본은 `local/src/warruru_local/topics.py` 의 권장 슬러그 100개다.
-**이 표가 그 100개를 빠짐없이 덮는다** — 표에 없는 기술이 공고에 나오면
+**이 표가 그 78개를 빠짐없이 덮는다** — 표에 없는 기술이 공고에 나오면
 로드맵 밖이라는 뜻이므로, 슬러그를 지어내지 말고 그대로 적어 사용자에게 알린다.
 
 | 공고에 흔히 나오는 말 | 슬러그 |
 |---|---|
 | Java / JVM | `jvm-gc` `java-concurrency` |
 | Spring / Spring Boot | `spring-di` `spring-mvc` `spring-transactional` `tx-boundary` `filter-vs-interceptor` |
-| REST API / API 설계 | `api-error-handling` `dto-separation` `net-http` |
+| REST API / API 설계 | `api-error-handling` `dto-separation` |
 | JPA / ORM | `jpa-persistence-context` `jpa-lazy-loading` `jpa-n-plus-one` `jpa-fetch-join` `jpa-batch-size` `entity-association` `querydsl` |
-| RDBMS / SQL / DB 설계 | `db-index` `db-transaction` `db-isolation` `db-lock` `db-normalization` `db-join` `db-execution-plan` `composite-index` `domain-erd` |
+| 데이터 모델링 | `composite-index` `domain-erd` |
 | 동시성 / 데이터 정합성 | `optimistic-vs-pessimistic-lock` `race-condition` `idempotency` |
 | Redis / 캐싱 | `redis-data-types` `redis-ttl-eviction` `cache-target-selection` `cache-aside` `cache-invalidation` `cache-ttl-policy` `redis-cache-effect` |
 | RabbitMQ / 메시지 큐 | `rabbitmq-basics` `rabbitmq-exchange-routing` `rabbitmq-ack` `rabbitmq-retry` `rabbitmq-dlq` `poison-message` `message-persistence` `consumer-failure` `consumer-restart` |
@@ -62,9 +62,7 @@ description: Compare target-company job postings kept in the user's Notion archi
 | 모니터링 / 옵저버빌리티 | `prometheus-grafana` |
 | AWS / 클라우드 인프라 | `aws-vpc` `public-private-subnet` `nat-gateway` `security-group-nacl` `ec2-vs-ecs` `aws-rds` `aws-elasticache` `aws-deploy` |
 | Terraform / IaC | `terraform-state` `terraform-module` |
-| Nginx / 로드밸런싱 | `nginx-reverse-proxy` `nginx-tls-termination` `load-balancing` `net-load-balancing` |
-| 네트워크 | `net-tcp` `net-udp` `net-tls` `net-dns` `net-subnet-nat` `net-socket` |
-| Linux / OS | `os-process-thread` `os-context-switch` `os-scheduling` `os-memory` `os-virtual-memory` `os-io` `os-deadlock` |
+| Nginx / 로드밸런싱 | `nginx-reverse-proxy` `nginx-tls-termination` `load-balancing` |
 | 테스트 | `test-strategy` `mockito-unit-test` `spring-integration-test` |
 | 아키텍처 / 구조 | `package-structure` |
 

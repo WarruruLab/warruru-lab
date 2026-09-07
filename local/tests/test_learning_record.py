@@ -161,7 +161,7 @@ def test_권장_슬러그면_응답이_그렇다고_말한다(ctx):
     `/v1/records` 를 직접 부르는 쪽도 이 값을 봐야 한다. 어댑터만 채우면
     API 사용자에게는 로드맵과의 연결이 보이지 않는다(평가 기준 A13).
     """
-    result = learning.record(ctx, _payload(topic="net tcp"))
+    result = learning.record(ctx, _payload(topic="spring di"))
     assert result["recommended"] is True
     assert result["similar_slugs"] == []
 
@@ -172,8 +172,8 @@ def test_권장_목록_밖이면_아니라고_말한다(ctx):
 
 def test_보강_응답도_권장_여부를_말한다(ctx):
     """보강 경로가 이 값을 빼먹으면 두 번째 호출에서 조용히 사라진다."""
-    learning.record(ctx, _payload(topic="net tcp"))
-    again = learning.record(ctx, _payload(topic="net tcp", outcome="p95 90ms"))
+    learning.record(ctx, _payload(topic="spring di"))
+    again = learning.record(ctx, _payload(topic="spring di", outcome="p95 90ms"))
     assert again["duplicate"] is True
     assert again["recommended"] is True
 
