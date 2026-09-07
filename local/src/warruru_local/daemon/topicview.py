@@ -164,6 +164,8 @@ def _build_empty(ctx, topic_slug: str) -> dict:
         "answers": answers(ctx, topic_slug),
         # 이어 갈 대화가 있나. 없으면 다음 물음이 새 대화다.
         "thread": ctx.records.ask_thread(topic_slug),
+        # 승격할 때 고를 주제. 주제 화면은 자기 하나뿐이다.
+        "ask_slugs": [{"slug": topic_slug, "label": topics.label_of(topic_slug)}],
     }
 
 
@@ -222,6 +224,8 @@ def build_detail(ctx, topic_slug: str) -> dict | None:
         "answers": answers(ctx, topic_slug),
         # 이어 갈 대화가 있나. 없으면 다음 물음이 새 대화다.
         "thread": ctx.records.ask_thread(topic_slug),
+        # 승격할 때 고를 주제. 주제 화면은 자기 하나뿐이다.
+        "ask_slugs": [{"slug": topic_slug, "label": topics.label_of(topic_slug)}],
     }
 
 

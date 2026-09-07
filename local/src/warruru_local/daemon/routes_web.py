@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import uuid4
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -12,7 +13,8 @@ from fastapi.templating import Jinja2Templates
 
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
-    asking, calendarview, careerview, dayview, drafting, publishing, topicview,
+    asking, calendarview, careerview, dayview, drafting, learning, publishing,
+    topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -290,6 +292,51 @@ SUMMARY_PROMPT = (
     "내가 한 말과 네가 설명한 것을 구분해서, 내가 이해했다고 말한 것만 ①에 넣어라. "
     "마크다운으로, 500자 안쪽."
 )
+
+
+@router.post("/web/topics/{topic_slug}/promote")
+async def promote_form(
+    request: Request,
+    topic_slug: str,
+    topic: str = Form(...),
+    kind: str = Form("CONCEPT"),
+    title: str = Form(...),
+    body: str = Form(...),
+    interview: str = Form(""),
+    back: str = Form("/t"),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """정리를 **기록으로 올린다**(명세 §2.8).
+
+    물어서 받은 답은 참고 자료이고 기록은 *내 말로 정리했다* 인데,
+    그 사이를 건너는 다리가 없어서 답이 203건 쌓이는 동안 기록은 따로
+    남겨야 했다. 이 버튼이 그 다리다.
+
+    **`learning.record` 를 그대로 쓴다.** MCP 가 부르는 것과 같은 함수라
+    슬러그 정규화도 힌트도 멱등도 한 곳에만 있다 — 여기서 따로 INSERT 하면
+    두 경로가 조금씩 다른 기록을 만들기 시작한다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not title.strip() or not body.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "EMPTY_RECORD", "message": "제목과 본문을 적어 주세요"},
+        )
+    made = learning.record(ctx, {
+        # 화면에서 온 것도 같은 봉투를 쓴다. `source` 만 다르다.
+        "record_id": f"rec_{uuid4().hex[:24]}",
+        "client_instance_id": "web",
+        "tool": "web",
+        "kind": kind,
+        "topic": topic.strip() or topic_slug,
+        "title": title.strip(),
+        "body": body.strip(),
+        "interview": interview.strip() or None,
+        "occurred_at": to_iso(ctx.clock.now()),
+    })
+    슬러그 = made.get("topic_slug") or topic_slug
+    return RedirectResponse(f"/t/{quote(슬러그)}", status_code=303)
 
 
 @router.post("/web/topics/{topic_slug}/ask")

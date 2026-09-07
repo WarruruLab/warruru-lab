@@ -1,79 +1,255 @@
-{# 묻기 칸. **세 화면이 이 파일 하나를 쓴다** — 주제 · 책 · 묶음.
-   각자 그리면 어느 하나에만 정리 버튼이 빠지는 식으로 갈라진다.
-   `ask` 는 `{key, thread}` 다. #}
-<section class="tool">
-  <h2>물어보기</h2>
-  <p class="meta">
-    이어서 물으면 <strong>앞의 대화를 기억한다.</strong> 답은
-    <code>~/.warruru/career/answers/{{ ask.key }}/</code> 에 쌓이고
-    아래 '물어본 것' 에 뜬다.
-    {% if ask.thread %}<span class="badge">{{ ask.thread.cli }} · {{ ask.thread.turns }}턴</span>{% endif %}
-  </p>
+{# 공부 챗봇. **세 화면이 이 파일 하나를 쓴다** — 주제 · 책 · 묶음.
+   각자 그리면 어느 하나에만 정리나 승격이 빠지는 식으로 갈라진다.
 
-  {# JS 가 꺼져 있으면 이 폼은 안 돈다. 그래서 터미널용 한 줄을 아래
-     남겨 둔다 — 조회·수정·발행 경로는 지금도 JS 없이 살아 있다. #}
-  <form id="ask-form" class="ask" onsubmit="return false;">
-    <textarea id="ask-input" rows="2" placeholder="이 주제에 대해 물어보세요"></textarea>
-    <div class="ask-row">
-      <button id="ask-send" type="submit">묻기</button>
-      <label class="meta">
-        <select id="ask-cli">
+   `ask` 는 `{key, thread, answers, slugs}` 다.
+   `slugs` 는 승격할 때 고를 수 있는 주제들 — 책은 그 책이 덮는 것,
+   주제는 자기 하나다. **자동으로 정하지 않는다**(2026-09-08 확정) —
+   책 하나가 주제 열한 개를 덮는데 임의로 고르면 틀린 자리에 쌓인다. #}
+<div id="chat" data-key="{{ ask.key }}">
+
+  <button id="chat-open" type="button" aria-expanded="false">
+    <span class="chat-label">물어보기</span>
+    <span class="chat-fab" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4A8.4 8.4 0 0 1 21 11.5z"/>
+      </svg>
+      {% if ask.thread %}<i class="chat-badge">{{ ask.thread.turns }}</i>{% endif %}
+    </span>
+  </button>
+
+  <section id="chat-panel" hidden aria-label="공부 챗봇">
+    <header class="chat-head">
+      <button id="chat-back" type="button" hidden aria-label="대화로">←</button>
+      <b id="chat-title">물어보기</b>
+      {% if ask.thread %}
+      <span class="badge">{{ ask.thread.cli }} · {{ ask.thread.turns }}턴</span>
+      {% endif %}
+      <span class="chat-sp"></span>
+      <button id="chat-past" type="button" aria-label="지난 대화">지난 대화</button>
+      <button id="chat-close" type="button" aria-label="닫기">✕</button>
+    </header>
+
+    {# ── 대화 ── #}
+    <div id="chat-talk" class="chat-body">
+      <p class="meta quiet chat-hint">
+        읽으면서 그대로 치면 된다. 이어서 물으면 <strong>앞 대화를 기억한다.</strong>
+      </p>
+      <div id="chat-log"></div>
+    </div>
+
+    {# ── 지난 대화 — 읽기만 한다 ── #}
+    <div id="chat-past-view" class="chat-body" hidden>
+      <p class="meta quiet">
+        <strong>하루가 한 대화다.</strong> 지난 것은 읽기만 한다 — 이어서 물으면
+        오늘 대화가 된다.
+      </p>
+      {% if ask.answers %}
+      <ul class="picks">
+        {% for answer in ask.answers %}
+        <li class="chat-sess">
+          <details>
+            <summary>
+              <b>{{ answer.name }}</b>
+              <span class="quiet">{{ answer.asked }}</span>
+              {% if answer.tool %}<span class="badge">{{ answer.tool }}</span>{% endif %}
+            </summary>
+            <div class="preview">{{ answer.html|safe }}</div>
+          </details>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">아직 없다. 물어보면 날짜별로 쌓인다.</p>
+      {% endif %}
+    </div>
+
+    {# ── 기록으로 올리기 ── #}
+    <form id="chat-promote" class="chat-body" hidden method="post"
+          action="/web/topics/{{ ask.key }}/promote">
+      <input type="hidden" name="_token" value="{{ token }}">
+      <p class="meta">
+        <strong>① 알게 된 것만 올린다.</strong> ②·③ 은 아직 답 못 하는 것이라
+        기록이 아니다. <strong>내 말로 고쳐서 올려라</strong> — 받아 적은 문장은
+        면접에서 안 나온다.
+      </p>
+
+      <label class="chat-field">
+        <span>주제</span>
+        <select name="topic" required>
+          {% for slug in ask.slugs %}
+          <option value="{{ slug.slug }}">{{ slug.label }} ({{ slug.slug }})</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="chat-field">
+        <span>종류</span>
+        <select name="kind">
+          <option value="CONCEPT">CONCEPT — 개념을 이해했다</option>
+          <option value="TROUBLESHOOTING">TROUBLESHOOTING — 고장났다 고쳤다</option>
+          <option value="TECH_CHOICE">TECH_CHOICE — 골랐다</option>
+          <option value="EXPERIMENT">EXPERIMENT — 수치가 달라졌다</option>
+        </select>
+      </label>
+
+      <label class="chat-field">
+        <span>제목</span>
+        <input type="text" name="title" id="promote-title" required>
+      </label>
+
+      <label class="chat-field">
+        <span>본문 — 정리 ① 에서 가져왔다. 고칠 수 있다</span>
+        <textarea name="body" id="promote-body" rows="6" required></textarea>
+      </label>
+
+      <label class="chat-field">
+        <span>면접에서 어떻게 말할까</span>
+        <textarea name="interview" rows="3"
+                  placeholder="비우면 면접에 들고 갈 문장이 하나 덜 생긴다"></textarea>
+      </label>
+
+      <div class="ask-row">
+        <button type="submit" class="primary">기록 남기기</button>
+        <button type="button" id="promote-cancel">취소</button>
+      </div>
+    </form>
+
+    <footer class="chat-foot">
+      <div class="input-row">
+        <textarea id="ask-input" rows="1" placeholder="이 자리에 대해 물어보세요"></textarea>
+        <button id="ask-send" type="button" aria-label="보내기">↑</button>
+      </div>
+      <div class="ask-row">
+        <select id="ask-cli" aria-label="어느 에이전트로">
           <option value="codex">Codex</option>
           <option value="claude">Claude</option>
         </select>
-      </label>
-      {% if ask.thread %}
-      <label class="meta"><input type="checkbox" id="ask-fresh"> 새 대화로</label>
-      {% endif %}
-      <button id="ask-sum" type="button">오늘 정리</button>
-      <span class="meta quiet" id="ask-status"></span>
-    </div>
-  </form>
-  <div id="ask-out" class="preview" hidden></div>
+        <button id="ask-sum" type="button">오늘 정리</button>
+        {% if ask.thread %}
+        <label class="meta"><input type="checkbox" id="ask-fresh"> 새 대화로</label>
+        {% endif %}
+        <span class="meta quiet" id="ask-status"></span>
+      </div>
+    </footer>
+  </section>
+</div>
 
-  <p class="meta quiet">터미널에서 물을 때는 이 한 줄이다.</p>
-  <pre class="body">ask topic={{ ask.key }}</pre>
-</section>
+{# 터미널에서 물을 때는 이 한 줄이다. JS 가 꺼져 있어도 길이 남는다. #}
+<p class="meta quiet chat-cli-line">터미널에서: <code>ask topic={{ ask.key }}</code></p>
 
 <script>
 (function () {
-  var form = document.getElementById("ask-form");
-  if (!form || !window.EventSource && !window.fetch) return;
+  var root = document.getElementById("chat");
+  if (!root || !window.fetch) return;
+  var key = root.dataset.key;
+  var panel = document.getElementById("chat-panel");
+  var talk = document.getElementById("chat-talk");
+  var past = document.getElementById("chat-past-view");
+  var promote = document.getElementById("chat-promote");
+  var log = document.getElementById("chat-log");
   var input = document.getElementById("ask-input");
-  var out = document.getElementById("ask-out");
   var status = document.getElementById("ask-status");
   var send = document.getElementById("ask-send");
   var fresh = document.getElementById("ask-fresh");
   var cli = document.getElementById("ask-cli");
+  var title = document.getElementById("chat-title");
+  var back = document.getElementById("chat-back");
+  var 마지막정리 = "";
 
-  function say(text) { status.textContent = text; }
+  function view(which) {
+    talk.hidden = which !== "talk";
+    past.hidden = which !== "past";
+    promote.hidden = which !== "promote";
+    back.hidden = which === "talk";
+    title.textContent = which === "past" ? "지난 대화"
+      : which === "promote" ? "기록으로 올리기" : "물어보기";
+    document.querySelector(".chat-foot").hidden = which !== "talk";
+  }
+
+  var fab = document.getElementById("chat-open");
+  function 열기(열까) {
+    panel.hidden = !열까;
+    // 패널이 열리면 버튼은 감춘다. 안 그러면 패널 뒤로 반쯤 삐져나온다.
+    fab.hidden = 열까;
+    fab.setAttribute("aria-expanded", String(열까));
+    if (열까) { view("talk"); input.focus(); }
+  }
+  fab.addEventListener("click", function () { 열기(panel.hidden); });
+  document.getElementById("chat-close").addEventListener("click", function () {
+    열기(false);
+    fab.focus();
+  });
+  // 패널이 열려 있을 때 Esc 로 닫는다. 대화창의 기본 관습이다.
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !panel.hidden) 열기(false);
+  });
+  document.getElementById("chat-past").addEventListener("click", function () {
+    view(past.hidden ? "past" : "talk");
+  });
+  back.addEventListener("click", function () { view("talk"); });
+  document.getElementById("promote-cancel").addEventListener("click", function () {
+    view("talk");
+  });
+
+  function bubble(who, text) {
+    var el = document.createElement("div");
+    el.className = "bubble " + who;
+    el.textContent = text;
+    log.appendChild(el);
+    talk.scrollTop = talk.scrollHeight;
+    return el;
+  }
+
+  function 승격버튼(정리) {
+    var box = document.createElement("div");
+    box.className = "promote-cue";
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "primary";
+    b.textContent = "기록으로 올리기";
+    b.addEventListener("click", function () {
+      // 정리의 ① 절만 본문으로 옮긴다. ②·③ 은 아직 답 못 하는 것이다.
+      var 첫절 = 정리.split(/(?=②|## ②|\*\*②)/)[0]
+        .replace(/^[\s\S]*?(①[^\n]*\n)/, "").trim() || 정리.trim();
+      document.getElementById("promote-body").value = 첫절.slice(0, 2000);
+      document.getElementById("promote-title").value =
+        첫절.split("\n")[0].replace(/^[-*\s]+/, "").slice(0, 80);
+      view("promote");
+    });
+    var note = document.createElement("span");
+    note.className = "meta quiet";
+    note.textContent = "① 만 올라간다";
+    box.appendChild(b); box.appendChild(note);
+    log.appendChild(box);
+    talk.scrollTop = talk.scrollHeight;
+  }
 
   async function run(prompt, mode) {
     if (send.disabled) return;
     send.disabled = true;
-    out.hidden = false;
-    out.textContent = "";
-    say("묻는 중…");
+    if (mode !== "summary") bubble("me", prompt);
+    status.textContent = mode === "summary" ? "정리하는 중…" : "묻는 중…";
 
     var body = new URLSearchParams();
     body.set("prompt", prompt);
-    if (mode) body.set("mode", mode);
     body.set("_token", {{ token|tojson }});
+    if (mode) body.set("mode", mode);
     if (fresh && fresh.checked) body.set("fresh", "1");
     if (cli) body.set("cli", cli.value);
 
+    var el = null, 모은글 = "";
     try {
-      var res = await fetch("/web/topics/{{ ask.key }}/ask", {
-        method: "POST", body: body,
-      });
-      if (!res.ok) { say("보내지 못했습니다 (" + res.status + ")"); send.disabled = false; return; }
+      var res = await fetch("/web/topics/" + encodeURIComponent(key) + "/ask",
+                            { method: "POST", body: body });
+      if (!res.ok) { status.textContent = "보내지 못했습니다 (" + res.status + ")";
+                     send.disabled = false; return; }
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
       while (true) {
         var chunk = await reader.read();
         if (chunk.done) break;
         buf += dec.decode(chunk.value, { stream: true });
-        var blocks = buf.split("\n\n");
-        buf = blocks.pop();
+        var blocks = buf.split("\n\n"); buf = blocks.pop();
         blocks.forEach(function (block) {
           var name = "", data = "";
           block.split("\n").forEach(function (line) {
@@ -83,31 +259,37 @@
           if (!name) return;
           var payload = {};
           try { payload = JSON.parse(data); } catch (e) { return; }
-          if (name === "started") say(payload.resumed ? "이어서 묻는 중…" : "새 대화 시작…");
-          if (name === "message") out.textContent += payload.text;
-          if (name === "error") say(payload.message + (payload.fix ? " — " + payload.fix : ""));
+          if (name === "started") status.textContent = payload.resumed ? "이어서" : "새 대화";
+          if (name === "message") {
+            모은글 += payload.text;
+            if (!el) el = bubble(mode === "summary" ? "sum" : "ai", "");
+            el.textContent = 모은글;
+            talk.scrollTop = talk.scrollHeight;
+          }
+          if (name === "error") status.textContent =
+            payload.message + (payload.fix ? " — " + payload.fix : "");
           if (name === "done") {
-            say(payload.saved
-              ? "저장됨 · " + payload.saved + (payload.tokens ? " · " + payload.tokens + " 토큰" : "")
-              : "답을 받지 못했습니다");
-            input.value = "";
+            status.textContent = payload.saved
+              ? payload.saved + " 저장" + (payload.tokens ? " · " + payload.tokens : "")
+              : "답을 받지 못했습니다";
+            if (mode !== "summary") input.value = "";
+            if (mode === "summary" && 모은글) { 마지막정리 = 모은글; 승격버튼(모은글); }
           }
         });
       }
-    } catch (err) {
-      say("끊겼습니다: " + err);
-    }
+    } catch (err) { status.textContent = "끊겼습니다: " + err; }
     send.disabled = false;
   }
 
-  form.addEventListener("submit", function () {
-    var prompt = input.value.trim();
-    if (prompt) run(prompt, null);
+  send.addEventListener("click", function () {
+    var v = input.value.trim();
+    if (v) run(v, null);
   });
-  // 하루치 대화를 공부 기록으로 접는다. 프롬프트는 데몬이 들고 있다 —
-  // 화면에서 만들면 두 화면이 조금씩 다른 문장을 보내기 시작한다.
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send.click(); }
+  });
   document.getElementById("ask-sum").addEventListener("click", function () {
     run("", "summary");
   });
-})();
+}());
 </script>
