@@ -533,6 +533,23 @@
                     cursor: pointer; }
   ul.recs > li:hover { background: var(--rule-soft); border-radius: 8px; }
   /* 책 목차 — 장이 접혀 있다가 눌러 펼쳐진다. 적은 장은 처음부터 펼친다. */
+  /* 키워드 — **얻는 것**을 이름으로 늘어놓는다. 진도 막대가 아니다. */
+  ul.kw { list-style: none; margin: .5rem 0 0; padding: 0;
+          display: flex; flex-wrap: wrap; gap: .4rem; }
+  ul.kw a { display: inline-block; padding: .3rem .65rem; border-radius: 999px;
+            background: var(--key-soft); color: var(--key); font-size: var(--t-sm);
+            font-weight: 600; }
+  ul.kw a:hover { background: var(--key-fill); color: #fff; }
+
+  /* 받은 요약 — **내 글과 따로 그린다.** 파일도 따로다. */
+  .ch-sum { background: var(--panel-2); border-left: 3px solid var(--rule);
+            border-radius: 0 8px 8px 0; padding: .7rem .9rem; margin: .2rem 0 .6rem;
+            white-space: pre-wrap; font-size: var(--t-md); line-height: 1.7;
+            color: var(--ink-soft); }
+  .ch-sum.empty-sum { display: none; }
+  .ch-pick { display: inline-flex; align-items: center; gap: .35rem;
+             font-size: var(--t-sm); }
+
   ol.chapters { margin: .4rem 0 0; padding-left: 1.5rem; }
   ol.chapters li { padding: .15rem 0; }
   ol.chapters li::marker { color: var(--ink-faint); font-family: var(--mono);

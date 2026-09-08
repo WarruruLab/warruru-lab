@@ -1003,9 +1003,14 @@ def test_허브는_책을_안_들고_있다(client):
     assert 'href="/career/books"' in page
 
 
-def test_책_화면이_덮는_주제를_보여준다(client):
+def test_책에서_얻을_키워드를_보여준다(client):
+    """**"이 책에서 뭘 얻나" 가 책을 고를 때 묻는 것이다**(2026-09-08).
+
+    전에는 "덮는 주제 0 / 8" 이라는 진도 막대였는데, 그 숫자가 답하는
+    질문("얼마나 왔나")은 이 화면의 질문이 아니었다.
+    """
     page = client.get("/career/book/real-mysql").text
-    assert "이 책이 덮는 주제" in page
+    assert "얻을 수 있는 키워드" in page
     assert "인덱스" in page and "실행 계획" in page
     assert "DFS" not in page          # 다른 책의 주제는 안 섞인다
 
@@ -1026,9 +1031,9 @@ def test_묶음_열쇠로는_책_화면이_안_열린다(client):
 
 
 def test_책은_기록_구획을_따로_두지_않는다(client):
-    """맨 위 막대가 이미 그 숫자다. 두 번 세면 어느 쪽이 맞는지 헷갈린다."""
+    """키워드 칸이 이미 그 자리다. 두 번 세면 어느 쪽이 맞는지 헷갈린다."""
     page = client.get("/career/book/clean-code").text
-    assert page.count("이 책이 덮는 주제") == 1
+    assert page.count("얻을 수 있는 키워드") == 1
     assert "<h2>내 기록" not in page
 
 
@@ -1107,7 +1112,7 @@ def test_망가진_반납일은_없는_것으로_친다(client, home):
     """틀린 D-day 는 없는 것보다 나쁘다 — 그걸 믿고 일정을 짠다."""
     _book_note(home, "real-mysql", "---\nstate: 빌림\ndue: 곧\n---\n")
     page = client.get("/career/book/real-mysql").text
-    assert "D-" not in page.split("이 책이 덮는 주제")[1][:400]
+    assert "D-" not in page.split("얻을 수 있는 키워드")[1][:400]
 
 
 def test_목표가_있으면_맨_위에_뜬다(client, home):
