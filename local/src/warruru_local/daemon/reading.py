@@ -267,3 +267,45 @@ def save_chapter(ctx, key: str, num: str, text: str) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text[:NOTE_MAX].strip("\n") + "\n", encoding="utf-8")
     return True
+
+
+def save_book(ctx, key: str, title: str, url: str, body: str) -> bool:
+    """받아 본 목차를 책 노트로 앉힌다 (명세 §2.15 d).
+
+    **있으면 앞머리의 `toc:` 만 갈아 끼운다.** 빌린 날 · 반납일 · 읽기 상태는
+    사람이 적은 것이라 덮어쓰면 그 사실이 사라진다 — 자동화가 사람의 작업을
+    지우는 것은 자동화가 아니라 사고다.
+    """
+    from warruru_local.daemon.careerview import parse_front_matter
+
+    if not SLUG.match(key or "") or not title.strip():
+        return False
+    받은것, _ = parse_front_matter(f"---\n{body.strip()}\n---\n")
+    새목차 = [str(x) for x in (받은것.get("toc") or [])]
+    if not 새목차:
+        return False
+
+    path = paths.book_note_dir(ctx.settings.home) / f"{key}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    옛머리, 옛몸 = {}, ""
+    if path.is_file():
+        옛머리, 옛몸 = parse_front_matter(
+            path.read_text(encoding="utf-8", errors="replace"))
+
+    줄 = []
+    for 이름 in ("name", "state", "reading", "due", "at", "site"):
+        값 = 옛머리.get(이름)
+        if isinstance(값, str) and 값:
+            줄.append(f"{이름}: {값}")
+    if "name" not in 옛머리:
+        줄.insert(0, f"name: {title.strip()}")
+    if url.strip().startswith(("http://", "https://")) and "site" not in 옛머리:
+        줄.append(f"site: {url.strip()}")
+    줄.append("toc:")
+    줄 += [f"  - {item}" for item in 새목차]
+
+    몸 = 옛몸.strip("\n")
+    꼬리 = (받은것.get("_tail") or "").strip()
+    path.write_text("---\n" + "\n".join(줄) + "\n---\n\n" + (몸 + "\n" if 몸 else ""),
+                    encoding="utf-8")
+    return True
