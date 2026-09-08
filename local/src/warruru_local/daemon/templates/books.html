@@ -69,4 +69,122 @@
   </section>
   {% endfor %}
 </div>
+
+{# ── 책 더하기 — **제목과 링크만 주면 목차가 채워진다**(명세 §2.15 d) ──
+   27권의 목차를 손으로 옮겨 적는 것은 한 번은 되지만 다음 책부터 안 된다. #}
+<section class="tool" id="add-book">
+  <div class="work-head">
+    <h2>책 더하기</h2>
+    <span class="meta">제목과 링크를 주면 <strong>목차를 확인해</strong> 채운다</span>
+  </div>
+
+  <div class="cert-add">
+    <label class="chat-field">
+      <span>제목</span>
+      <input type="text" id="bk-title" placeholder="실전 레디스">
+    </label>
+    <label class="chat-field">
+      <span>키 — 주소가 된다</span>
+      <input type="text" id="bk-key" pattern="[a-z0-9][a-z0-9-]*"
+             placeholder="redis-practice">
+    </label>
+    <label class="chat-field">
+      <span>구매·소개 링크 — 여기서 목차를 확인한다</span>
+      <input type="url" id="bk-url" placeholder="https://www.yes24.com/...">
+    </label>
+  </div>
+  <div class="ask-row">
+    <select id="bk-cli" aria-label="어느 에이전트로">
+      <option value="codex">Codex</option>
+      <option value="claude">Claude</option>
+    </select>
+    <button type="button" id="bk-go" class="primary">목차 채우기</button>
+    <span class="meta quiet" id="bk-status"></span>
+  </div>
+  <p class="meta quiet">
+    <strong>확인 못 하면 지어내지 않는다.</strong> 링크를 못 열거나 목차를
+    못 찾으면 그렇게 말하고 멈춘다 — 짐작해서 적은 목차는 이 화면을 통째로
+    못 믿게 만든다.
+  </p>
+
+  <form id="bk-out" hidden method="post" action="/web/books/save">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <input type="hidden" name="key" id="bk-key-out">
+    <input type="hidden" name="title" id="bk-title-out">
+    <input type="hidden" name="url" id="bk-url-out">
+    <p class="meta"><strong>아직 저장 안 됐다.</strong> 고칠 것이 있으면 여기서 고친다.</p>
+    <textarea name="body" id="bk-text" class="body" rows="14"></textarea>
+    <div class="ask-row">
+      <button type="submit" class="primary">이대로 저장</button>
+      <button type="button" id="bk-cancel">버린다</button>
+    </div>
+  </form>
+</section>
+
+<script>
+(function () {
+  var go = document.getElementById("bk-go");
+  if (!go || !window.fetch) return;
+  var out = document.getElementById("bk-out");
+  var text = document.getElementById("bk-text");
+  var status = document.getElementById("bk-status");
+  document.getElementById("bk-cancel").addEventListener("click", function () {
+    out.hidden = true; text.value = ""; status.textContent = "버렸다.";
+  });
+
+  go.addEventListener("click", async function () {
+    var 제목 = document.getElementById("bk-title").value.trim();
+    var 키 = document.getElementById("bk-key").value.trim();
+    var 링크 = document.getElementById("bk-url").value.trim();
+    if (!제목 || !키) { status.textContent = "제목과 키를 적어 주세요"; return; }
+    if (go.disabled) return;
+    go.disabled = true;
+    status.textContent = "목차를 확인하는 중…";
+    out.hidden = false; text.value = "";
+    document.getElementById("bk-key-out").value = 키;
+    document.getElementById("bk-title-out").value = 제목;
+    document.getElementById("bk-url-out").value = 링크;
+
+    var body = new URLSearchParams();
+    body.set("_token", {{ token|tojson }});
+    body.set("title", 제목); body.set("url", 링크);
+    body.set("cli", document.getElementById("bk-cli").value);
+
+    var 모은글 = "";
+    try {
+      var res = await fetch("/web/books/fill", { method: "POST", body: body });
+      if (!res.ok) {
+        status.textContent = "보내지 못했습니다 (" + res.status + ")";
+        go.disabled = false; return;
+      }
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var blocks = buf.split("\n\n"); buf = blocks.pop();
+        blocks.forEach(function (block) {
+          var name = "", data = "";
+          block.split("\n").forEach(function (line) {
+            if (line.indexOf("event: ") === 0) name = line.slice(7);
+            if (line.indexOf("data: ") === 0) data = line.slice(6);
+          });
+          if (!name) return;
+          var payload = {};
+          try { payload = JSON.parse(data); } catch (e) { return; }
+          if (name === "message") { 모은글 += payload.text; text.value = 모은글; }
+          if (name === "error") status.textContent =
+            payload.message + (payload.fix ? " — " + payload.fix : "");
+          if (name === "done") status.textContent =
+            !모은글 ? "답을 받지 못했습니다"
+            : (모은글.indexOf("확인 못 함") >= 0
+               ? "목차를 확인하지 못했다 — 링크를 바꿔 다시 해 본다"
+               : "받았다 — 아직 저장 안 됐다");
+        });
+      }
+    } catch (err) { status.textContent = "끊겼습니다: " + err; }
+    go.disabled = false;
+  });
+}());
+</script>
 {% endblock %}

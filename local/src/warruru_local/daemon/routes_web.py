@@ -413,6 +413,117 @@ async def career_book(request: Request, key: str):
     )
 
 
+# 책 한 권을 채우는 프롬프트 (명세 §2.15 d).
+#
+# **확인 못 하면 지어내지 말라**는 한 줄이 핵심이다. 목차는 사실이라
+# 짐작해서 적으면 그 순간 이 화면을 못 믿게 된다 — 장 단위 진도를 안 쓰기로
+# 한 것과 같은 이유다.
+#
+# 남의 정리 글을 옮겨 담게 하지도 않는다. 받는 것은 **장 제목(사실)** 과
+# **그 장이 덮는 주제(연결)** 이고, 각 장의 문장은 사람이 쓴다.
+BOOK_FILL_PROMPT = (
+    "책 한 권의 **목차**를 앞머리 형식으로 정리해라.\n"
+    "\n"
+    "제목: {title}\n"
+    "참고 링크: {url}\n"
+    "\n"
+    "1. 링크를 열어 **실제 목차**를 확인해라. 못 열거나 목차를 못 찾으면"
+    " `# 확인 못 함` 한 줄만 내고 멈춰라 — **짐작해서 적지 마라.**\n"
+    "2. 확인했으면 아래 형식 그대로 낸다. 다른 말은 붙이지 마라.\n"
+    "\n"
+    "```\n"
+    "toc:\n"
+    "  - 1 | 장 제목 | 슬러그,슬러그\n"
+    "  - 2 | 장 제목\n"
+    "```\n"
+    "\n"
+    "슬러그는 아래 목록에 **있는 것만** 쓴다. 맞는 것이 없으면 그 칸을"
+    " 통째로 비운다 — 모르는 채로 두는 것이 틀리게 적는 것보다 낫다.\n"
+    "{slugs}\n"
+    "\n"
+    "그다음 빈 줄을 하나 두고 **이 책으로 준비할 수 있는 것**을 세 줄 안쪽으로"
+    " 적어라. 책 소개를 옮기지 말고, 이 책을 읽으면 어느 면접 질문에 답할 수"
+    " 있게 되는지를 적는다.\n"
+)
+
+
+@router.post("/web/books/fill")
+async def fill_book_form(
+    request: Request,
+    title: str = Form(...),
+    url: str = Form(""),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """책 정보를 주면 **에이전트가 목차를 확인해 채운다** (명세 §2.15 d).
+
+    27권의 목차를 손으로 옮겨 적는 것은 한 번은 되지만 다음 책부터 안 된다.
+    화면에서 제목과 링크만 주면 그 자리에서 채워지는 것이 이 기능이다.
+
+    **저장하지 않는다.** 받은 것을 화면에 보여주고 사람이 [이대로 저장] 을
+    눌러야 노트가 생긴다 — 목차는 사실이라 틀린 것이 조용히 앉으면 그
+    화면을 통째로 못 믿게 된다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+    if not title.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "NO_TITLE", "message": "책 제목을 적어 주세요"},
+        )
+
+    # 고를 수 있는 슬러그를 **함께 보낸다.** 없는 슬러그를 지어내면 그 장은
+    # 어느 화면에서도 안 보인다.
+    골라쓸것 = ", ".join(topics.all_slugs())
+    물음 = asking.Ask(
+        topic_slug="book",
+        prompt=BOOK_FILL_PROMPT.format(
+            title=title.strip(), url=url.strip() or "(없음)", slugs=골라쓸것),
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        async for name, data in asking.run(물음):
+            if name == "started":
+                continue
+            yield _sse(name, data)
+        yield _sse("done", {})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/web/books/save")
+async def save_book_form(
+    request: Request,
+    key: str = Form(...),
+    title: str = Form(...),
+    url: str = Form(""),
+    body: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """받아 본 목차를 책 노트로 앉힌다. **있으면 앞머리만 갈아 끼운다** —
+    빌린 날과 반납일까지 덮어쓰면 그 사실이 사라진다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not reading.save_book(ctx, key.strip(), title, url, body):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_BOOK",
+                    "message": "열쇠는 영문 소문자·숫자·붙임표, 제목은 비울 수 없습니다"},
+        )
+    return RedirectResponse(f"/career/book/{quote(key.strip())}", status_code=303)
+
+
 @router.post("/web/books/{key}/chapter")
 async def save_chapter_form(
     request: Request,
