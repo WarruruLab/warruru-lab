@@ -404,9 +404,33 @@ async def career_book(request: Request, key: str):
         request, "career_group.html",
         {
             "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
+            # **목차가 책 화면의 주인공이다.** 전에는 "덮는 주제 0/8" 과
+            # 반납일뿐이라, 실제로 무엇이 들어 있는 책인지가 화면 어디에도
+            # 없었다.
+            "toc": reading.toc(ctx, key),
             "token": ctx.settings.token,
         },
     )
+
+
+@router.post("/web/books/{key}/chapter")
+async def save_chapter_form(
+    request: Request,
+    key: str,
+    num: str = Form(...),
+    text: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """장 노트 하나를 저장한다. **자동 저장이 부르는 자리**라 HTML 을 안
+    돌려준다 — 화면이 통째로 다시 그려지면 쓰던 자리를 잃는다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not reading.save_chapter(ctx, key, num, text):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 책이나 장이 없습니다"},
+        )
+    return {"saved_at": to_iso(ctx.clock.now())}
 
 
 @router.get("/career/companies")

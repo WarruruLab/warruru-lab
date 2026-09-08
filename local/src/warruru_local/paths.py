@@ -125,6 +125,15 @@ def stack_note_dir(home: Path) -> Path:
     return career_dir(home) / "stacks"
 
 
+def book_chapter_dir(home: Path, key: str) -> Path:
+    """책 하나의 **장별 노트**. 날짜별 노트와 따로 둔다(명세 §2.9 b).
+
+    날짜 노트는 "그날 뭘 읽었나" 이고 장 노트는 "이 장은 무엇이었나" 다.
+    한 책을 두 번 읽으면 날짜는 갈리지만 장은 같은 자리에 쌓여야 한다.
+    """
+    return book_note_dir(home) / key / "chapters"
+
+
 def answer_dir(home: Path) -> Path:
     """주제별로 물어보고 받은 답. **기록도 참고도 아니다.**
 

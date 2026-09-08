@@ -194,3 +194,76 @@ def parse_candidates(text: str, slugs: list[str]) -> dict:
         })
     skipped = [str(x)[:300] for x in (made.get("skipped") or []) if str(x).strip()]
     return {"records": rows, "skipped": skipped[:5], "broken": False}
+
+
+# ── 목차와 장별 노트 (2026-09-08) ────────────────────────────────
+#
+# **책을 눌렀을 때 목차가 있어야 한다.** 전에는 책 화면이 "이 책이 덮는
+# 주제 0/8" 과 반납일뿐이었다 — 실제로 무엇이 들어 있는 책인지가 화면
+# 어디에도 없었다.
+#
+# 목차는 **사실이라 확인해서 적는다**(노트 앞머리의 `toc:`). 각 장의 본문은
+# 내가 쓴다 — 남이 정리한 글을 옮겨 담으면 그건 기록이 아니라 사본이고,
+# 이 도구가 계속 지켜 온 선을 여기서 깨게 된다(AGENTS.md §5).
+
+CHAPTER = re.compile(r"^[0-9]{1,3}$")
+
+
+def toc(ctx, key: str) -> list[dict]:
+    """책의 목차. `장번호 | 제목 | 슬러그,슬러그` 로 적는다.
+
+    슬러그는 비워도 된다 — **아직 어느 주제인지 모르는 장이 있는 것이
+    정상이다.** 모르는 채로 두는 것이 틀리게 적는 것보다 낫다.
+    """
+    from warruru_local import topics
+    from warruru_local.daemon.careerview import _fields, parse_front_matter
+
+    path = paths.book_note_dir(ctx.settings.home) / f"{key}.md"
+    if not path.is_file():
+        return []
+    meta, _ = parse_front_matter(path.read_text(encoding="utf-8", errors="replace"))
+    쓴것 = chapters(ctx, key)
+    made = []
+    for item in meta.get("toc") or []:
+        번호, 제목, 슬러그 = _fields(item, 3)
+        if not 번호 or not CHAPTER.match(번호):
+            continue
+        붙은주제 = [s.strip() for s in 슬러그.split(",") if s.strip()]
+        made.append({
+            "num": 번호, "title": 제목,
+            "slugs": [{"slug": s, "label": topics.label_of(s)} for s in 붙은주제],
+            "text": 쓴것.get(번호, ""),
+            "written": bool(쓴것.get(번호, "").strip()),
+        })
+    return made
+
+
+def chapter_path(ctx, key: str, num: str):
+    """장 노트 경로. 장 번호가 숫자가 아니면 `None` 이다 —
+    이 값이 그대로 파일 이름이 된다."""
+    if not SLUG.match(key) or not CHAPTER.match(num or ""):
+        return None
+    return paths.book_chapter_dir(ctx.settings.home, key) / f"{num}.md"
+
+
+def chapters(ctx, key: str) -> dict[str, str]:
+    """이 책에 내가 쓴 장 노트 전부."""
+    root = paths.book_chapter_dir(ctx.settings.home, key)
+    if not SLUG.match(key) or not root.is_dir():
+        return {}
+    made = {}
+    for path in root.glob("*.md"):
+        if CHAPTER.match(path.stem):
+            made[path.stem] = path.read_text(
+                encoding="utf-8", errors="replace").strip()
+    return made
+
+
+def save_chapter(ctx, key: str, num: str, text: str) -> bool:
+    """장 노트 하나를 쓴다. 자동 저장이 부르는 자리다."""
+    path = chapter_path(ctx, key, num)
+    if path is None:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text[:NOTE_MAX].strip("\n") + "\n", encoding="utf-8")
+    return True
