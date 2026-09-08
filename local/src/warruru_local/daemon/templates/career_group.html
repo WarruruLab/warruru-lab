@@ -38,6 +38,70 @@
   <p><a class="btn primary" href="/career/book/{{ view.key }}/today">오늘 읽기 →</a>
      <span class="meta quiet">노트를 쓰고 기록으로 올린다</span></p>
 </section>
+
+{# ── 목차 ──
+   **목차가 이 화면의 주인공이다.** 전에는 "덮는 주제 0/8" 과 반납일뿐이라
+   실제로 무엇이 들어 있는 책인지가 화면 어디에도 없었다.
+
+   장 제목은 출판사·서점 페이지에서 확인한 **사실**이고, 각 장의 본문은
+   내가 쓴다 — 남이 정리한 글을 옮겨 담으면 그건 기록이 아니라 사본이다. #}
+{% if toc %}
+<section class="tool" id="toc">
+  <div class="work-head">
+    <h2>목차 {{ toc|selectattr('written')|list|length }} / {{ toc|length }}</h2>
+    <span class="meta">장을 눌러 펼치고 내 말로 적는다</span>
+  </div>
+  <ol class="chapters">
+    {% for ch in toc %}
+    <li>
+      <details {{ 'open' if ch.written }}>
+        <summary>
+          <b>{{ ch.num }}장 {{ ch.title }}</b>
+          {% if ch.written %}<span class="badge ok">적음</span>{% endif %}
+          {% for s in ch.slugs %}<a class="badge" href="/t/{{ s.slug }}">{{ s.label }}</a>{% endfor %}
+        </summary>
+        <div class="ch-body">
+          <textarea class="ch-text" data-num="{{ ch.num }}" rows="{{ 10 if ch.written else 4 }}"
+                    placeholder="이 장이 무엇이었는지 내 말로. 옆의 주제로 기록을 남기면 초안의 재료가 된다."
+                    >{{ ch.text }}</textarea>
+          <span class="when ch-status" id="ch-st-{{ ch.num }}"></span>
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<script>
+(function () {
+  // 자동 저장 — 멈췄을 때 한 번. 책 노트·스택 정리와 같은 규약이다.
+  var token = {{ token|tojson }};
+  var key = {{ view.key|tojson }};
+  document.querySelectorAll(".ch-text").forEach(function (box) {
+    var num = box.dataset.num;
+    var status = document.getElementById("ch-st-" + num);
+    var timer = null, 보낸것 = box.value;
+    async function save() {
+      if (box.value === 보낸것) return;
+      var 보낼것 = box.value;
+      status.textContent = "저장 중…";
+      var body = new URLSearchParams();
+      body.set("_token", token); body.set("num", num); body.set("text", 보낼것);
+      try {
+        var res = await fetch("/web/books/" + encodeURIComponent(key) + "/chapter",
+                              { method: "POST", body: body });
+        if (!res.ok) { status.textContent = "저장 실패 (" + res.status + ")"; return; }
+        보낸것 = 보낼것; status.textContent = "저장됨";
+      } catch (e) { status.textContent = "저장 실패"; }
+    }
+    box.addEventListener("input", function () {
+      status.textContent = "…"; clearTimeout(timer); timer = setTimeout(save, 1200);
+    });
+    box.addEventListener("blur", function () { clearTimeout(timer); save(); });
+  });
+}());
+</script>
+{% endif %}
 {% endif %}
 
 {% if view.axis == "ai" %}

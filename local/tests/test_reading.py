@@ -310,3 +310,68 @@ def test_버튼이_글자로_안_새어_나온다(client):
     """macro 에 HTML 문자열을 넘겼더니 그대로 화면에 찍혔다."""
     page = client.get("/career/books").text
     assert "&lt;a class=" not in page and '<a class="btn" href' in page
+
+
+# ── 목차 (2026-09-08) ────────────────────────────────────────────
+#
+# **책을 눌렀을 때 목차가 있어야 한다.** 전에는 "덮는 주제 0/8" 과 반납일
+# 뿐이라, 실제로 무엇이 들어 있는 책인지가 화면 어디에도 없었다.
+
+def test_목차를_앞머리에서_읽는다(client, home):
+    from warruru_local import paths
+
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "kafka-practice.md").write_text(
+        "---\nstate: 빌림\n"
+        "toc:\n"
+        "  - 1 | 카프카 개요 | kafka-basics\n"
+        "  - 2 | 카프카 환경 구성\n"
+        "---\n\n메모\n", encoding="utf-8")
+    목차 = reading.toc(client.app.state.ctx, "kafka-practice")
+    assert [c["num"] for c in 목차] == ["1", "2"]
+    assert 목차[0]["title"] == "카프카 개요"
+    # **슬러그는 비워도 된다.** 아직 어느 주제인지 모르는 장이 있는 것이
+    # 정상이고, 모르는 채로 두는 것이 틀리게 적는 것보다 낫다.
+    assert [s["slug"] for s in 목차[0]["slugs"]] == ["kafka-basics"]
+    assert 목차[1]["slugs"] == []
+
+
+def test_장별_노트는_날짜_노트와_따로_쌓인다(client, home, ctx):
+    """날짜 노트는 '그날 뭘 읽었나' 이고 장 노트는 '이 장은 무엇이었나' 다.
+    한 책을 두 번 읽으면 날짜는 갈리지만 장은 같은 자리에 쌓여야 한다."""
+    from warruru_local import paths
+
+    token = ctx.settings.token
+    res = client.post("/web/books/kafka-practice/chapter", data={
+        "_token": token, "num": "3", "text": "파티션과 오프셋을 내 말로",
+    })
+    assert res.status_code == 200 and res.json()["saved_at"]
+    path = paths.book_chapter_dir(home, "kafka-practice") / "3.md"
+    assert path.is_file() and "파티션과 오프셋" in path.read_text(encoding="utf-8")
+    assert reading.chapters(ctx, "kafka-practice")["3"].startswith("파티션과")
+
+
+@pytest.mark.parametrize("key,num", [
+    ("../etc", "1"), ("kafka-practice", "../x"), ("kafka-practice", "abc"),
+    ("kafka-practice", ""),
+])
+def test_장_경로가_홈_밖으로_안_샌다(ctx, key, num):
+    """책 열쇠와 장 번호가 그대로 파일 경로가 된다."""
+    assert reading.chapter_path(ctx, key, num) is None
+    assert reading.save_chapter(ctx, key, num, "본문") is False
+
+
+def test_장_저장도_토큰을_요구한다(client):
+    assert client.post("/web/books/kafka-practice/chapter",
+                       data={"num": "1", "text": "글"}).status_code == 401
+
+
+def test_책_화면에_목차가_선다(client, home):
+    from warruru_local import paths
+
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "kafka-practice.md").write_text(
+        "---\ntoc:\n  - 1 | 카프카 개요 | kafka-basics\n---\n", encoding="utf-8")
+    page = client.get("/career/book/kafka-practice").text
+    assert "<h2>목차 0 / 1</h2>" in page
+    assert "1장 카프카 개요" in page

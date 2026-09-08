@@ -532,6 +532,20 @@
   .pick-box input { width: 17px; height: 17px; accent-color: var(--key-fill);
                     cursor: pointer; }
   ul.recs > li:hover { background: var(--rule-soft); border-radius: 8px; }
+  /* 책 목차 — 장이 접혀 있다가 눌러 펼쳐진다. 적은 장은 처음부터 펼친다. */
+  ol.chapters { margin: .4rem 0 0; padding-left: 1.5rem; }
+  ol.chapters li { padding: .15rem 0; }
+  ol.chapters li::marker { color: var(--ink-faint); font-family: var(--mono);
+                           font-size: var(--t-xs); }
+  ol.chapters summary { cursor: pointer; padding: .35rem 0;
+                        display: flex; align-items: center; gap: .45rem;
+                        flex-wrap: wrap; }
+  ol.chapters summary:hover b { color: var(--key); }
+  ol.chapters summary b { font-size: var(--t-md); font-weight: 600; }
+  .ch-body { padding: .2rem 0 .8rem; }
+  .ch-text { width: 100%; resize: vertical; }
+  .ch-status { margin-left: .2rem; }
+
   .cert-add { display: flex; flex-direction: column; gap: .6rem; max-width: 26rem; }
   .cert-add button { align-self: flex-start; }
   details.mine { flex-basis: 100%; font-size: var(--t-sm); }
