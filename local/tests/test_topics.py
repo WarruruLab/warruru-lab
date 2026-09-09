@@ -445,3 +445,20 @@ def test_TOPCIT_은_인프라_자격증이_아니다():
             "terraform-", "jpa-", "spring-")
     assert not [s for s in slugs if s.startswith(금지)]
     assert len(slugs) == len(set(slugs))
+
+
+def test_AI_앱_개발_올인원_가이드는_따로_있는_책이_아니다():
+    """**부제였다**(2026-09-09 확인). 『AI 에이전트 엔지니어링: 단일
+    에이전트부터 멀티 에이전트 시스템까지, AI 앱 개발 올인원 가이드』.
+
+    목차를 채우려고 서점을 훑다가 드러났다. 두 줄로 두면 같은 책을 두 번
+    세고 진도도 두 곳에서 따로 오른다. 슬러그는 합쳐서 옮겼다 — 줄만
+    지우면 LLM · RAG 열한 개가 어느 책에도 안 붙는다.
+    """
+    from warruru_local.topics import BOOK_GROUPS
+
+    키들 = [key for key, _, _ in BOOK_GROUPS]
+    assert "ai-app-guide" not in 키들
+    슬러그 = dict((k, s) for k, _, s in BOOK_GROUPS)["ai-agent-eng"]
+    for 옮긴것 in ("llm-token-context", "rag-chunking", "rag-reranking"):
+        assert 옮긴것 in 슬러그, 옮긴것
