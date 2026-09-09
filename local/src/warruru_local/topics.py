@@ -839,18 +839,22 @@ BOOK_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
     # AI 축의 재료. **공식문서도 여기 둔다** — 종이인지 아닌지가 아니라
     # "읽으면 어느 주제가 채워지는가" 가 이 목록의 기준이다.
+    # **`ai-app-guide` 는 따로 있던 것이 아니었다**(2026-09-09 확인).
+    # "AI 앱 개발 올인원 가이드" 는 이 책의 **부제**다 —
+    # 『AI 에이전트 엔지니어링: 단일 에이전트부터 멀티 에이전트 시스템까지,
+    # AI 앱 개발 올인원 가이드』(마이클 알바다 · 한빛미디어 2026-01).
+    # 목차를 채우려고 서점을 훑다가 드러났다. 두 줄로 두면 같은 책을 두 번
+    # 세고, 진도도 두 곳에서 따로 오른다. **슬러그는 합쳐서 옮긴다** —
+    # 줄만 지우면 LLM · RAG 열한 개가 어느 책에도 안 붙는다.
     ("ai-agent-eng", "AI 에이전트 엔지니어링", (
         "agent-loop", "agent-tool-use", "agent-context-window", "agent-memory",
         "agent-planning", "agent-guardrail", "agent-failure-recovery",
         "multi-agent-orchestration", "multi-agent-handoff",
         "multi-agent-shared-state", "multi-agent-cost", "multi-agent-necessity",
         "llm-structured-output", "llm-eval",
-    )),
-    ("ai-app-guide", "AI 앱 개발 올인원 가이드", (
         "llm-token-context", "llm-prompt-design", "llm-sampling",
-        "llm-structured-output", "llm-streaming", "llm-cost-latency",
-        "llm-prompt-cache", "rag-chunking", "rag-embedding",
-        "rag-vector-search", "rag-reranking",
+        "llm-streaming", "llm-cost-latency", "llm-prompt-cache",
+        "rag-chunking", "rag-embedding", "rag-vector-search", "rag-reranking",
     )),
     ("claude-code-docs", "Claude Code 공식문서", (
         "agent-hook", "agent-skill", "agent-plugin", "agent-tool-use",
