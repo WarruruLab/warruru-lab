@@ -1343,7 +1343,7 @@ def test_내려도_파일은_안_지운다(client, home):
     path = paths.cert_dir(home) / "topcit.md"
     assert path.is_file() and "기출 3개년" in path.read_text(encoding="utf-8")
     page = client.get("/career/certs").text
-    assert "내린 것 1" in page and "다시 올린다" in page
+    assert "<h2>내린 것</h2>" in page and "다시 준비한다" in page
 
 
 def test_딴_것은_볼_것에서_빠진다(client, home):
@@ -1351,7 +1351,11 @@ def test_딴_것은_볼_것에서_빠진다(client, home):
     token = client.app.state.ctx.settings.token
     client.post("/web/certs/sqld/status", follow_redirects=False,
                 data={"_token": token, "status": "보유"})
-    assert "딴 것 1" in client.get("/career/certs").text
+    page = client.get("/career/certs").text
+    assert "<h2>딴 것</h2>" in page
+    # 준비 중 칸에서는 빠진다.
+    준비 = page[page.index("<h2>준비 중</h2>"):page.index("<h2>딴 것</h2>")]
+    assert "SQLD" not in 준비
 
 
 def test_상태_변경도_토큰을_요구한다(client, home):
@@ -1517,3 +1521,25 @@ def test_화면이_동그라미가_무엇을_하는지_말한다(client, home):
     page = client.get("/career/cert/topcit").text
     assert "동그라미를 누르면 하나 오른다" in page
     assert "시험 단계" in page          # 배지가 뭔지도 말한다
+
+
+def test_목록_줄에서_오늘_할_일이_보인다(client, home):
+    """전에는 이름과 D-day 와 버튼 둘뿐이라, 무엇을 해야 하는지 알려면
+    **하나하나 들어가야 했다**(2026-09-09 사용자 지적)."""
+    _cert(home, "topcit", (
+        "---\nstatus: 준비중\n"
+        "stages:\n  - 정기평가 | 준비중\n"
+        "curriculum:\n  - 정기평가 | 에센스 정독 | 4영역\n"
+        "exams:\n  - 2026-08-21 | 정기평가 | | | 정기평가\n"
+        "---\n\n# 메모\n"
+    ))
+    page = client.get("/career/certs").text
+    assert "→ 에센스 정독" in page
+    assert "0 /\n        1항목" in page or "1항목" in page
+
+
+def test_일정이_없으면_무엇을_해야_하는지_말한다(client, home):
+    """'일정 미정' 만 띄우면 그 줄에서 할 수 있는 일이 없다."""
+    _cert(home, "aws-saa", "---\nstatus: 준비중\n---\n\n# 메모\n")
+    page = client.get("/career/certs").text
+    assert "시험 일정을 노트에 적어야 시작한다" in page

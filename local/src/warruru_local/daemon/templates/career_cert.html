@@ -152,10 +152,10 @@
 <section class="tool">
   <h2>이 자격증을 어떻게 둘까</h2>
   <p class="meta">
-    <strong>목록에 어디로 설지</strong> 정한다 — 볼 것 · 딴 것 · 안 본다.
+    <strong>목록에 어디로 설지</strong> 정한다 — 준비 중 · 딴 것 · 내린 것.
   </p>
   <div class="ask-row">
-    {% for label, status in [("볼 것으로", "준비중"), ("땄다", "보유"), ("안 본다", "안 함")] %}
+    {% for label, status in [("준비한다", "준비중"), ("땄다", "보유"), ("안 본다", "안 함")] %}
     <form class="inline" method="post" action="/web/certs/{{ view.key }}/status">
       <input type="hidden" name="_token" value="{{ token }}">
       <input type="hidden" name="status" value="{{ status }}">
