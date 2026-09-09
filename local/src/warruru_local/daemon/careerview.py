@@ -466,7 +466,14 @@ def build_books(ctx) -> dict:
     통["읽는 중"].sort(key=급한순)
     통["다음에"].sort(key=요구순)
     통["안 정한 것"].sort(key=요구순)
-    return {"groups": 통, "states": BOOK_STATES}
+    return {
+        "groups": 통,
+        "states": BOOK_STATES,
+        # **책장 — 등록된 전부.** 전에는 '다음에 읽을 것' 여섯 권만 보였다.
+        # 26권을 갖고 있는데 그중 여섯만 보이면 나머지는 없는 것과 같다.
+        # 순서는 공고가 요구하는 순이다 — 무엇부터 볼지가 그 순서다.
+        "shelf": sorted(made, key=요구순),
+    }
 
 
 def deadlines(ctx) -> list[dict]:

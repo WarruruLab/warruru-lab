@@ -241,7 +241,8 @@ def test_책_목록이_상태로_갈린다(client, ctx):
     from warruru_local.daemon import careerview
     careerview.set_book_state(ctx, "kafka-practice", "읽는 중")
     page = client.get("/career/books").text
-    읽는중 = page[page.index("<h2>읽는 중</h2>"):page.index("<h2>다음에 읽을 것</h2>")]
+    # '다음에 읽을 것' 여섯 권 대신 **책장(전부)** 이 아래에 온다(2026-09-09).
+    읽는중 = page[page.index("<h2>읽는 중</h2>"):page.index("<h2>중단</h2>")]
     assert "실전 카프카" in 읽는중
     assert "오늘 읽기" in 읽는중
 
@@ -302,7 +303,7 @@ def test_빌린_책이_읽는_중에_선다(client, ctx, home):
     (paths.book_note_dir(home) / "kafka-practice.md").write_text(
         "---\nstate: 빌림\ndue: 2026-10-04\n---\n", encoding="utf-8")
     page = client.get("/career/books").text
-    읽는중 = page[page.index("<h2>읽는 중</h2>"):page.index("<h2>다음에 읽을 것</h2>")]
+    읽는중 = page[page.index("<h2>읽는 중</h2>"):page.index("<h2>중단</h2>")]
     assert "실전 카프카" in 읽는중
 
 
@@ -435,3 +436,28 @@ def test_키워드는_목차의_주제를_모은다(client, home):
     말들 = reading.keywords(client.app.state.ctx, "kafka-practice")
     # 겹치는 것은 한 번만.
     assert [k["slug"] for k in 말들] == ["kafka-basics", "kafka-partition-offset"]
+
+
+def test_책장에_등록된_전부가_선다(client):
+    """전에는 '다음에 읽을 것' 여섯 권만 보였다. 26권을 갖고 있는데 그중
+    여섯만 보이면 나머지는 없는 것과 같다(2026-09-09)."""
+    from warruru_local import topics
+
+    page = client.get("/career/books").text
+    책장 = page[page.index("<h2>책장</h2>"):]
+    for key, _, _ in topics.BOOK_GROUPS:
+        assert f'href="/career/book/{key}"' in 책장, key
+
+
+def test_읽는_상태_셋이_나란히_온다(client, ctx):
+    """읽는 중 · 중단 · 다 읽음. 각 칸은 다섯 권이 보이는 높이이고
+    넘으면 그 안에서 스크롤한다 — 칸마다 길이가 제각각이면 아래
+    책장이 위아래로 밀린다."""
+    from warruru_local.daemon import careerview
+
+    careerview.set_book_state(ctx, "kafka-practice", "읽는 중")
+    page = client.get("/career/books").text
+    머리 = page[:page.index("<h2>책장</h2>")]
+    for 이름 in ("읽는 중", "중단", "다 읽음"):
+        assert f"<h2>{이름}</h2>" in 머리, 이름
+    assert 'class="picks shelf-5"' in 머리

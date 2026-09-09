@@ -10,7 +10,8 @@
 
 {% macro 줄(book, 라벨) %}
 <li>
-  <a href="/career/book/{{ book.key }}">{{ book.label }}</a>
+  <a class="bk-name" href="/career/book/{{ book.key }}"
+     title="{{ book.label }}">{{ book.label }}</a>
   {% for cert in book.certs %}<span class="badge">{{ cert }}</span>{% endfor %}
   {% if book.companies %}<span class="badge due">공고 {{ book.companies|length }}곳</span>{% endif %}
   {% if book.days is not none %}
@@ -29,162 +30,46 @@
 </li>
 {% endmacro %}
 
-<section class="tool">
-  <h2>읽는 중</h2>
-  <p class="meta">눌러서 오늘 읽기로. 칸은 <strong>덮는 주제 중 기록이 있는 것</strong>이다 —
-    몇 장 읽었나가 아니라 <strong>몇 개를 남겼나</strong>.</p>
-  {% if view.groups["읽는 중"] %}
-  <ul class="picks">
-    {% for book in view.groups["읽는 중"] %}
-      {{ 줄(book, "오늘 읽기") }}
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="empty">읽는 중인 책이 없다. 아래에서 하나 골라 [읽기 시작] 을 누른다.</p>
-  {% endif %}
-</section>
-
-<section class="tool">
-  <h2>다음에 읽을 것</h2>
-  <p class="meta">공고가 요구하는 주제를 많이 덮는 순. 자격증과 겹치면 배지가 붙는다.</p>
-  <ul class="picks">
-    {% for book in (view.groups["다음에"] + view.groups["안 정한 것"])[:6] %}
-      {{ 줄(book, "읽기 시작") }}
-    {% endfor %}
-  </ul>
-</section>
-
-<div class="two">
-  {% for 이름 in ["중단", "다 읽음"] %}
+{# **읽는 상태 셋이 위에 나란히 온다**(2026-09-09). 각 칸은 다섯 권이
+   보이는 높이이고 넘으면 그 안에서 스크롤한다 — 칸마다 길이가 제각각이면
+   아래 책장이 위아래로 밀린다. #}
+<div class="three">
+  {% for 이름, 라벨, 빈말 in [
+        ("읽는 중", "오늘 읽기", "읽는 중인 책이 없다. 아래 책장에서 [읽기 시작] 을 누른다."),
+        ("중단", "다시 읽기", "없다."),
+        ("다 읽음", "다시 보기", "아직 없다.")] %}
   <section class="tool">
-    <h2>{{ 이름 }} {{ view.groups[이름]|length }}권</h2>
+    <div class="work-head">
+      <h2>{{ 이름 }}</h2>
+      <span class="meta"><b class="num">{{ view.groups[이름]|length }}</b>권</span>
+    </div>
     {% if view.groups[이름] %}
-    <ul class="picks">
-      {% for book in view.groups[이름] %}
-      <li><a href="/career/book/{{ book.key }}">{{ book.label }}</a>
-        <span class="gauge-read">{{ book.progress.covered }}/{{ book.progress.total }}</span></li>
-      {% endfor %}
+    <ul class="picks shelf-5">
+      {% for book in view.groups[이름] %}{{ 줄(book, 라벨) }}{% endfor %}
     </ul>
-    {% else %}<p class="empty">아직 없다.</p>{% endif %}
+    {% else %}<p class="empty">{{ 빈말 }}</p>{% endif %}
   </section>
   {% endfor %}
 </div>
 
-{# ── 책 더하기 — **제목과 링크만 주면 목차가 채워진다**(명세 §2.15 d) ──
-   27권의 목차를 손으로 옮겨 적는 것은 한 번은 되지만 다음 책부터 안 된다. #}
-<section class="tool" id="add-book">
+{# ── 책장 — **등록된 전부** ──
+   전에는 '다음에 읽을 것' 여섯 권만 보였다. 26권을 갖고 있는데 그중
+   여섯만 보이면 나머지는 없는 것과 같다. #}
+<section class="tool">
   <div class="work-head">
-    <h2>책 더하기</h2>
-    <span class="meta">제목과 링크를 주면 <strong>목차를 확인해</strong> 채운다</span>
-  </div>
-
-  <div class="cert-add">
-    <label class="chat-field">
-      <span>제목</span>
-      <input type="text" id="bk-title" placeholder="실전 레디스">
-    </label>
-    <label class="chat-field">
-      <span>키 — 주소가 된다</span>
-      <input type="text" id="bk-key" pattern="[a-z0-9][a-z0-9-]*"
-             placeholder="redis-practice">
-    </label>
-    <label class="chat-field">
-      <span>구매·소개 링크 — 여기서 목차를 확인한다</span>
-      <input type="url" id="bk-url" placeholder="https://www.yes24.com/...">
-    </label>
-  </div>
-  <div class="ask-row">
-    <select id="bk-cli" aria-label="어느 에이전트로">
-      <option value="codex">Codex</option>
-      <option value="claude">Claude</option>
-    </select>
-    <button type="button" id="bk-go" class="primary">목차 채우기</button>
-    <span class="meta quiet" id="bk-status"></span>
+    <h2>책장</h2>
+    <span class="meta"><b class="num">{{ view.shelf|length }}</b>권 ·
+      공고가 요구하는 순</span>
   </div>
   <p class="meta quiet">
-    <strong>확인 못 하면 지어내지 않는다.</strong> 링크를 못 열거나 목차를
-    못 찾으면 그렇게 말하고 멈춘다 — 짐작해서 적은 목차는 이 화면을 통째로
-    못 믿게 만든다.
+    칸은 <strong>덮는 주제 중 기록이 있는 것</strong>이다 — 몇 장 읽었나가
+    아니라 <strong>몇 개를 남겼나</strong>. 자격증과 겹치면 배지가 붙는다.
   </p>
-
-  <form id="bk-out" hidden method="post" action="/web/books/save">
-    <input type="hidden" name="_token" value="{{ token }}">
-    <input type="hidden" name="key" id="bk-key-out">
-    <input type="hidden" name="title" id="bk-title-out">
-    <input type="hidden" name="url" id="bk-url-out">
-    <p class="meta"><strong>아직 저장 안 됐다.</strong> 고칠 것이 있으면 여기서 고친다.</p>
-    <textarea name="body" id="bk-text" class="body" rows="14"></textarea>
-    <div class="ask-row">
-      <button type="submit" class="primary">이대로 저장</button>
-      <button type="button" id="bk-cancel">버린다</button>
-    </div>
-  </form>
+  <ul class="picks shelf-10">
+    {% for book in view.shelf %}
+      {{ 줄(book, "오늘 읽기") }}
+    {% endfor %}
+  </ul>
 </section>
 
-<script>
-(function () {
-  var go = document.getElementById("bk-go");
-  if (!go || !window.fetch) return;
-  var out = document.getElementById("bk-out");
-  var text = document.getElementById("bk-text");
-  var status = document.getElementById("bk-status");
-  document.getElementById("bk-cancel").addEventListener("click", function () {
-    out.hidden = true; text.value = ""; status.textContent = "버렸다.";
-  });
-
-  go.addEventListener("click", async function () {
-    var 제목 = document.getElementById("bk-title").value.trim();
-    var 키 = document.getElementById("bk-key").value.trim();
-    var 링크 = document.getElementById("bk-url").value.trim();
-    if (!제목 || !키) { status.textContent = "제목과 키를 적어 주세요"; return; }
-    if (go.disabled) return;
-    go.disabled = true;
-    status.textContent = "목차를 확인하는 중…";
-    out.hidden = false; text.value = "";
-    document.getElementById("bk-key-out").value = 키;
-    document.getElementById("bk-title-out").value = 제목;
-    document.getElementById("bk-url-out").value = 링크;
-
-    var body = new URLSearchParams();
-    body.set("_token", {{ token|tojson }});
-    body.set("title", 제목); body.set("url", 링크);
-    body.set("cli", document.getElementById("bk-cli").value);
-
-    var 모은글 = "";
-    try {
-      var res = await fetch("/web/books/fill", { method: "POST", body: body });
-      if (!res.ok) {
-        status.textContent = "보내지 못했습니다 (" + res.status + ")";
-        go.disabled = false; return;
-      }
-      var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
-      while (true) {
-        var chunk = await reader.read();
-        if (chunk.done) break;
-        buf += dec.decode(chunk.value, { stream: true });
-        var blocks = buf.split("\n\n"); buf = blocks.pop();
-        blocks.forEach(function (block) {
-          var name = "", data = "";
-          block.split("\n").forEach(function (line) {
-            if (line.indexOf("event: ") === 0) name = line.slice(7);
-            if (line.indexOf("data: ") === 0) data = line.slice(6);
-          });
-          if (!name) return;
-          var payload = {};
-          try { payload = JSON.parse(data); } catch (e) { return; }
-          if (name === "message") { 모은글 += payload.text; text.value = 모은글; }
-          if (name === "error") status.textContent =
-            payload.message + (payload.fix ? " — " + payload.fix : "");
-          if (name === "done") status.textContent =
-            !모은글 ? "답을 받지 못했습니다"
-            : (모은글.indexOf("확인 못 함") >= 0
-               ? "목차를 확인하지 못했다 — 링크를 바꿔 다시 해 본다"
-               : "받았다 — 아직 저장 안 됐다");
-        });
-      }
-    } catch (err) { status.textContent = "끊겼습니다: " + err; }
-    go.disabled = false;
-  });
-}());
-</script>
 {% endblock %}
