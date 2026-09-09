@@ -69,6 +69,7 @@ def today_items(cert: dict) -> list[dict]:
             made.append({
                 "kind": "item", "title": row["title"], "stage": stage["name"],
                 "hash": row["hash"], "total": row["total"], "done": row["done"],
+                "unit": row.get("unit") or "회",
                 "days": stage["next"]["days"] if stage["next"] else None,
             })
     # 단계가 안 적힌 자격증도 있다. 그때는 커리큘럼을 그대로 쓴다.
@@ -78,6 +79,7 @@ def today_items(cert: dict) -> list[dict]:
                 made.append({
                     "kind": "item", "title": row["title"], "stage": row["stage"],
                     "hash": row["hash"], "total": row["total"], "done": row["done"],
+                    "unit": row.get("unit") or "회",
                     "days": None,
                 })
     return made[:TODAY_MAX]

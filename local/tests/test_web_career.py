@@ -1486,3 +1486,34 @@ def test_왼쪽은_이름이고_날짜는_그_아래다(client):
     assert "<h1>와르르랩</h1>" in page
     # CSS 안에도 `.day-move` 가 있으므로 **본문에만 있는 문자열**로 잰다.
     assert page.index("<h1>와르르랩</h1>") < page.index('class="day-move subline"')
+
+
+def test_수량에_단위를_함께_읽는다(client, ctx, home):
+    """**`0 / 4` 만 뜨면 4가 영역인지 문항인지 회독인지 알 수 없고,
+    그 숫자를 보고는 아무것도 못 한다**(2026-09-09 사용자 지적)."""
+    _cert(home, "topcit", (
+        "---\nstatus: 준비중\n"
+        "stages:\n  - 정기평가 | 준비중\n"
+        "curriculum:\n"
+        "  - 정기평가 | 에센스 정독 | 4영역\n"
+        "  - 정기평가 | 답안 쓰기 | 60문항\n"
+        "  - 정기평가 | 단위를 안 적음 | 3\n"
+        "exams:\n  - 2026-08-21 | 정기평가 | | | 정기평가\n"
+        "---\n\n# 메모\n"
+    ))
+    쓸것 = {row["title"]: row for row in careerview.build_cert(ctx, "topcit")["curriculum"]}
+    assert (쓸것["에센스 정독"]["total"], 쓸것["에센스 정독"]["unit"]) == (4, "영역")
+    assert (쓸것["답안 쓰기"]["total"], 쓸것["답안 쓰기"]["unit"]) == (60, "문항")
+    # 단위를 안 적으면 '회' 다. 빈칸으로 두는 것보다 낫다.
+    assert 쓸것["단위를 안 적음"]["unit"] == "회"
+
+    page = client.get("/career/cert/topcit").text
+    assert "4영역" in page and "60문항" in page
+
+
+def test_화면이_동그라미가_무엇을_하는지_말한다(client, home):
+    """누르면 무엇이 되는지가 안 적혀 있으면 안 누른다."""
+    _cert(home, "topcit", CURRICULUM)
+    page = client.get("/career/cert/topcit").text
+    assert "동그라미를 누르면 하나 오른다" in page
+    assert "시험 단계" in page          # 배지가 뭔지도 말한다
