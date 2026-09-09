@@ -17,6 +17,7 @@
    다른 시험이라 날짜가 따로 가는데, 하나만 띄우면 다른 하나를 잊는다. #}
 {% if view.stages %}
 <p class="cert-ddays">
+  <span class="quiet">단계</span>
   {% for stage in view.stages %}
   <span class="{{ 'quiet' if stage.done }}">
     <b>{{ stage.name }}</b>
@@ -56,7 +57,7 @@
                 title="한 번 했으면 누른다">○</button>
       </form>
       <span class="ask-text">{{ row.title }}</span>
-      <span class="when">{{ row.done }}/{{ row.total }}</span>
+      <span class="when">{{ row.done }} / {{ row.total }}{{ row.unit }} 함</span>
       {% else %}
       <span class="tick alert" aria-hidden="true">!</span>
       <span class="ask-text"><strong>{{ row.title }}</strong>
@@ -69,8 +70,9 @@
     {% endfor %}
   </ul>
   <p class="meta quiet">
-    <strong>한 번 했으면 누른다.</strong> 얼마나 할지는 내가 정한다 —
-    화면은 무엇을 할지만 세운다.
+    <strong>동그라미를 누르면 하나 오른다</strong> — <code>0 / 4영역 함</code> 이
+    <code>1 / 4영역 함</code> 이 된다. 오른쪽 배지는 이 항목이 어느
+    <strong>시험 단계</strong>의 것인지다. 얼마나 할지는 내가 정한다.
   </p>
   {% else %}
   <p class="empty">
@@ -83,10 +85,11 @@
 {% if view.curriculum %}
 <details class="rest">
   {% set 남음 = view.curriculum|selectattr('left')|list|length %}
-  <summary>남은 전체 {{ 남음 }}항목
-    {% if view.curriculum|length > 남음 %}
-    <span class="quiet">· 끝난 것 {{ view.curriculum|length - 남음 }}</span>
-    {% endif %}</summary>
+  <summary>커리큘럼 전체 {{ view.curriculum|length }}항목
+    <span class="quiet">— 남은 것 {{ 남음 }}
+      {%- if view.curriculum|length > 남음 %} · 끝난 것
+      {{ view.curriculum|length - 남음 }}{% endif %} · 눌러서 편다</span>
+  </summary>
   <ul class="asks">
     {% for item in view.curriculum %}
     <li>
@@ -95,7 +98,7 @@
       <span class="badge ok" title="이 항목에 매인 주제로 남긴 기록">기록 {{ item.auto }}</span>
       {% endif %}
       {% if item.stage %}<span class="badge">{{ item.stage }}</span>{% endif %}
-      <span class="when">{{ item.done }} / {{ item.total }}</span>
+      <span class="when">{{ item.done }} / {{ item.total }}{{ item.unit }}</span>
       <span class="bump">
         {% for delta, sign in [(-1, '−'), (1, '+')] %}
         <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
@@ -148,6 +151,9 @@
 
 <section class="tool">
   <h2>이 자격증을 어떻게 둘까</h2>
+  <p class="meta">
+    <strong>목록에 어디로 설지</strong> 정한다 — 볼 것 · 딴 것 · 안 본다.
+  </p>
   <div class="ask-row">
     {% for label, status in [("볼 것으로", "준비중"), ("땄다", "보유"), ("안 본다", "안 함")] %}
     <form class="inline" method="post" action="/web/certs/{{ view.key }}/status">

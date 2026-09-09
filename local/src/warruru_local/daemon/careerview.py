@@ -623,10 +623,12 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         stage, title, amount, slugs = _fields(item, 4)
         if not title:
             continue
-        try:
-            total = int(amount)
-        except ValueError:
-            total = 0
+        # **단위를 함께 읽는다**(2026-09-09). `4` 가 아니라 `4영역` 이라고
+        # 적는다 — 화면에 `0 / 4` 만 뜨면 4가 영역인지 문항인지 회독인지
+        # 알 수 없고, 그 숫자를 보고는 아무것도 못 한다.
+        수량 = re.match(r"^\s*(\d+)\s*(.*)$", amount or "")
+        total = int(수량.group(1)) if 수량 else 0
+        단위 = (수량.group(2).strip() if 수량 else "") or "회"
         # **체크가 기본이고, 기록이 붙으면 자동이다**(2026-09-08 확정).
         # 넷째 칸에 주제 슬러그를 적어 두면 그 주제로 남긴 기록이 진도에
         # 같이 센다. 안 적으면 순수하게 손으로 세는 항목이다 — 에센스
@@ -637,6 +639,7 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         done = min(total, 손 + auto) if total else (손 + auto)
         curriculum.append({
             "stage": stage, "title": title, "hash": ask_hash(title),
+            "unit": 단위,
             "slugs": 붙은주제, "auto": min(total, auto) if total else auto,
             "total": total, "done": done, "left": max(0, total - done),
             "percent": round(done * 100 / total) if total else 0,
