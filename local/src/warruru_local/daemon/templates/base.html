@@ -533,22 +533,23 @@
                     cursor: pointer; }
   ul.recs > li:hover { background: var(--rule-soft); border-radius: 8px; }
   /* 책 목차 — 장이 접혀 있다가 눌러 펼쳐진다. 적은 장은 처음부터 펼친다. */
-  /* 책 목록 — **다섯 권이 보이는 높이**이고 넘으면 그 안에서 스크롤한다.
+  /* 책 목록 — **세 권이 보이는 높이**이고 넘으면 그 안에서 스크롤한다.
      칸마다 길이가 제각각이면 아래 책장이 위아래로 밀린다. 스크롤바가
      글자에 붙지 않게 자리를 미리 잡는다(기록 목록과 같은 규약). */
   .three { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr);
            align-items: start; }
   @media (max-width: 62rem) { .three { grid-template-columns: 1fr; } }
-  ul.picks.shelf-5, ul.picks.shelf-10 {
+  ul.picks.shelf-3, ul.picks.shelf-10 {
     overflow-y: auto; scrollbar-gutter: stable; padding-right: .8rem;
   }
-  ul.picks.shelf-5 { max-height: 15rem; }
+  /* 한 줄이 대략 3.4rem 이다. 셋이 보이고 넷째부터 스크롤한다. */
+  ul.picks.shelf-3 { max-height: 10.2rem; }
   ul.picks.shelf-10 { max-height: 27rem; }
-  ul.picks.shelf-5::-webkit-scrollbar,
+  ul.picks.shelf-3::-webkit-scrollbar,
   ul.picks.shelf-10::-webkit-scrollbar { width: 10px; }
-  ul.picks.shelf-5::-webkit-scrollbar-track,
+  ul.picks.shelf-3::-webkit-scrollbar-track,
   ul.picks.shelf-10::-webkit-scrollbar-track { background: transparent; }
-  ul.picks.shelf-5::-webkit-scrollbar-thumb,
+  ul.picks.shelf-3::-webkit-scrollbar-thumb,
   ul.picks.shelf-10::-webkit-scrollbar-thumb {
     background: var(--rule); border-radius: 999px;
     border: 3px solid var(--panel); background-clip: padding-box;
@@ -566,7 +567,7 @@
   }
   .three .picks .btn { flex: none; }
   /* 빈 칸도 자리를 지킨다 — 셋이 서로 다른 높이면 아래 책장이 흔들린다. */
-  .three .tool { min-height: 12rem; }
+  .three .tool { min-height: 14rem; }
 
   /* 키워드 — **얻는 것**을 이름으로 늘어놓는다. 진도 막대가 아니다. */
   ul.kw { list-style: none; margin: .5rem 0 0; padding: 0;

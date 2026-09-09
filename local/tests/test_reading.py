@@ -450,7 +450,7 @@ def test_책장에_등록된_전부가_선다(client):
 
 
 def test_읽는_상태_셋이_나란히_온다(client, ctx):
-    """읽는 중 · 중단 · 다 읽음. 각 칸은 다섯 권이 보이는 높이이고
+    """읽는 중 · 중단 · 다 읽음. 각 칸은 **세 권이 보이는 높이**이고
     넘으면 그 안에서 스크롤한다 — 칸마다 길이가 제각각이면 아래
     책장이 위아래로 밀린다."""
     from warruru_local.daemon import careerview
@@ -460,4 +460,4 @@ def test_읽는_상태_셋이_나란히_온다(client, ctx):
     머리 = page[:page.index("<h2>책장</h2>")]
     for 이름 in ("읽는 중", "중단", "다 읽음"):
         assert f"<h2>{이름}</h2>" in 머리, 이름
-    assert 'class="picks shelf-5"' in 머리
+    assert 'class="picks shelf-3"' in 머리

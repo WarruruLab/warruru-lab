@@ -30,7 +30,7 @@
 </li>
 {% endmacro %}
 
-{# **읽는 상태 셋이 위에 나란히 온다**(2026-09-09). 각 칸은 다섯 권이
+{# **읽는 상태 셋이 위에 나란히 온다**(2026-09-09). 각 칸은 세 권이
    보이는 높이이고 넘으면 그 안에서 스크롤한다 — 칸마다 길이가 제각각이면
    아래 책장이 위아래로 밀린다. #}
 <div class="three">
@@ -44,7 +44,7 @@
       <span class="meta"><b class="num">{{ view.groups[이름]|length }}</b>권</span>
     </div>
     {% if view.groups[이름] %}
-    <ul class="picks shelf-5">
+    <ul class="picks shelf-3">
       {% for book in view.groups[이름] %}{{ 줄(book, 라벨) }}{% endfor %}
     </ul>
     {% else %}<p class="empty">{{ 빈말 }}</p>{% endif %}
