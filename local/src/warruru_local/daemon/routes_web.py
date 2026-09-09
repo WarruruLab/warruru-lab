@@ -408,6 +408,9 @@ async def career_book(request: Request, key: str):
             # 반납일뿐이라, 실제로 무엇이 들어 있는 책인지가 화면 어디에도
             # 없었다.
             "toc": reading.toc(ctx, key),
+            # **"이 책에서 뭘 얻나" 가 책을 고를 때 묻는 것이다.**
+            # 진도 막대("덮는 주제 0/8")는 그 질문에 답하지 않았다.
+            "keywords": reading.keywords(ctx, key),
             "token": ctx.settings.token,
         },
     )
@@ -445,6 +448,87 @@ BOOK_FILL_PROMPT = (
     " 적어라. 책 소개를 옮기지 말고, 이 책을 읽으면 어느 면접 질문에 답할 수"
     " 있게 되는지를 적는다.\n"
 )
+
+
+# 장 하나를 복습용으로 요약받는 프롬프트 (명세 §2.15 e).
+#
+# **받은 것이지 내 글이 아니다.** 그래서 파일도 화면도 내 노트와 갈라 둔다.
+# 요약은 복습용이고, 기록으로 올릴 때 본문이 되는 것은 여전히 내 글이다.
+#
+# 원문을 옮겨 오지 말라고 못 박는다 — 남의 글을 그대로 담으면 그건 요약이
+# 아니라 사본이고, 저작권 문제도 따로 있다.
+CHAPTER_SUMMARY_PROMPT = (
+    "책 『{title}』의 **{num}장 「{chapter}」** 를 복습용으로 요약해줘.\n"
+    "\n"
+    "1. 블로그 · 깃허브 · 공식 문서에서 이 장을 정리한 글을 찾아 읽어라.\n"
+    "2. **원문을 옮겨 오지 마라.** 문장을 그대로 담으면 요약이 아니라 사본이고,"
+    " 저작권 문제도 따로 있다. 읽고 네 말로 줄여라.\n"
+    "3. 못 찾으면 `# 확인 못 함` 한 줄만 내고 멈춰라 — 짐작해서 쓰지 마라.\n"
+    "\n"
+    "형식은 이렇다. 400자 안쪽.\n"
+    "- **핵심 셋** — 이 장에서 남는 것 세 줄\n"
+    "- **면접에서 묻는다면** — 한 줄\n"
+    "- **출처** — 읽은 글의 주소 한둘\n"
+)
+
+
+@router.post("/web/books/{key}/summary")
+async def summarize_chapter_form(
+    request: Request,
+    key: str,
+    num: str = Form(...),
+    cli: str = Form("codex"),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """장 하나를 **복습용으로** 요약받는다 (명세 §2.15 e).
+
+    **받은 것이라 내 글과 파일부터 가른다** — `chapters/{n}.md` 는 내가 쓴 것,
+    `chapters/{n}.summary.md` 는 받은 것이다. 한 파일에 섞으면 나중에
+    "내 말로 쓴 것" 만 골라낼 수 없고, 그 구분이 이 도구의 전부다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if cli not in ("codex", "claude"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+    장들 = {ch["num"]: ch for ch in reading.toc(ctx, key)}
+    if num not in 장들:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 장이 없습니다"},
+        )
+    이름 = careerview.build_group(ctx, key)
+    물음 = asking.Ask(
+        topic_slug=f"book-{key}",
+        prompt=CHAPTER_SUMMARY_PROMPT.format(
+            title=(이름 or {}).get("label") or key,
+            num=num, chapter=장들[num]["title"]),
+        home=ctx.settings.home,
+        cli=cli,
+    )
+
+    async def stream():
+        parts: list[str] = []
+        async for name, data in asking.run(물음):
+            if name == "started":
+                continue
+            if name == "message":
+                parts.append(data["text"])
+            yield _sse(name, data)
+        받은것 = "\n\n".join(parts).strip()
+        # **확인 못 했다고 하면 저장하지 않는다.** 빈 요약이 앉으면 다음에
+        # 그 장을 다시 안 누른다.
+        저장됨 = bool(받은것) and "확인 못 함" not in 받은것 and \
+            reading.save_summary(ctx, key, num, 받은것)
+        yield _sse("done", {"saved": 저장됨})
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/web/books/fill")
@@ -613,7 +697,8 @@ SUMMARY_PROMPT = (
 
 
 @router.get("/career/book/{key}/today")
-async def book_today(request: Request, key: str, day: str | None = None):
+async def book_today(request: Request, key: str, day: str | None = None,
+                     ch: str | None = None):
     """책 하나의 '오늘 읽기'(명세 §2.9 b). 노트가 화면의 대부분이다."""
     ctx = request.app.state.ctx
     view = careerview.build_group(ctx, key)
@@ -627,6 +712,11 @@ async def book_today(request: Request, key: str, day: str | None = None):
     view["day"] = when
     view["today"] = today
     view["note"] = reading.read_note(ctx, key, when)
+    # **어느 장을 읽는 중인가.** 목차에서 [공부하러 가기] 로 오면 그 장이
+    # 골라진 채로 열린다 — 고르는 수고가 남아 있으면 안 고른다.
+    view["toc"] = reading.toc(ctx, key)
+    if ch and reading.CHAPTER.match(ch) and not view["note"]["chapter"]:
+        view["note"]["chapter"] = ch
     view["past_days"] = [d for d in reading.days_of(ctx, key) if d != when]
     view["progress"] = reading.covered(ctx, key)
     view["reading_state"] = careerview.reading_state(view)
@@ -642,6 +732,7 @@ async def save_note_form(
     key: str,
     day: str = Form(...),
     text: str = Form(""),
+    chapter: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ) -> dict:
     """자동 저장. **입력이 멈췄을 때 한 번**만 온다(명세 §2.9 b).
@@ -651,7 +742,7 @@ async def save_note_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
-    if not reading.write_note(ctx, key, day, text):
+    if not reading.write_note(ctx, key, day, text, chapter=chapter):
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 책이 없습니다"},

@@ -37,7 +37,7 @@ def ctx(client):
 def test_노트가_없어도_빈_것을_돌려준다(ctx):
     """빈 것이 고장이 아니라 시작이다."""
     note = reading.read_note(ctx, "kafka-practice", "2026-09-08")
-    assert note == {"text": "", "records": [], "exists": False}
+    assert note == {"text": "", "records": [], "chapter": "", "exists": False}
 
 
 def test_쓰고_읽는다(ctx, home):
@@ -375,3 +375,63 @@ def test_책_화면에_목차가_선다(client, home):
     page = client.get("/career/book/kafka-practice").text
     assert "<h2>목차 0 / 1</h2>" in page
     assert "1장 카프카 개요" in page
+
+
+# ── 요약과 장 연결 (2026-09-08) ──────────────────────────────────
+
+def test_받은_요약과_내_글은_다른_파일이다(ctx, home):
+    """한 파일에 섞으면 나중에 '내 말로 쓴 것' 만 골라낼 수 없고,
+    그 구분이 이 도구의 전부다."""
+    from warruru_local import paths
+
+    reading.save_chapter(ctx, "kafka-practice", "3", "내가 쓴 것")
+    reading.save_summary(ctx, "kafka-practice", "3", "받은 요약")
+    뿌리 = paths.book_chapter_dir(home, "kafka-practice")
+    assert (뿌리 / "3.md").read_text(encoding="utf-8").strip() == "내가 쓴 것"
+    assert (뿌리 / "3.summary.md").read_text(encoding="utf-8").strip() == "받은 요약"
+    assert reading.chapters(ctx, "kafka-practice")["3"] == "내가 쓴 것"
+    assert reading.read_summary(ctx, "kafka-practice", "3") == "받은 요약"
+
+
+def test_노트가_어느_장인지_남는다(client, ctx, home):
+    """날짜로만 쌓으면 '3장 읽은 날이 언제였지' 에 답이 안 나온다."""
+    token = ctx.settings.token
+    client.post("/web/books/kafka-practice/note", data={
+        "_token": token, "day": "2026-09-08", "text": "파티션 정리", "chapter": "3",
+    })
+    assert reading.read_note(ctx, "kafka-practice", "2026-09-08")["chapter"] == "3"
+    # 장만 두고 본문을 고쳐도 장은 지킨다.
+    reading.write_note(ctx, "kafka-practice", "2026-09-08", "고친 글")
+    note = reading.read_note(ctx, "kafka-practice", "2026-09-08")
+    assert note["chapter"] == "3" and note["text"] == "고친 글"
+
+
+def test_장_번호가_아니면_안_남긴다(ctx):
+    """이 값이 목차와 맞물리는 열쇠다. 아무 글자나 들어오면 안 맞는다."""
+    reading.write_note(ctx, "kafka-practice", "2026-09-08", "글", chapter="../x")
+    assert reading.read_note(ctx, "kafka-practice", "2026-09-08")["chapter"] == ""
+
+
+def test_공부하러_가면_그_장이_골라져_있다(client, home):
+    from warruru_local import paths
+
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "kafka-practice.md").write_text(
+        "---\ntoc:\n  - 3 | 카프카 기본 개념과 구조\n---\n", encoding="utf-8")
+    page = client.get("/career/book/kafka-practice/today?ch=3").text
+    assert 'value="3" selected' in page or 'value="3"\n        selected' in page
+    assert "3장 카프카 기본 개념과 구조" in page
+
+
+def test_키워드는_목차의_주제를_모은다(client, home):
+    from warruru_local import paths
+
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "kafka-practice.md").write_text(
+        "---\ntoc:\n"
+        "  - 1 | 카프카 개요 | kafka-basics\n"
+        "  - 3 | 기본 개념 | kafka-basics, kafka-partition-offset\n"
+        "---\n", encoding="utf-8")
+    말들 = reading.keywords(client.app.state.ctx, "kafka-practice")
+    # 겹치는 것은 한 번만.
+    assert [k["slug"] for k in 말들] == ["kafka-basics", "kafka-partition-offset"]

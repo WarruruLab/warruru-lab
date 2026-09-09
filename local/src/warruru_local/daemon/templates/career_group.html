@@ -13,15 +13,17 @@
 
 {% if view.axis == "book" %}
 <section class="tool">
-  <h2>이 책이 덮는 주제 {{ view.have }} / {{ view.total }}</h2>
-  <p>{% with coverage = {"covered": view.have, "total": view.total,
-        "percent": (view.have * 100 // view.total) if view.total else 0} %}
-    {% include "_coverage.html" %}{% endwith %}</p>
-  <p class="meta quiet">
-    <strong>장(章) 단위가 아니라 책 단위다.</strong> 목차를 확인하지 않고 장
-    번호를 적으면 그 순간 이 화면을 못 믿게 된다. 아래는 "이 책을 읽으면 이
-    질문들에 답할 수 있게 된다" 는 판단이고, 틀리면 고치면 된다.
-  </p>
+  {# **"이 책에서 뭘 얻나" 가 책을 고를 때 묻는 것이다**(2026-09-08).
+     전에는 "덮는 주제 0 / 8" 이라는 진도 막대였는데, 그 숫자가 답하는
+     질문("얼마나 왔나")은 이 화면의 질문이 아니었다. #}
+  <h2>이 책으로부터 얻을 수 있는 키워드</h2>
+  {% if keywords %}
+  <ul class="kw">
+    {% for k in keywords %}<li><a href="/t/{{ k.slug }}">{{ k.label }}</a></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">아직 없다. 목차의 장에 주제를 매면 여기 선다.</p>
+  {% endif %}
   {% if view.state or view.due or view.at %}
   <p class="meta">
     {% if view.state %}<span class="badge">{{ view.state }}</span>{% endif %}
@@ -61,10 +63,28 @@
           {% for s in ch.slugs %}<a class="badge" href="/t/{{ s.slug }}">{{ s.label }}</a>{% endfor %}
         </summary>
         <div class="ch-body">
+          {# 받은 요약. **내 글과 따로 그린다** — 파일도 따로다
+             (`{장}.summary.md`). 이 구분이 이 도구의 전부다. #}
+          <div class="ch-sum {{ '' if ch.has_summary else 'empty-sum' }}"
+               id="ch-sum-{{ ch.num }}">{{ ch.summary }}</div>
+          <div class="ask-row">
+            <button type="button" class="btn sum-go" data-num="{{ ch.num }}">
+              {{ '요약 다시 받기' if ch.has_summary else '복습 요약 받기' }}</button>
+            <select class="sum-cli" aria-label="어느 에이전트로">
+              <option value="codex">Codex</option>
+              <option value="claude">Claude</option>
+            </select>
+            <span class="meta quiet sum-status" id="sum-st-{{ ch.num }}"></span>
+          </div>
+
           <textarea class="ch-text" data-num="{{ ch.num }}" rows="{{ 10 if ch.written else 4 }}"
-                    placeholder="이 장이 무엇이었는지 내 말로. 옆의 주제로 기록을 남기면 초안의 재료가 된다."
+                    placeholder="이 장이 무엇이었는지 내 말로. 위 요약은 읽는 것이고, 기록이 되는 것은 이 글이다."
                     >{{ ch.text }}</textarea>
-          <span class="when ch-status" id="ch-st-{{ ch.num }}"></span>
+          <div class="ask-row">
+            <span class="when ch-status" id="ch-st-{{ ch.num }}"></span>
+            <a class="btn primary" href="/career/book/{{ view.key }}/today?ch={{ ch.num }}">
+              공부하러 가기 →</a>
+          </div>
         </div>
       </details>
     </li>
@@ -98,6 +118,53 @@
       status.textContent = "…"; clearTimeout(timer); timer = setTimeout(save, 1200);
     });
     box.addEventListener("blur", function () { clearTimeout(timer); save(); });
+  });
+
+  // 복습 요약 받기 — **받은 것이라 내 글 칸과 따로 그린다.**
+  document.querySelectorAll(".sum-go").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      var num = btn.dataset.num;
+      var 칸 = document.getElementById("ch-sum-" + num);
+      var 알림 = document.getElementById("sum-st-" + num);
+      var cli = btn.parentElement.querySelector(".sum-cli").value;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      알림.textContent = "찾아 읽는 중…";
+      칸.textContent = ""; 칸.classList.remove("empty-sum");
+
+      var body = new URLSearchParams();
+      body.set("_token", token); body.set("num", num); body.set("cli", cli);
+      var 모은글 = "";
+      try {
+        var res = await fetch("/web/books/" + encodeURIComponent(key) + "/summary",
+                              { method: "POST", body: body });
+        if (!res.ok) { 알림.textContent = "보내지 못했습니다 (" + res.status + ")";
+                       btn.disabled = false; return; }
+        var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
+        while (true) {
+          var chunk = await reader.read();
+          if (chunk.done) break;
+          buf += dec.decode(chunk.value, { stream: true });
+          var blocks = buf.split("\n\n"); buf = blocks.pop();
+          blocks.forEach(function (block) {
+            var name = "", data = "";
+            block.split("\n").forEach(function (line) {
+              if (line.indexOf("event: ") === 0) name = line.slice(7);
+              if (line.indexOf("data: ") === 0) data = line.slice(6);
+            });
+            if (!name) return;
+            var payload = {};
+            try { payload = JSON.parse(data); } catch (e) { return; }
+            if (name === "message") { 모은글 += payload.text; 칸.textContent = 모은글; }
+            if (name === "error") 알림.textContent =
+              payload.message + (payload.fix ? " — " + payload.fix : "");
+            if (name === "done") 알림.textContent = payload.saved
+              ? "저장됨" : "못 찾았다 — 저장 안 함";
+          });
+        }
+      } catch (err) { 알림.textContent = "끊겼습니다: " + err; }
+      btn.disabled = false;
+    });
   });
 }());
 </script>

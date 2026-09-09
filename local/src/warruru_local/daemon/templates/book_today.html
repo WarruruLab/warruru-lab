@@ -31,6 +31,21 @@
       {% endfor %}
     </select>
   </form>
+  {# **이 노트가 몇 장인가**(2026-09-08). 날짜로만 쌓으면 나중에
+     "3장 읽은 날이 언제였지" 에 답이 안 나온다. 목차에서 [공부하러 가기]
+     로 오면 그 장이 골라진 채로 열린다. #}
+  {% if view.toc %}
+  <label class="ch-pick">
+    <span class="quiet">어느 장</span>
+    <select id="note-ch" aria-label="이 노트가 붙는 장">
+      <option value="">— 안 고름</option>
+      {% for ch in view.toc %}
+      <option value="{{ ch.num }}" {{ 'selected' if view.note.chapter == ch.num }}>
+        {{ ch.num }}장 {{ ch.title }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
   <a class="meta" href="/career/book/{{ view.key }}">책 정보 →</a>
   <span class="chat-sp"></span>
   <span class="meta quiet" id="note-status">저장됨</span>
@@ -87,17 +102,23 @@
     }
   } catch (e) {}
 
+  var 장고르개 = document.getElementById("note-ch");
+  var 마지막장 = 장고르개 ? 장고르개.value : "";
+
   async function 저장(keepalive) {
-    if (저장중 || box.value === 마지막) return;
+    var 지금장 = 장고르개 ? 장고르개.value : "";
+    if (저장중 || (box.value === 마지막 && 지금장 === 마지막장)) return;
     저장중 = true;
     var 보낼것 = box.value;
     var body = new URLSearchParams();
     body.set("day", day); body.set("text", 보낼것); body.set("_token", 토큰);
+    // **장도 같이 보낸다.** 따로 저장하면 글과 장이 어긋난 채로 남는다.
+    body.set("chapter", 지금장);
     try {
       var res = await fetch("/web/books/" + encodeURIComponent(key) + "/note",
                             { method: "POST", body: body, keepalive: !!keepalive });
       if (res.ok) {
-        마지막 = 보낼것;
+        마지막 = 보낼것; 마지막장 = 지금장;
         status.textContent = "저장됨";
         try { localStorage.removeItem(백업키); } catch (e) {}
       } else { status.textContent = "저장 실패 (" + res.status + ")"; }
@@ -105,6 +126,9 @@
     저장중 = false;
   }
 
+  if (장고르개) 장고르개.addEventListener("change", function () {
+    status.textContent = "쓰는 중…"; 저장(false);
+  });
   box.addEventListener("input", function () {
     status.textContent = "쓰는 중…";
     try { localStorage.setItem(백업키, box.value); } catch (e) {}

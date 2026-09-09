@@ -38,7 +38,7 @@ def read_note(ctx, key: str, day: str) -> dict:
     """없으면 빈 노트다. 빈 것이 고장이 아니라 시작이다."""
     path = note_path(ctx, key, day)
     if path is None or not path.is_file():
-        return {"text": "", "records": [], "exists": False}
+        return {"text": "", "records": [], "chapter": "", "exists": False}
     meta, body = parse_front_matter(
         path.read_text(encoding="utf-8", errors="replace")
     )
@@ -46,23 +46,36 @@ def read_note(ctx, key: str, day: str) -> dict:
     return {
         "text": body.strip("\n"),
         "records": [str(x).strip() for x in ids] if isinstance(ids, list) else [],
+        # **이 노트가 몇 장인가**(명세 §2.15 e). 날짜로만 쌓으면 나중에
+        # "3장 읽은 날이 언제였지" 에 답이 안 나온다.
+        "chapter": str(meta.get("chapter") or "").strip(),
         "exists": True,
     }
 
 
 def write_note(ctx, key: str, day: str, text: str,
-               records: list[str] | None = None) -> bool:
+               records: list[str] | None = None,
+               chapter: str | None = None) -> bool:
     """자동 저장이 부르는 자리. **앞머리의 `records` 는 지키고 본문만 바꾼다** —
-    글을 고치는 동안 올린 기록 목록이 날아가면 안 된다."""
+    글을 고치는 동안 올린 기록 목록이 날아가면 안 된다.
+
+    `chapter` 는 이 노트가 붙는 장이다. `None` 이면 있던 값을 지킨다."""
     path = note_path(ctx, key, day)
     if path is None:
         return False
-    keep = records if records is not None else read_note(ctx, key, day)["records"]
+    옛것 = read_note(ctx, key, day)
+    keep = records if records is not None else 옛것["records"]
+    장 = 옛것["chapter"] if chapter is None else chapter.strip()
+    if 장 and not CHAPTER.match(장):
+        장 = ""
     path.parent.mkdir(parents=True, exist_ok=True)
-    머리 = ""
+    줄들 = []
+    if 장:
+        줄들.append(f"chapter: {장}")
     if keep:
-        줄 = "\n".join(f"  - {rid}" for rid in keep)
-        머리 = f"---\nrecords:\n{줄}\n---\n\n"
+        줄들.append("records:")
+        줄들 += [f"  - {rid}" for rid in keep]
+    머리 = f"---\n" + "\n".join(줄들) + "\n---\n\n" if 줄들 else ""
     path.write_text(머리 + text[:NOTE_MAX].strip("\n") + "\n", encoding="utf-8")
     return True
 
@@ -229,11 +242,15 @@ def toc(ctx, key: str) -> list[dict]:
         if not 번호 or not CHAPTER.match(번호):
             continue
         붙은주제 = [s.strip() for s in 슬러그.split(",") if s.strip()]
+        요약 = read_summary(ctx, key, 번호)
         made.append({
             "num": 번호, "title": 제목,
             "slugs": [{"slug": s, "label": topics.label_of(s)} for s in 붙은주제],
             "text": 쓴것.get(번호, ""),
             "written": bool(쓴것.get(번호, "").strip()),
+            # **받은 것과 내 글을 따로 든다.** 화면에서도 따로 그린다.
+            "summary": 요약,
+            "has_summary": bool(요약),
         })
     return made
 
@@ -309,3 +326,55 @@ def save_book(ctx, key: str, title: str, url: str, body: str) -> bool:
     path.write_text("---\n" + "\n".join(줄) + "\n---\n\n" + (몸 + "\n" if 몸 else ""),
                     encoding="utf-8")
     return True
+
+
+# ── 장 요약 — **받은 것이라 내 글과 파일부터 가른다** ────────────
+#
+# `chapters/{n}.md` 는 내가 쓴 것, `chapters/{n}.summary.md` 는 받은 것이다.
+# 한 파일에 섞으면 나중에 "내 말로 쓴 것" 만 골라낼 수 없고, 그 구분이 이
+# 도구의 전부다(명세 §2.9 · AGENTS.md §5).
+#
+# 요약은 **복습용**이다. 기록으로 올릴 때 본문이 되는 것은 여전히 내 글이다.
+
+def summary_path(ctx, key: str, num: str):
+    if not SLUG.match(key) or not CHAPTER.match(num or ""):
+        return None
+    return paths.book_chapter_dir(ctx.settings.home, key) / f"{num}.summary.md"
+
+
+def read_summary(ctx, key: str, num: str) -> str:
+    path = summary_path(ctx, key, num)
+    if path is None or not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace").strip()
+
+
+def save_summary(ctx, key: str, num: str, text: str) -> bool:
+    path = summary_path(ctx, key, num)
+    if path is None or not text.strip():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text[:NOTE_MAX].strip("\n") + "\n", encoding="utf-8")
+    return True
+
+
+def keywords(ctx, key: str) -> list[dict]:
+    """**이 책에서 얻을 수 있는 키워드.** 목차의 장마다 매인 주제를 모은다.
+
+    전에는 "이 책이 덮는 주제 0/8" 이라는 진도 막대였는데, 그 숫자가 답하는
+    질문("얼마나 왔나")은 이 화면의 질문이 아니다. **책을 고를 때 묻는 것은
+    "여기서 뭘 얻나" 하나다.**
+    """
+    from warruru_local import topics
+
+    본것, 순서 = set(), []
+    for ch in toc(ctx, key):
+        for s in ch["slugs"]:
+            if s["slug"] not in 본것:
+                본것.add(s["slug"])
+                순서.append(s)
+    if 순서:
+        return 순서
+    # 목차가 아직 없으면 코드 상수의 묶음을 쓴다.
+    묶음 = next((s for k, _, s in topics.BOOK_GROUPS if k == key), ())
+    return [{"slug": s, "label": topics.label_of(s)} for s in 묶음]
