@@ -599,6 +599,14 @@
   .ch-text { width: 100%; resize: vertical; }
   .ch-status { margin-left: .2rem; }
 
+  /* 자격증 목록 — **줄에서 오늘 할 일이 보여야 한다.** 전에는 이름과
+     D-day 와 버튼 둘뿐이라 무엇을 할지 알려면 하나하나 들어가야 했다. */
+  ul.asks.certs > li { gap: .5rem; }
+  .ct-do { flex-basis: 100%; font-size: var(--t-sm); color: var(--key); }
+  .ct-do.quiet { color: var(--ink-faint); }
+  .ct-btns { display: inline-flex; gap: .3rem; margin-left: auto; }
+  .ct-btns form.inline { display: inline-flex; margin: 0; }
+
   .cert-add { display: flex; flex-direction: column; gap: .6rem; max-width: 26rem; }
   .cert-add button { align-self: flex-start; }
   details.mine { flex-basis: 100%; font-size: var(--t-sm); }

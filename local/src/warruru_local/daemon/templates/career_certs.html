@@ -8,50 +8,82 @@
 
 <p class="meta subline"><a href="/career">← 포트폴리오</a></p>
 
+{# **줄에서 오늘 할 일이 보여야 한다**(2026-09-09). 전에는 이름과 D-day
+   와 버튼 둘뿐이라, 무엇을 해야 하는지 알려면 하나하나 들어가야 했다. #}
 <section class="tool">
-  <h2>볼 것 {{ certs|length }}</h2>
+  <div class="work-head">
+    <h2>준비 중</h2>
+    <span class="meta"><b class="num">{{ certs|length }}</b>개 ·
+      마감이 가까운 순</span>
+  </div>
   {% if certs %}
-  <ul class="picks">
+  <ul class="asks certs">
     {% for cert in certs %}
     <li>
-      <a href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      <a class="ask-text" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+
       {% if cert.next %}
-        <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">D-{{ cert.next.days }}</span>
-        <span class="quiet">{{ cert.next.label }}</span>
+      <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">D-{{ cert.next.days }}</span>
+      <span class="quiet">{{ cert.next.label }}</span>
       {% else %}
-        <span class="badge">일정 미정</span>
+      <span class="badge warn">일정 미정</span>
       {% endif %}
-      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
-        <input type="hidden" name="_token" value="{{ token }}">
-        <input type="hidden" name="status" value="보유">
-        <button class="btn" type="submit">땄다</button>
-      </form>
-      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
-        <input type="hidden" name="_token" value="{{ token }}">
-        <input type="hidden" name="status" value="안 함">
-        <button class="btn" type="submit">내린다</button>
-      </form>
+
+      {# 오늘 할 것 한 줄. **이 자리가 이 화면의 이유다.** #}
+      {% if cert.today %}
+      <span class="ct-do">→ {{ cert.today[0].title }}</span>
+      {% elif not cert.next %}
+      <span class="ct-do quiet">→ 시험 일정을 노트에 적어야 시작한다</span>
+      {% else %}
+      <span class="ct-do quiet">→ 커리큘럼을 노트에 적으면 오늘 할 것이 선다</span>
+      {% endif %}
+
+      {% if cert.curriculum %}
+      <span class="when">{{ cert.curriculum|rejectattr('left')|list|length }} /
+        {{ cert.curriculum|length }}항목</span>
+      {% endif %}
+
+      <span class="ct-btns">
+        {% for 라벨, 상태 in [("땄다", "보유"), ("안 본다", "안 함")] %}
+        <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+          <input type="hidden" name="_token" value="{{ token }}">
+          <input type="hidden" name="status" value="{{ 상태 }}">
+          <button class="btn" type="submit">{{ 라벨 }}</button>
+        </form>
+        {% endfor %}
+      </span>
     </li>
     {% endfor %}
   </ul>
+  <p class="meta quiet">
+    <strong>→ 뒤가 오늘 할 것이다.</strong> 이름을 누르면 그 자격증의 전체
+    커리큘럼으로 간다. <strong>[땄다]</strong> 는 아래 '딴 것' 으로,
+    <strong>[안 본다]</strong> 는 맨 아래 '내린 것' 으로 내린다 — 둘 다
+    파일은 안 지우므로 언제든 되돌린다.
+  </p>
   {% else %}
-  <p class="empty">볼 것이 없다. 아래에서 더한다.</p>
+  <p class="empty">준비 중인 것이 없다. 아래에서 더한다.</p>
   {% endif %}
 </section>
 
 {% if held %}
 <section class="tool">
-  <h2>딴 것 {{ held|length }}</h2>
-  <ul class="picks">
+  <div class="work-head">
+    <h2>딴 것</h2>
+    <span class="meta"><b class="num">{{ held|length }}</b>개 · 이미 가진 자격증</span>
+  </div>
+  <ul class="asks certs">
     {% for cert in held %}
     <li>
-      <a class="quiet" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
+      <a class="ask-text quiet" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
       <span class="badge ok">{{ cert.status }}</span>
-      <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
-        <input type="hidden" name="_token" value="{{ token }}">
-        <input type="hidden" name="status" value="준비중">
-        <button class="btn" type="submit">다시 본다</button>
-      </form>
+      <span class="ct-btns">
+        <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
+          <input type="hidden" name="_token" value="{{ token }}">
+          <input type="hidden" name="status" value="준비중">
+          <button class="btn" type="submit">다시 준비한다</button>
+        </form>
+      </span>
     </li>
     {% endfor %}
   </ul>
@@ -85,7 +117,10 @@
 
 {% if dropped %}
 <section class="tool">
-  <h2>내린 것 {{ dropped|length }}</h2>
+  <div class="work-head">
+    <h2>내린 것</h2>
+    <span class="meta"><b class="num">{{ dropped|length }}</b>개 · 안 보기로 한 것</span>
+  </div>
   <p class="meta quiet">
     <strong>파일은 안 지웠다.</strong> 적어 둔 일정과 커리큘럼이 그대로 있어
     다시 올리면 그 자리에서 이어진다.
@@ -97,7 +132,7 @@
       <form class="inline" method="post" action="/web/certs/{{ cert.key }}/status">
         <input type="hidden" name="_token" value="{{ token }}">
         <input type="hidden" name="status" value="준비중">
-        <button class="btn" type="submit">다시 올린다</button>
+        <button class="btn" type="submit">다시 준비한다</button>
       </form>
     </li>
     {% endfor %}
