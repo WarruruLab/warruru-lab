@@ -679,6 +679,25 @@ def test_지난_대화를_열면_문답이_돌아온다(client, fake_ask):
     assert (열림["cli"], 열림["turns"]) == ("codex", 2)
 
 
+def test_v7_이전_대화는_날짜_보관본에서_되살린다(client, home):
+    """옮겨 온 대화는 세션 파일이 없어 열면 빈 창만 떴다(2026-09-16).
+    제목도 '이전 대화' 뿐이라 목록에서 무엇인지 몰랐다."""
+    ctx = client.app.state.ctx
+    _answer(home, "db-index", "2026-08-24",
+            "---\nasked: B+트리를 왜 쓰나\ntool: codex\n---\n\n범위 검색 때문이다.\n"
+            "\n---\n\n## 해시 인덱스는?\n\n등치 검색만 빠르다.\n")
+    ctx.records.remember_session("ses_" + "b" * 24, "db-index", "이전 대화",
+                                 "codex", "", "th_옛", "2026-08-24T05:00:00.000Z")
+
+    목록 = client.get("/web/topics/db-index/sessions").json()["sessions"]
+    assert 목록[0]["title"] == "B+트리를 왜 쓰나"
+    열림 = client.get("/web/topics/db-index/sessions/ses_" + "b" * 24).json()
+    assert [(m["q"], m["a"]) for m in 열림["messages"]] == [
+        ("B+트리를 왜 쓰나", "범위 검색 때문이다."),
+        ("해시 인덱스는?", "등치 검색만 빠르다."),
+    ]
+
+
 def test_세션은_그_주제_안에서만_열린다(client, fake_ask):
     """다른 주제의 대화를 이 주제에서 이으면 답이 엉뚱한 파일에 선다."""
     첫 = dict(_events(_ask(client, "db-index").text))["started"]["session_id"]

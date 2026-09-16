@@ -316,6 +316,14 @@ class RecordRepository:
         rows = self.ask_sessions(topic_slug, limit=1)
         return rows[0] if rows else None
 
+    def rename_session(self, session_id: str, title: str) -> None:
+        """옮겨 온 대화에 첫 질문으로 이름을 붙인다. 시각은 건드리지 않는다 —
+        이름을 붙였다고 목록 순서가 바뀌면 안 된다."""
+        self._conn.execute(
+            "UPDATE ask_session SET title = ? WHERE session_id = ?",
+            (title[:80], session_id),
+        )
+
     def remember_session(self, session_id: str, topic_slug: str, title: str,
                          cli: str, model: str, thread_id: str,
                          now_iso: str) -> int:

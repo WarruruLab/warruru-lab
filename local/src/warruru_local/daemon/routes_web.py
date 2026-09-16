@@ -1087,11 +1087,38 @@ async def ask_sessions(request: Request, topic_slug: str):
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 주제가 없습니다"},
         )
+    rows = ctx.records.ask_sessions(topic_slug)
+    for row in rows:
+        _옛대화_이름(ctx, row)
     return {"sessions": [
         {key: row[key] for key in
          ("session_id", "title", "cli", "model", "turns", "created_at", "updated_at")}
-        for row in ctx.records.ask_sessions(topic_slug)
+        for row in rows
     ]}
+
+
+def _옛대화_문답(ctx, row: dict) -> list[dict]:
+    """v7 이전에 시작해 세션 파일이 없는 대화는 날짜 보관본에서 되살린다."""
+    messages = topicview.session_turns(ctx, row["topic_slug"], row["session_id"])
+    # 세션 파일은 v7 부터 답과 함께 쓰인다. 없으면 그 전에 시작한 대화다 —
+    # 제목으로 가리면 목록에서 이름을 붙인 뒤로는 못 알아본다.
+    if messages:
+        return messages
+    return topicview.archive_turns(
+        ctx, row["topic_slug"],
+        local_date_of(row["created_at"]), local_date_of(row["updated_at"]),
+    )
+
+
+def _옛대화_이름(ctx, row: dict) -> None:
+    """'이전 대화' 로만 보이면 목록에서 무슨 대화인지 모른다. 첫 질문으로 바꾼다."""
+    if row["title"] != topicview.MIGRATED_TITLE:
+        return
+    첫질문 = next((m["q"] for m in _옛대화_문답(ctx, row) if m["q"]), "")
+    if 첫질문:
+        제목 = " ".join(첫질문.split())[:80]
+        ctx.records.rename_session(row["session_id"], 제목)
+        row["title"] = 제목
 
 
 @router.get("/web/topics/{topic_slug}/sessions/{session_id}")
@@ -1109,8 +1136,9 @@ async def ask_session(request: Request, topic_slug: str, session_id: str):
     return {
         "session_id": row["session_id"], "title": row["title"],
         "cli": row["cli"], "model": row["model"], "turns": row["turns"],
-        # v7 이전 대화는 문답 파일이 없다. 비어 있으면 화면이 그렇다고 말한다.
-        "messages": topicview.session_turns(ctx, topic_slug, session_id),
+        # v7 이전 대화는 세션 파일이 없어 날짜 보관본에서 되살린다.
+        # 그것도 없으면 비어 있고, 화면이 그렇다고 말한다.
+        "messages": _옛대화_문답(ctx, row),
     }
 
 
