@@ -26,6 +26,7 @@
       <span class="badge">{{ ask.thread.cli }} · {{ ask.thread.turns }}턴</span>
       {% endif %}
       <span class="chat-sp"></span>
+      <button id="chat-wide" type="button" aria-pressed="false">크게</button>
       <button id="chat-past" type="button" aria-label="지난 대화">지난 대화</button>
       <button id="chat-close" type="button" aria-label="닫기">✕</button>
     </header>
@@ -187,7 +188,26 @@
   document.getElementById("chat-past").addEventListener("click", function () {
     view(past.hidden ? "past" : "talk");
   });
+  var wide = document.getElementById("chat-wide");
+  function 크게(켤까) {
+    panel.classList.toggle("wide", 켤까);
+    wide.setAttribute("aria-pressed", String(켤까));
+    wide.textContent = 켤까 ? "작게" : "크게";
+    try { localStorage.setItem("chat-wide", 켤까 ? "1" : ""); } catch (e) {}
+  }
+  wide.addEventListener("click", function () {
+    크게(!panel.classList.contains("wide"));
+  });
+  try { if (localStorage.getItem("chat-wide")) 크게(true); } catch (e) {}
   back.addEventListener("click", function () { view("talk"); });
+
+  // 입력칸은 친 만큼 늘어난다. 한 줄짜리 칸에 긴 질문을 치면 앞부분이
+  // 안 보여서 무엇을 물었는지 확인할 수가 없다.
+  function 늘리기() {
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + "px";
+  }
+  input.addEventListener("input", 늘리기);
   document.getElementById("promote-cancel").addEventListener("click", function () {
     view("talk");
   });
@@ -228,7 +248,14 @@
   async function run(prompt, mode) {
     if (send.disabled) return;
     send.disabled = true;
-    if (mode !== "summary") bubble("me", prompt);
+    if (mode !== "summary") {
+      bubble("me", prompt);
+      // 보내는 순간 비운다. 답이 끝날 때 비우면 답을 기다리는 내내 보낸
+      // 글이 칸에 남아 있고, 오류로 `done` 이 안 오면 영영 안 지워진다.
+      // 보낸 글은 위 말풍선에 남으니 잃는 것은 없다.
+      input.value = "";
+      늘리기();
+    }
     status.textContent = mode === "summary" ? "정리하는 중…" : "묻는 중…";
 
     var body = new URLSearchParams();
@@ -272,7 +299,6 @@
             status.textContent = payload.saved
               ? payload.saved + " 저장" + (payload.tokens ? " · " + payload.tokens : "")
               : "답을 받지 못했습니다";
-            if (mode !== "summary") input.value = "";
             if (mode === "summary" && 모은글) { 마지막정리 = 모은글; 승격버튼(모은글); }
           }
         });
@@ -286,6 +312,10 @@
     if (v) run(v, null);
   });
   input.addEventListener("keydown", function (e) {
+    // 한글을 조합하는 중의 Enter 는 글자를 확정하는 키다. 여기서 보내면
+    // 칸을 비운 뒤에 마지막 글자가 확정되어 한 글자가 칸에 남고,
+    // 브라우저에 따라 같은 질문이 두 번 나간다.
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send.click(); }
   });
   document.getElementById("ask-sum").addEventListener("click", function () {
