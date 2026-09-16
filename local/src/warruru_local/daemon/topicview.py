@@ -146,6 +146,9 @@ def append_answer(ctx, topic_slug: str, asked: str, text: str,
 
 SESSION_ID = re.compile(r"^ses_[0-9a-f]{24}$")
 
+# v7 이 옛 스레드를 옮기며 붙인 제목. 이 제목이면 세션 파일이 없는 대화다.
+MIGRATED_TITLE = "이전 대화"
+
 
 def new_session_id() -> str:
     return f"ses_{secrets.token_hex(12)}"
@@ -168,6 +171,37 @@ def append_turn(ctx, topic_slug: str, session_id: str, asked: str,
                    ensure_ascii=False)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(줄 + "\n")
+
+
+def archive_turns(ctx, topic_slug: str, first_day: str, last_day: str) -> list[dict]:
+    """날짜 보관본에서 문답을 되살린다. **v7 이전에 시작한 대화 전용이다.**
+
+    그때는 세션 파일이 없어서, 옮겨 온 대화를 열면 빈 창만 떴다(2026-09-16).
+    보관본은 그날 물은 것을 한 장에 모은 것이라 한 대화와 딱 맞지는 않는다 —
+    그래서 세션 파일이 있는 대화에는 쓰지 않는다.
+
+    보관본 모양: 앞머리 `asked:` 가 첫 질문, 본문 첫 덩이가 첫 답,
+    그 뒤는 `---` 와 `## 질문` 으로 이어 붙인 문답이다(`append_answer`).
+    """
+    from warruru_local.daemon import careerview
+
+    root = paths.answer_dir(ctx.settings.home) / topic_slug
+    if not root.is_dir():
+        return []
+    made = []
+    for path in sorted(root.glob("*.md")):
+        if not (first_day <= path.stem <= last_day):
+            continue
+        meta, body = careerview.parse_front_matter(
+            path.read_text(encoding="utf-8", errors="replace")
+        )
+        덩이들 = body.split("\n---\n\n## ")
+        made.append({"q": str(meta.get("asked") or ""), "a": 덩이들[0].strip(),
+                     "at": path.stem})
+        for 덩이 in 덩이들[1:]:
+            질문, _, 답 = 덩이.partition("\n")
+            made.append({"q": 질문.strip(), "a": 답.strip(), "at": path.stem})
+    return [m for m in made if m["a"]]
 
 
 def session_turns(ctx, topic_slug: str, session_id: str) -> list[dict]:
