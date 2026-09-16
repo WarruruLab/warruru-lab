@@ -95,12 +95,13 @@
     body.set("model", window.고른모델(cli));
 
     var 모은글 = "";
+    var 멈춤 = window.중지붙이기(rewrite);
     try {
       var res = await fetch("/web/drafts/{{ view.draft_id }}/polish",
-                            { method: "POST", body: body });
+                            { method: "POST", body: body, signal: 멈춤.signal });
       if (!res.ok) {
         status.textContent = "보내지 못했습니다 (" + res.status + ")";
-        go.disabled = rewrite.disabled = false; return;
+        멈춤.끝(); go.disabled = rewrite.disabled = false; return;
       }
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
       while (true) {
@@ -125,7 +126,8 @@
             : "답을 받지 못했습니다";
         });
       }
-    } catch (err) { status.textContent = "끊겼습니다: " + err; }
+    } catch (err) { status.textContent = window.끊긴말(err); }
+    멈춤.끝();
     go.disabled = rewrite.disabled = false;
   }
 

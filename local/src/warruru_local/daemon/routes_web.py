@@ -957,6 +957,7 @@ async def ask_form(
     topic_slug: str,
     prompt: str = Form(""),
     fresh: int = Form(0),
+    session_id: str = Form(""),
     cli: str = Form("codex"),
     model: str = Form(""),
     mode: str = Form("ask"),
@@ -991,13 +992,38 @@ async def ask_form(
         )
 
     _check_cli(cli, model)
+    # **어느 대화에 이어 묻나**(명세 §2.6 c, 2026-09-16 개정).
+    # 화면은 늘 세션을 짚어 보낸다 — 지금 열린 대화의 id 거나, [새 대화] 뒤의
+    # 빈 값이다. 짚지 않은 요청(터미널 · 옛 화면)은 마지막 대화에 잇는다.
+    if session_id and not topicview.SESSION_ID.match(session_id):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_SESSION", "message": "그런 대화가 없습니다"},
+        )
     if fresh:
-        ctx.records.forget_thread(topic_slug)
-    row = ctx.records.ask_thread(topic_slug)
+        row = None
+    elif session_id:
+        row = ctx.records.ask_session(session_id)
+        if row is not None and row["topic_slug"] != topic_slug:
+            # 다른 주제의 대화를 이 주제에서 이으면 답 파일이 엉뚱한 곳에 선다.
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "BAD_SESSION", "message": "이 주제의 대화가 아닙니다"},
+            )
+    else:
+        row = ctx.records.ask_thread(topic_slug)
     # **CLI 를 바꾸면 대화를 잇지 않는다.** 스레드 id 는 그 CLI 안에서만
     # 뜻이 있어서, codex 의 id 를 claude 에 넘기면 조용히 새 대화가 열리거나
-    # 실패한다. 갈아탈 때는 새로 시작하는 것이 정직하다.
+    # 실패한다. 갈아탈 때는 새 세션으로 시작하는 것이 정직하다.
     이어감 = row is not None and row["cli"] == cli
+    if 이어감:
+        세션 = row["session_id"]
+        제목 = row["title"]
+    else:
+        # 화면이 새로 만든 id 를 보냈으면 그것을 쓴다 — 답이 오기 전에 실패해
+        # 행이 없는 id 여도, 화면은 그 id 로 다시 물을 것이다.
+        세션 = session_id if (session_id and row is None) else topicview.new_session_id()
+        제목 = "오늘 정리" if mode == "summary" else " ".join(asked.split())
     ask = asking.Ask(
         topic_slug=topic_slug,
         prompt=asked,
@@ -1015,6 +1041,7 @@ async def ask_form(
             if name == "started":
                 thread_id = data["thread_id"]
                 yield _sse("started", {"thread_id": thread_id,
+                                       "session_id": 세션,
                                        "resumed": bool(ask.thread_id)})
                 continue
             if name == "usage":
@@ -1029,14 +1056,18 @@ async def ask_form(
         saved = ""
         if parts:
             now = to_iso(ctx.clock.now())
+            질문 = "오늘 정리" if mode == "summary" else asked
+            답 = "\n\n".join(parts)
             if thread_id:
-                ctx.records.remember_thread(topic_slug, thread_id, ask.cli, now)
+                ctx.records.remember_session(
+                    세션, topic_slug, 제목, ask.cli, ask.model, thread_id, now)
+                topicview.append_turn(
+                    ctx, topic_slug, 세션, 질문, 답, now, ask.cli, ask.model)
             saved = topicview.append_answer(
-                ctx, topic_slug,
-                "오늘 정리" if mode == "summary" else asked,
-                "\n\n".join(parts), local_date_of(now), ask.cli,
+                ctx, topic_slug, 질문, 답, local_date_of(now), ask.cli,
             )
-        yield _sse("done", {"tokens": tokens, "saved": saved})
+        yield _sse("done", {"tokens": tokens, "saved": saved,
+                            "session_id": 세션 if (parts and thread_id) else ""})
 
     return StreamingResponse(
         stream(),
@@ -1045,6 +1076,42 @@ async def ask_form(
         # 답이 다 올 때까지 아무것도 안 그린다.
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/web/topics/{topic_slug}/sessions")
+async def ask_sessions(request: Request, topic_slug: str):
+    """이 주제의 대화 목록. 조회라 토큰이 없다."""
+    ctx = request.app.state.ctx
+    if not careerview.SLUG.match(topic_slug):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 주제가 없습니다"},
+        )
+    return {"sessions": [
+        {key: row[key] for key in
+         ("session_id", "title", "cli", "model", "turns", "created_at", "updated_at")}
+        for row in ctx.records.ask_sessions(topic_slug)
+    ]}
+
+
+@router.get("/web/topics/{topic_slug}/sessions/{session_id}")
+async def ask_session(request: Request, topic_slug: str, session_id: str):
+    """대화 하나를 다시 연다 — 말풍선으로 되살릴 문답과 이어 물을 설정."""
+    ctx = request.app.state.ctx
+    row = (ctx.records.ask_session(session_id)
+           if topicview.SESSION_ID.match(session_id) else None)
+    if not careerview.SLUG.match(topic_slug) or row is None \
+            or row["topic_slug"] != topic_slug:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 대화가 없습니다"},
+        )
+    return {
+        "session_id": row["session_id"], "title": row["title"],
+        "cli": row["cli"], "model": row["model"], "turns": row["turns"],
+        # v7 이전 대화는 문답 파일이 없다. 비어 있으면 화면이 그렇다고 말한다.
+        "messages": topicview.session_turns(ctx, topic_slug, session_id),
+    }
 
 
 # 답해보기의 프롬프트. **점수는 안 매기되 설명은 한다**(명세 §2.10 d,

@@ -1,5 +1,12 @@
 {% extends "base.html" %}
-{% block title %}{{ view.topic }} — Warruru Local
+{% block title %}{{ view.topic }} — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.topic }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline"><a href="/t">← 주제 전체</a> · {{ view.count }}건 · <code>{{ view.topic_slug }}</code></p>
 
 {% if view.note.asks %}
 <section class="tool">
@@ -32,14 +39,6 @@
   {% if view.note.html %}<div class="preview">{{ view.note.html|safe }}</div>{% endif %}
 </section>
 {% endif %}
-{% endblock %}
-{% block content %}
-<header>
-  <h1>{{ view.topic }}</h1>
-  {% include "_nav.html" %}
-</header>
-
-<p class="meta subline"><a href="/t">← 주제 전체</a> · {{ view.count }}건 · <code>{{ view.topic_slug }}</code></p>
 
 <ul class="checkpoints">
 {% for record in view.records %}

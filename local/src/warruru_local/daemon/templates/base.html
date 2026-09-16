@@ -827,6 +827,25 @@
     width: 1.9rem; height: 1.9rem; padding: 0; border-radius: 9px;
     background: var(--key); color: #fff; font-size: var(--t-md); flex: none;
   }
+  /* 중지는 보내기 자리에 선다 — 답을 받는 동안에는 보낼 것이 없다. */
+  #ask-stop {
+    width: 1.9rem; height: 1.9rem; padding: 0; border-radius: 9px;
+    background: var(--alert); color: #fff; font-size: var(--t-sm); flex: none;
+  }
+  .bubble.stopped { opacity: .6; }
+  button.stop-run { background: var(--alert); color: #fff; }
+  #chat-sess-badge { max-width: 12rem; overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap; }
+  .chat-sess-open {
+    display: flex; flex-direction: column; align-items: flex-start; gap: .15rem;
+    width: 100%; text-align: left; background: transparent; padding: .5rem .2rem;
+    border-radius: var(--radius-sm); color: var(--ink);
+  }
+  .chat-sess-open:hover { background: var(--rule-soft); }
+  .chat-sess-open b { font-size: var(--t-md); overflow: hidden; text-overflow: ellipsis;
+                      white-space: nowrap; max-width: 100%; }
+  .chat-sess.on .chat-sess-open b { color: var(--key); }
+  .chat-archive { margin-top: 1rem; }
   .chat-cli-line { margin-top: 1rem; }
 
   @media (max-width: 30rem) {
@@ -1159,6 +1178,23 @@
       });
     });
   }());
+  // 에이전트를 부르는 동안 [중지] 를 누른 버튼 옆에 띄운다. 요청을 끊으면
+  // 데몬이 자식 프로세스를 그룹째 죽인다 — 받다 만 결과는 저장하지 않는다.
+  window.중지붙이기 = function (옆) {
+    var 끊개 = new AbortController();
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "stop-run";
+    b.textContent = "■ 중지";
+    b.addEventListener("click", function () { 끊개.abort(); });
+    옆.insertAdjacentElement("afterend", b);
+    return { signal: 끊개.signal, 끝: function () { b.remove(); } };
+  };
+  window.끊긴말 = function (err) {
+    return err && err.name === "AbortError"
+      ? "중지했습니다 — 받다 만 결과는 저장하지 않았습니다"
+      : "끊겼습니다: " + err;
+  };
   // 보낼 때 부른다. 모델 칸이 없으면(JS 로 못 만들었으면) 빈 값 — CLI 설정대로.
   window.고른모델 = function (agent) {
     var pick = agent && agent.nextElementSibling;

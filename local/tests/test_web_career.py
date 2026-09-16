@@ -1543,3 +1543,17 @@ def test_일정이_없으면_무엇을_해야_하는지_말한다(client, home):
     _cert(home, "aws-saa", "---\nstatus: 준비중\n---\n\n# 메모\n")
     page = client.get("/career/certs").text
     assert "시험 일정을 노트에 적어야 시작한다" in page
+
+def test_요약_받기는_요약_칸에_쓰고_선택칸을_건드리지_않는다():
+    """2026-09-16 에 에이전트 칸을 `칸` 이라는 이름으로 새로 잡아, 요약을 그릴
+    자리(`칸`)를 덮었다 — 받은 요약이 드롭다운에 써질 뻔했다. 이름을 가른다."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "src" / "warruru_local" / "daemon"
+           / "templates" / "career_group.html").read_text(encoding="utf-8")
+    핸들러 = src[src.index('querySelectorAll(".sum-go")'):]
+    핸들러 = 핸들러[:핸들러.index("});\n  });")] if "});\n  });" in 핸들러 else 핸들러
+    assert 핸들러.count("var 칸 =") == 1
+    assert 'var 에이전트 = btn.parentElement.querySelector(".sum-cli")' in 핸들러
+    # 에이전트를 부르는 동안 중지할 수 있다.
+    assert "window.중지붙이기(btn)" in 핸들러

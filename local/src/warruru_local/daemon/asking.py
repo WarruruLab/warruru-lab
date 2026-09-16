@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -205,6 +207,16 @@ def missing_cli(ask: Ask) -> dict | None:
     }
 
 
+def _kill(proc) -> None:
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
+
 async def run(ask: Ask):
     """자식을 띄우고 이벤트를 하나씩 내보낸다.
 
@@ -223,6 +235,9 @@ async def run(ask: Ask):
             stdin=asyncio.subprocess.DEVNULL,   # 규약 1
             stdout=asyncio.subprocess.PIPE,     # 규약 2 — stderr 는 섞지 않는다
             stderr=asyncio.subprocess.PIPE,
+            # 자기 프로세스 그룹을 갖게 한다. CLI 는 MCP 서버 같은 손자를 띄우고,
+            # 부모만 죽이면 손자가 파이프를 붙잡아 `wait` 가 끝나지 않는다.
+            start_new_session=True,
         )
     except (OSError, ValueError) as exc:
         yield "error", {"message": f"실행하지 못했습니다: {exc}",
@@ -237,7 +252,7 @@ async def run(ask: Ask):
                     proc.stdout.readline(), timeout=TIMEOUT_SEC
                 )
             except asyncio.TimeoutError:
-                proc.kill()
+                _kill(proc)
                 yield "error", {
                     "message": f"{TIMEOUT_SEC}초 안에 답이 오지 않아 멈췄습니다.",
                     "fix": "질문을 줄여 다시 물어보세요.",
@@ -257,8 +272,10 @@ async def run(ask: Ask):
                 sent += len(data["text"])
             yield name, data
     finally:
+        # [중지] 로 연결이 끊기면 여기로 온다. 아무도 안 읽는 답을 계속
+        # 만들면 구독 한도만 쓴다 — 그룹째 죽인다.
         if proc.returncode is None:
-            proc.kill()
+            _kill(proc)
         await proc.wait()
 
     if proc.returncode not in (0, None):

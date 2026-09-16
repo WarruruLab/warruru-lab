@@ -218,11 +218,13 @@
     고른것.forEach(function (b) { body.append("record_id", b.value); });
 
     var 모은글 = "";
+    var 멈춤 = window.중지붙이기(go);
     try {
-      var res = await fetch("/web/drafts/compose", { method: "POST", body: body });
+      var res = await fetch("/web/drafts/compose",
+                            { method: "POST", body: body, signal: 멈춤.signal });
       if (!res.ok) {
         status.textContent = "보내지 못했습니다 (" + res.status + ")";
-        go.disabled = false; return;
+        멈춤.끝(); go.disabled = false; return;
       }
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
       while (true) {
@@ -250,7 +252,8 @@
             ? "받았다 — 아직 저장 안 됐다" : "답을 받지 못했습니다";
         });
       }
-    } catch (err) { status.textContent = "끊겼습니다: " + err; }
+    } catch (err) { status.textContent = window.끊긴말(err); }
+    멈춤.끝();
     go.disabled = false;
   });
   세기();
