@@ -71,7 +71,7 @@
 
 <div class="read-foot">
   <button id="promote" type="button" class="primary">기록으로 올리기</button>
-  <select id="promote-cli" aria-label="어느 에이전트로">
+  <select id="promote-cli" data-agent aria-label="어느 에이전트로">
     <option value="codex">Codex</option>
     <option value="claude">Claude</option>
   </select>
@@ -153,6 +153,7 @@
     var body = new URLSearchParams();
     body.set("day", day); body.set("_token", 토큰);
     body.set("cli", document.getElementById("promote-cli").value);
+    body.set("model", window.고른모델(document.getElementById("promote-cli")));
     try {
       var res = await fetch("/web/books/" + encodeURIComponent(key) + "/promote",
                             { method: "POST", body: body });

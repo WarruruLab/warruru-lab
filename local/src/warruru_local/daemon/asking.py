@@ -34,6 +34,38 @@ TIMEOUT_SEC = 300
 # 잘린 답이 낫고, 잘렸다는 사실은 화면이 말한다.
 TEXT_MAX = 40_000
 
+# 고를 수 있는 모델. 빈 값은 **CLI 가 제 설정대로 고른다**는 뜻이다 —
+# `~/.codex/config.toml` 의 `model`, Claude Code 의 `/model` 이 그것이다.
+#
+# **목록 밖의 값은 받지 않는다.** 이 값은 자식의 argv 로 들어간다. 셸을 거치지
+# 않아도 `--dangerously-skip-permissions` 같은 값이 옵션으로 읽히면 규약 3
+# (읽기 전용)이 깨진다.
+#
+# 목록은 손으로 맞춘다(2026-09-16, codex-cli 0.154.0 의 모델 목록 ·
+# Claude Code 2.1.270 의 `--model` 별칭). 모델이 바뀌면 여기 한 곳만 고친다.
+MODELS: dict[str, tuple[tuple[str, str], ...]] = {
+    "codex": (
+        ("", "기본 (Codex 설정)"),
+        ("gpt-6-astra", "GPT-6-Astra"),
+        ("gpt-5.6-sol", "GPT-5.6-Sol"),
+        ("gpt-5.6-terra", "GPT-5.6-Terra"),
+        ("gpt-5.6-luna", "GPT-5.6-Luna"),
+        ("gpt-5.5", "GPT-5.5"),
+    ),
+    "claude": (
+        ("", "기본 (Claude 설정)"),
+        ("fable", "Fable"),
+        ("opus", "Opus"),
+        ("sonnet", "Sonnet"),
+        ("haiku", "Haiku"),
+    ),
+}
+
+
+def model_ok(cli: str, model: str) -> bool:
+    """이 CLI 에 이 모델을 넘겨도 되나. 빈 값은 늘 된다."""
+    return any(value == model for value, _ in MODELS.get(cli, ()))
+
 
 @dataclass(frozen=True)
 class Ask:
@@ -49,13 +81,18 @@ class Ask:
     cli: str = "codex"
     program: str | None = None      # 없으면 PATH 에서 `cli` 를 찾는다
     thread_id: str | None = None    # 있으면 이어 묻는다
+    model: str = ""                 # 비면 CLI 설정대로. `MODELS` 안의 값만
 
     def argv(self) -> list[str]:
         exe = self.program or self.cli
+        if not model_ok(self.cli, self.model):
+            raise ValueError(f"{self.cli} 에 넘길 수 없는 모델: {self.model!r}")
         if self.cli == "claude":
             # `--verbose` 가 있어야 `-p` 에서 stream-json 이 줄 단위로 나온다.
             # **도구 권한을 주지 않는다** — 답만 받고 파일은 데몬이 쓴다.
             head = [exe, "-p", "--output-format", "stream-json", "--verbose"]
+            if self.model:
+                head += ["--model", self.model]
             if self.thread_id:
                 head += ["--resume", self.thread_id]
             return head + [self.prompt]
@@ -64,6 +101,9 @@ class Ask:
         # 통째로 `exit 2` 로 죽는다(2026-09-06 실측). 첫 질문은 멀쩡하고
         # 두 번째부터만 죽어서, 순서 하나가 조용히 기능 절반을 앗아간다.
         head = [exe, "exec", "-C", str(self.home), "-s", "read-only"]
+        # `-m` 도 `exec` 의 것이다 — `-C` · `-s` 와 같은 이유로 `resume` 앞.
+        if self.model:
+            head += ["-m", self.model]
         if self.thread_id:
             head += ["resume", self.thread_id]
         return head + ["--json", "--skip-git-repo-check", self.prompt]

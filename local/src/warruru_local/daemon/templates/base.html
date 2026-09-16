@@ -745,18 +745,29 @@
     position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 41;
     /* 답이 길어서 25rem 폭에서는 한 줄에 열 몇 자밖에 안 들어갔다.
        높이도 내용에 맞춰 줄어들면 답이 오는 동안 창이 계속 늘어나 읽는
-       자리가 흔들린다 — 처음부터 화면 높이의 대부분을 잡는다. */
+       자리가 흔들린다 — 처음부터 화면 높이의 대부분을 잡는다.
+       **크기는 사용자가 왼쪽 위 손잡이로 정한다.** 그 값이 인라인
+       width/height 로 들어와 이 기본값을 이긴다. */
     width: min(40rem, calc(100vw - 2rem));
     height: min(52rem, calc(100vh - 3rem));
+    max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem);
     background: var(--panel); border-radius: 18px; overflow: hidden;
     box-shadow: 0 8px 40px rgba(0, 0, 0, .28);
     display: flex; flex-direction: column;
   }
-  /* 크게 보기 — 책을 옆에 두고 읽을 때가 아니면 화면을 거의 다 쓴다. */
-  #chat-panel.wide {
-    width: min(64rem, calc(100vw - 3rem));
-    height: calc(100vh - 3rem);
+  /* 창은 오른쪽 아래에 붙어 있어서 늘어나는 쪽이 왼쪽·위다. 브라우저 기본
+     `resize` 손잡이는 오른쪽 아래에 생겨 끌면 반대로 움직이므로 쓰지 않는다. */
+  #chat-grip {
+    position: absolute; left: 0; top: 0; width: 1rem; height: 1rem;
+    cursor: nwse-resize; z-index: 1; touch-action: none;
+    background:
+      linear-gradient(135deg, var(--ink-faint) 0 1.5px, transparent 1.5px) 5px 5px / 7px 7px no-repeat,
+      linear-gradient(135deg, var(--ink-faint) 0 1.5px, transparent 1.5px) 5px 9px / 3px 3px no-repeat;
+    opacity: .7;
   }
+  #chat-grip:hover { opacity: 1; }
+  #chat-panel.resizing { user-select: none; }
+  .model-pick { max-width: 11rem; }
   [data-theme="dark"] #chat-panel { box-shadow: 0 8px 40px rgba(0, 0, 0, .55); }
 
   .chat-head {
@@ -819,9 +830,9 @@
   .chat-cli-line { margin-top: 1rem; }
 
   @media (max-width: 30rem) {
-    #chat-panel, #chat-panel.wide { right: .5rem; left: .5rem; bottom: .5rem; width: auto;
-                                    height: calc(100vh - 1rem); }
-    #chat-wide { display: none; }
+    #chat-panel { right: .5rem; left: .5rem; bottom: .5rem;
+                  width: auto !important; height: calc(100vh - 1rem) !important; }
+    #chat-grip { display: none; }
     .chat-label { display: none; }
   }
 
@@ -1110,6 +1121,50 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+{#
+  모델 선택칸. **에이전트 선택칸(`data-agent`) 바로 뒤에 붙인다.**
+  화면이 여섯이라 각자 그리면 한 곳만 목록이 낡는다 — 목록은 데몬의
+  `asking.MODELS` 한 벌이고, 칸을 만드는 것도 여기 한 곳이다.
+  에이전트를 바꾸면 목록이 바뀌고, 에이전트마다 마지막에 고른 모델을 기억한다.
+  JS 가 꺼지면 칸이 안 생기고 서버는 CLI 설정대로 부른다.
+#}
+<script>
+  (function () {
+    var MODELS = {{ MODELS|tojson }};
+    function 기억(cli) {
+      try { return localStorage.getItem("warruru-model-" + cli) || ""; }
+      catch (e) { return ""; }
+    }
+    function 채우기(agent, pick) {
+      var cli = agent.value, want = 기억(cli);
+      pick.innerHTML = "";
+      (MODELS[cli] || []).forEach(function (row) {
+        var o = document.createElement("option");
+        o.value = row[0]; o.textContent = row[1];
+        if (row[0] === want) o.selected = true;
+        pick.appendChild(o);
+      });
+    }
+    document.querySelectorAll("select[data-agent]").forEach(function (agent) {
+      var pick = document.createElement("select");
+      pick.className = "model-pick";
+      pick.setAttribute("aria-label", "어느 모델로");
+      if (agent.name) pick.name = "model";
+      agent.insertAdjacentElement("afterend", pick);
+      채우기(agent, pick);
+      agent.addEventListener("change", function () { 채우기(agent, pick); });
+      pick.addEventListener("change", function () {
+        try { localStorage.setItem("warruru-model-" + agent.value, pick.value); }
+        catch (e) {}
+      });
+    });
+  }());
+  // 보낼 때 부른다. 모델 칸이 없으면(JS 로 못 만들었으면) 빈 값 — CLI 설정대로.
+  window.고른모델 = function (agent) {
+    var pick = agent && agent.nextElementSibling;
+    return pick && pick.classList.contains("model-pick") ? pick.value : "";
+  };
+</script>
 <script>
   (function () {
     var root = document.documentElement;

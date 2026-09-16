@@ -700,8 +700,29 @@ def test_챗봇_입력칸은_보내는_순간_비고_한글_조합_Enter_로는_
     요청 = script.index("await fetch(", 보내기)
     assert 'input.value = ""' in script[보내기:요청]
     assert "isComposing" in script
-    # 창을 크게 펼칠 수 있다 — 기본 폭에서는 긴 답이 안 읽혔다.
-    assert 'id="chat-wide"' in page
+    # 창 크기를 사용자가 끌어서 정한다 — 기본 폭에서는 긴 답이 안 읽혔다.
+    assert 'id="chat-grip"' in page
+
+
+def test_물을_때_모델을_골라_보낼_수_있다(client, fake_ask, monkeypatch):
+    from warruru_local.daemon import asking
+
+    넘긴것 = []
+    real = asking.Ask.argv
+    monkeypatch.setattr(asking.Ask, "argv",
+                        lambda self: 넘긴것.append(self.model) or real(self))
+    events = _events(_ask(client, "db-index", cli="codex", model="gpt-5.5").text)
+    assert dict(events)["done"]["saved"]
+    assert 넘긴것 == ["gpt-5.5"]
+    # 화면은 에이전트 칸마다 모델 칸을 붙인다 — 목록은 데몬의 한 벌이다.
+    page = client.get("/t/db-index").text
+    assert 'id="ask-cli" data-agent' in page and "gpt-5.5" in page
+
+
+def test_목록_밖의_모델은_400_이다(client, fake_ask):
+    res = _ask(client, "db-index", cli="codex", model="opus")
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "UNKNOWN_MODEL"
 
 
 def test_초안_조립기는_여전히_LLM_을_안_부른다():
