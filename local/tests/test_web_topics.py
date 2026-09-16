@@ -687,6 +687,23 @@ def test_화면에_챗봇이_있다(client, fake_ask):
     assert "ask topic=db-index" in page
 
 
+def test_챗봇_입력칸은_보내는_순간_비고_한글_조합_Enter_로는_안_보낸다(client, fake_ask):
+    """보낸 글이 답이 끝날 때까지 칸에 남아 있었다(2026-09-16).
+
+    답이 끝날 때(`done`) 비우면 기다리는 내내 글이 남고, 오류로 `done` 이
+    안 오면 영영 안 지워진다. 한글을 조합하는 중의 Enter 에 보내면 칸을
+    비운 뒤에 마지막 글자가 확정되어 한 글자가 남는다.
+    """
+    page = client.get("/t/db-index").text
+    script = page[page.index('id="chat"'):]
+    보내기 = script.index("async function run(")
+    요청 = script.index("await fetch(", 보내기)
+    assert 'input.value = ""' in script[보내기:요청]
+    assert "isComposing" in script
+    # 창을 크게 펼칠 수 있다 — 기본 폭에서는 긴 답이 안 읽혔다.
+    assert 'id="chat-wide"' in page
+
+
 def test_초안_조립기는_여전히_LLM_을_안_부른다():
     """이 경로를 열면서 지키려던 경계다(명세 §2.4 · §6).
 
