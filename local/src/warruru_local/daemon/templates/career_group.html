@@ -126,8 +126,10 @@
       var num = btn.dataset.num;
       var 칸 = document.getElementById("ch-sum-" + num);
       var 알림 = document.getElementById("sum-st-" + num);
-      var 칸 = btn.parentElement.querySelector(".sum-cli");
-      var cli = 칸.value, model = window.고른모델(칸);
+      // 에이전트 칸. 위의 `칸`(요약이 그려질 자리)과 이름이 겹치면 요약이
+      // 선택칸에 써진다 — 2026-09-16 에 한 번 그렇게 깨졌다.
+      var 에이전트 = btn.parentElement.querySelector(".sum-cli");
+      var cli = 에이전트.value, model = window.고른모델(에이전트);
       if (btn.disabled) return;
       btn.disabled = true;
       알림.textContent = "찾아 읽는 중…";
@@ -136,11 +138,12 @@
       var body = new URLSearchParams();
       body.set("_token", token); body.set("num", num); body.set("cli", cli); body.set("model", model);
       var 모은글 = "";
+      var 멈춤 = window.중지붙이기(btn);
       try {
         var res = await fetch("/web/books/" + encodeURIComponent(key) + "/summary",
-                              { method: "POST", body: body });
+                              { method: "POST", body: body, signal: 멈춤.signal });
         if (!res.ok) { 알림.textContent = "보내지 못했습니다 (" + res.status + ")";
-                       btn.disabled = false; return; }
+                       멈춤.끝(); btn.disabled = false; return; }
         var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
         while (true) {
           var chunk = await reader.read();
@@ -163,7 +166,8 @@
               ? "저장됨" : "못 찾았다 — 저장 안 함";
           });
         }
-      } catch (err) { 알림.textContent = "끊겼습니다: " + err; }
+      } catch (err) { 알림.textContent = window.끊긴말(err); }
+      멈춤.끝();
       btn.disabled = false;
     });
   });

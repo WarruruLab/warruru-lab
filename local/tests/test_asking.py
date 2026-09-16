@@ -164,6 +164,37 @@ def test_목록_밖의_모델은_argv_로_안_들어간다():
     assert asking.model_ok("codex", "") and asking.model_ok("claude", "")
 
 
+def test_중지하면_자식이_죽는다(tmp_path):
+    """[중지] 는 브라우저가 요청을 끊는 것이다. 서버가 스트림을 닫는데
+    자식이 살아 있으면 구독 한도를 쓰면서 아무도 안 읽는 답을 계속 만든다
+    (2026-09-16)."""
+    pid_file = tmp_path / "pid"
+    program = _fake(tmp_path, (
+        f'echo $$ > "{pid_file}"\n'
+        'echo \'{"type":"thread.started","thread_id":"th_1"}\'\n'
+        "sleep 30\n"
+    ))
+
+    async def go():
+        stream = asking.run(asking.Ask("db-index", "질문", tmp_path, program=program))
+        first = await stream.__anext__()
+        await stream.aclose()          # 연결이 끊기면 서버가 하는 일
+        return first
+
+    import os
+    import time
+
+    assert asyncio.run(go())[0] == "started"
+    pid = int(pid_file.read_text())
+    time.sleep(0.2)
+    try:
+        os.kill(pid, 0)
+        살아있다 = True
+    except ProcessLookupError:
+        살아있다 = False
+    assert not 살아있다
+
+
 # ── 실패를 덮지 않는다 ───────────────────────────────────────────
 
 def test_CLI_가_없으면_고치는_법을_화면이_말한다(tmp_path):

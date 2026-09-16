@@ -5,7 +5,11 @@
 
 from __future__ import annotations
 
+import json
+import re
+import secrets
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from warruru_local import paths, topics
 from warruru_local.clock import (
@@ -131,6 +135,57 @@ def append_answer(ctx, topic_slug: str, asked: str, text: str,
         head = f"---\nasked: {asked}\ntool: {tool}\n---\n\n{text}\n"
         path.write_text(head, encoding="utf-8")
     return path.name
+
+
+# ── 대화 세션의 문답 ─────────────────────────────────────────────
+#
+# 날짜 파일(`{날짜}.md`)은 그날 물은 것을 모은 **보관본**이다 — 터미널의
+# `study-session` 도 같은 파일을 읽고 쓴다. 그런데 거기서는 어느 문답이
+# 어느 대화였는지가 안 남아서, 지난 대화를 다시 열 때 말풍선으로 되살릴 수
+# 없었다. 세션 파일은 **그 되살리기 하나만** 맡는다.
+
+SESSION_ID = re.compile(r"^ses_[0-9a-f]{24}$")
+
+
+def new_session_id() -> str:
+    return f"ses_{secrets.token_hex(12)}"
+
+
+def _session_path(ctx, topic_slug: str, session_id: str) -> Path | None:
+    if not SESSION_ID.match(session_id or ""):
+        return None
+    return paths.answer_dir(ctx.settings.home) / topic_slug / "sessions" / f"{session_id}.jsonl"
+
+
+def append_turn(ctx, topic_slug: str, session_id: str, asked: str,
+                text: str, at: str, cli: str, model: str) -> None:
+    """한 번의 문답을 세션 파일 끝에 붙인다. 덮어쓰지 않는다."""
+    path = _session_path(ctx, topic_slug, session_id)
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    줄 = json.dumps({"q": asked, "a": text, "at": at, "cli": cli, "model": model},
+                   ensure_ascii=False)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(줄 + "\n")
+
+
+def session_turns(ctx, topic_slug: str, session_id: str) -> list[dict]:
+    """세션의 문답을 순서대로. 깨진 줄은 건너뛴다 — 한 줄 때문에 대화 전체를
+    못 여는 것이 더 나쁘다."""
+    path = _session_path(ctx, topic_slug, session_id)
+    if path is None or not path.is_file():
+        return []
+    made = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            made.append({"q": str(row.get("q") or ""), "a": str(row.get("a") or ""),
+                         "at": str(row.get("at") or "")})
+    return made
 
 
 def _note_with_checks(ctx, topic_slug: str) -> dict:

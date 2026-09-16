@@ -533,8 +533,8 @@ def test_받은_답이_최신순으로_쌓인다(client, home):
             "---\nasked: 충돌 해결법\ntool: claude-code\n---\n\n체이닝과 개방주소법.\n")
     _answer(home, "ds-hash", "2026-08-30", "---\nasked: 리해싱\n---\n\n부하율.\n")
     page = client.get("/t/ds-hash").text
-    지난 = page[page.index('id="chat-past-view"'):]
-    지난 = 지난[:지난.index("</div>", 지난.index("</ul>"))]
+    지난 = page[page.index('class="chat-archive"'):]
+    지난 = 지난[:지난.index('id="chat-promote"')]
     assert "2026-09-01" in 지난 and "2026-08-30" in 지난
     assert 지난.index("충돌 해결법") < 지난.index("리해싱")   # 최신이 위
 
@@ -649,6 +649,51 @@ def test_새_대화로_체크하면_스레드를_버린다(client, fake_ask):
     _ask(client, "db-index")
     again = _events(_ask(client, "db-index", fresh=1).text)
     assert dict(again)["started"]["resumed"] is False
+
+
+def test_대화마다_세션이_따로_이어진다(client, fake_ask):
+    """새 대화를 열어도 앞 대화는 지워지지 않고, 골라서 다시 이어 물을 수 있다
+    (2026-09-16). 전에는 새 대화가 앞 대화의 id 를 지웠다."""
+    첫 = dict(_events(_ask(client, "db-index", "첫 대화").text))["started"]["session_id"]
+    client.app.state.ctx.clock.advance(60)
+    둘 = dict(_events(_ask(client, "db-index", "둘째 대화", fresh=1).text))["started"]["session_id"]
+    assert 첫 != 둘
+
+    client.app.state.ctx.clock.advance(60)
+    다시 = dict(_events(_ask(client, "db-index", "첫 대화에 이어", session_id=첫).text))
+    assert 다시["started"]["resumed"] is True
+    assert 다시["started"]["session_id"] == 첫
+    assert 다시["done"]["session_id"] == 첫
+
+    목록 = client.get("/web/topics/db-index/sessions").json()["sessions"]
+    assert [row["session_id"] for row in 목록] == [첫, 둘]   # 마지막에 이어 물은 것이 먼저
+    assert {row["title"]: row["turns"] for row in 목록} == {"첫 대화": 2, "둘째 대화": 1}
+
+
+def test_지난_대화를_열면_문답이_돌아온다(client, fake_ask):
+    첫 = dict(_events(_ask(client, "db-index", "B+트리를 왜 쓰나").text))["started"]["session_id"]
+    _ask(client, "db-index", "해시 인덱스는?", session_id=첫)
+    열림 = client.get(f"/web/topics/db-index/sessions/{첫}").json()
+    assert [m["q"] for m in 열림["messages"]] == ["B+트리를 왜 쓰나", "해시 인덱스는?"]
+    assert 열림["messages"][0]["a"] == "B+트리는 범위 검색 때문이다."
+    assert (열림["cli"], 열림["turns"]) == ("codex", 2)
+
+
+def test_세션은_그_주제_안에서만_열린다(client, fake_ask):
+    """다른 주제의 대화를 이 주제에서 이으면 답이 엉뚱한 파일에 선다."""
+    첫 = dict(_events(_ask(client, "db-index").text))["started"]["session_id"]
+    assert _ask(client, "algo-dp", session_id=첫).status_code == 400
+    assert client.get(f"/web/topics/algo-dp/sessions/{첫}").status_code == 404
+    # id 모양이 아니면 경로에 닿기 전에 막는다.
+    assert _ask(client, "db-index", session_id="../../x").status_code == 400
+    assert client.get("/web/topics/db-index/sessions/ses_없음").status_code == 404
+
+
+def test_화면이_새로_만든_세션_id_로_처음_물으면_그_id_로_남는다(client, fake_ask):
+    """[중지] 뒤처럼 행이 없는 id 로 다시 물어도 새 대화가 그 id 로 선다."""
+    id_ = "ses_" + "a" * 24
+    started = dict(_events(_ask(client, "db-index", session_id=id_).text))["started"]
+    assert started["session_id"] == id_ and started["resumed"] is False
 
 
 def test_빈_질문은_거절한다(client, fake_ask):
@@ -840,12 +885,34 @@ def test_토큰_없이는_못_올린다(client):
     assert res.status_code == 401
 
 
-def test_지난_대화는_읽기만_한다(client, home):
-    """이어가려면 CLI 세션 id 를 날짜별로 들어야 해서 스키마가 는다.
-    읽기만 하기로 정했다(2026-09-08)."""
+def test_대화_목록에서_골라_이어_묻고_날짜별_보관본도_남는다(client, home):
+    """2026-09-08 에는 지난 대화를 읽기만 하기로 했다 — 스키마가 늘어서다.
+    2026-09-16 에 뒤집었다. 챗봇이라면 지난 대화에 이어 묻는 것이 기본이라,
+    세션 테이블(v7)을 들였다. 날짜별 보관본은 그대로 접어 둔다."""
     _answer(home, "ds-hash", "2026-09-01", "---\nasked: 충돌\n---\n\n답.\n")
-    지난 = client.get("/t/ds-hash").text
-    지난 = 지난[지난.index('id="chat-past-view"'):]
-    지난 = 지난[:지난.index("</div>", 지난.index("</ul>"))]
-    assert "읽기만 한다" in 지난
-    assert "ask" not in 지난.lower() or "form" not in 지난.lower()
+    page = client.get("/t/ds-hash").text
+    지난 = page[page.index('id="chat-past-view"'):]
+    assert 'id="chat-sessions"' in 지난 and 'id="chat-new"' in page
+    assert "날짜별 보관본" in 지난 and "충돌" in 지난
+    assert 'id="ask-stop"' in page
+
+def test_화면_제목_블록은_한_줄에서_닫힌다():
+    """`topic.html` 의 제목 블록이 닫히지 않아 '확인할 것' · 챗봇 · '참고' 가
+    통째로 `<title>` 안에 들어가 있었다(2026-09-06 ~ 09-16). 브라우저는 제목
+    안의 태그를 글자로만 읽으니 **주제 화면에서 챗봇이 안 보였다.**"""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "src" / "warruru_local" / "daemon" / "templates"
+    for path in root.glob("*.html"):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if "{% block title %}" in line:
+                assert "{% endblock %}" in line, path.name
+
+
+def test_주제_화면에_챗봇과_확인할_것이_본문에_있다(client, fake_ask):
+    page = client.get("/t/db-index").text
+    제목 = page[page.index("<title>"):page.index("</title>")]
+    assert "chat-panel" not in 제목
+    본문 = page[page.index("<main>"):]
+    assert 'id="chat-panel"' in 본문
+

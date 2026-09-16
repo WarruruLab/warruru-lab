@@ -286,43 +286,59 @@ class RecordRepository:
             "published": int(published["n"] or 0),
         }
 
-    # ── 주제별 대화 스레드 (v5) ──────────────────────────────────
+    # ── 대화 세션 (v7) ───────────────────────────────────────────
+    #
+    # **대화 하나가 세션 하나다.** 주제 하나에 여러 개가 쌓이고, 어느 것이든
+    # 다시 열어 이어 물을 수 있다. 행은 **답을 받았을 때만** 생긴다 —
+    # 실패한 왕복까지 행으로 남기면 이어 물을 것이 없는 대화가 목록에 선다.
+    #
+    # **대화 본문은 여기 안 들어온다.** CLI 가 자기 세션 파일에 들고 있고
+    # 우리는 id 만 든다 — 본문을 복제하면 갱신하는 쪽이 저쪽이라 우리 것이
+    # 먼저 썩는다. 화면이 다시 그릴 문답은 세션 파일이 든다.
 
-    def ask_thread(self, topic_slug: str) -> dict | None:
-        """이 주제에 이어 갈 대화가 있나. 없으면 새로 시작한다는 뜻이다."""
+    def ask_session(self, session_id: str) -> dict | None:
         row = self._conn.execute(
-            "SELECT * FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
+            "SELECT * FROM ask_session WHERE session_id = ?", (session_id,)
         ).fetchone()
         return dict(row) if row else None
 
-    def remember_thread(self, topic_slug: str, thread_id: str, cli: str,
-                        now_iso: str) -> int:
-        """스레드를 붙잡고 턴을 하나 센다. 돌려주는 것은 누적 턴 수다.
+    def ask_sessions(self, topic_slug: str, limit: int = 50) -> list[dict]:
+        """이 주제의 대화들. 마지막으로 이어 물은 것이 먼저다."""
+        rows = self._conn.execute(
+            "SELECT * FROM ask_session WHERE topic_slug = ?"
+            " ORDER BY updated_at DESC, created_at DESC LIMIT ?",
+            (topic_slug, limit),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
-        **대화 본문은 여기 안 들어온다.** CLI 가 자기 세션 파일에 들고 있고
-        우리는 id 만 든다 — 본문을 복제하면 갱신하는 쪽이 저쪽이라 우리 것이
-        먼저 썩는다.
+    def ask_thread(self, topic_slug: str) -> dict | None:
+        """이 주제에서 **마지막으로 이어 물은** 대화. 없으면 새로 시작한다."""
+        rows = self.ask_sessions(topic_slug, limit=1)
+        return rows[0] if rows else None
+
+    def remember_session(self, session_id: str, topic_slug: str, title: str,
+                         cli: str, model: str, thread_id: str,
+                         now_iso: str) -> int:
+        """답을 받은 한 번을 센다. 처음이면 세션을 만든다. 돌려주는 것은 누적 턴 수다.
+
+        제목은 **처음 질문**이다. 나중 질문으로 바꾸면 목록에서 같은 대화가
+        매번 다른 이름으로 보인다.
         """
         self._conn.execute(
-            "INSERT INTO ask_thread"
-            " (topic_slug, thread_id, cli, turns, created_at, updated_at)"
-            " VALUES (?, ?, ?, 1, ?, ?)"
-            " ON CONFLICT(topic_slug) DO UPDATE SET"
-            " thread_id = excluded.thread_id, cli = excluded.cli,"
-            " turns = ask_thread.turns + 1, updated_at = excluded.updated_at",
-            (topic_slug, thread_id, cli, now_iso, now_iso),
+            "INSERT INTO ask_session"
+            " (session_id, topic_slug, title, cli, model, thread_id, turns,"
+            "  created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)"
+            " ON CONFLICT(session_id) DO UPDATE SET"
+            " thread_id = excluded.thread_id, model = excluded.model,"
+            " turns = ask_session.turns + 1, updated_at = excluded.updated_at",
+            (session_id, topic_slug, title[:80] or "(제목 없음)", cli, model,
+             thread_id, now_iso, now_iso),
         )
         row = self._conn.execute(
-            "SELECT turns FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
+            "SELECT turns FROM ask_session WHERE session_id = ?", (session_id,)
         ).fetchone()
         return int(row["turns"])
-
-    def forget_thread(self, topic_slug: str) -> None:
-        """다음 질문을 새 대화로 시작한다. 지우는 것은 id 뿐이고
-        받아 둔 답 파일은 그대로 남는다."""
-        self._conn.execute(
-            "DELETE FROM ask_thread WHERE topic_slug = ?", (topic_slug,)
-        )
 
     # ── 자격증 커리큘럼 진도 (v4) ────────────────────────────────
 

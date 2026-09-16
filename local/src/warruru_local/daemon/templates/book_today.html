@@ -154,11 +154,12 @@
     body.set("day", day); body.set("_token", 토큰);
     body.set("cli", document.getElementById("promote-cli").value);
     body.set("model", window.고른모델(document.getElementById("promote-cli")));
+    var 멈춤 = window.중지붙이기(올리기);
     try {
       var res = await fetch("/web/books/" + encodeURIComponent(key) + "/promote",
-                            { method: "POST", body: body });
+                            { method: "POST", body: body, signal: 멈춤.signal });
       if (!res.ok) { 알림.textContent = "보내지 못했습니다 (" + res.status + ")";
-                     올리기.disabled = false; return; }
+                     멈춤.끝(); 올리기.disabled = false; return; }
       var reader = res.body.getReader(), dec = new TextDecoder(), buf = "";
       while (true) {
         var chunk = await reader.read();
@@ -177,7 +178,8 @@
           if (name === "done") 그리기(p);
         });
       }
-    } catch (err) { 알림.textContent = "끊겼습니다: " + err; }
+    } catch (err) { 알림.textContent = window.끊긴말(err); }
+    멈춤.끝();
     올리기.disabled = false;
   });
 

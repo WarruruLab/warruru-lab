@@ -546,3 +546,25 @@ def test_v4_가_커리큘럼_진도_테이블을_만든다(tmp_path):
     assert conn.execute(
         "SELECT done FROM cert_progress WHERE cert_key = 'jeongcheogi'"
     ).fetchone()["done"] == 3
+
+
+def test_v7_이_옛_스레드를_대화_세션으로_옮긴다(tmp_path):
+    """주제 하나에 스레드 하나였던 v5 행이 **세션 하나**가 된다(2026-09-16).
+    옮기지 않으면 업그레이드한 날 하던 대화를 이어 물을 수 없다."""
+    conn = db.connect(tmp_path / "warruru.db")
+    for version in range(1, 7):
+        conn.executescript(migrations._SCRIPTS[version])
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_migrations (version, applied_at)"
+            " VALUES (?, ?)", (version, NOW))
+    conn.execute(
+        "INSERT INTO ask_thread (topic_slug, thread_id, cli, turns, created_at, updated_at)"
+        " VALUES ('db-index', 'th_옛', 'codex', 3, ?, ?)", (NOW, NOW))
+
+    assert migrations.migrate(conn, NOW) == 7
+    row = conn.execute("SELECT * FROM ask_session").fetchone()
+    assert (row["topic_slug"], row["thread_id"], row["cli"], row["turns"]) == \
+        ("db-index", "th_옛", "codex", 3)
+    assert row["session_id"].startswith("ses_") and len(row["session_id"]) == 28
+    # 원본은 남긴다 — 옮기다 틀려도 되짚을 곳이 있어야 한다.
+    assert conn.execute("SELECT COUNT(*) AS n FROM ask_thread").fetchone()["n"] == 1

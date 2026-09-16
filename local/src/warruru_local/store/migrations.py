@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 6
+CURRENT_VERSION = 7
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -267,7 +267,39 @@ _V6 = """
 ALTER TABLE draft ADD COLUMN made_by TEXT;
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6}
+_V7 = """
+-- **대화마다 세션이 하나다**(2026-09-16). v5 의 `ask_thread` 는 주제 하나에
+-- 스레드 하나였다 — 새 대화를 열면 앞 대화의 id 를 지웠고, 지난 대화로
+-- 돌아가 이어 물을 길이 없었다. 챗봇이라면 당연히 되는 일이 안 됐다.
+--
+-- 본문은 여기 없다. 화면이 다시 그릴 문답은 세션 파일
+-- (`career/answers/{주제}/sessions/{세션}.jsonl`)에 있고, 대화의 진짜
+-- 기억은 CLI 가 `thread_id` 로 들고 있다.
+--
+-- `ask_thread` 는 지우지 않는다. 옛 행을 옮겨 오되 원본은 남긴다 —
+-- 옮기다 틀려도 되짚을 곳이 있어야 한다.
+CREATE TABLE IF NOT EXISTS ask_session (
+    session_id TEXT PRIMARY KEY,
+    topic_slug TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    cli        TEXT NOT NULL,
+    model      TEXT NOT NULL DEFAULT '',
+    thread_id  TEXT NOT NULL,
+    turns      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_ask_session_topic
+    ON ask_session (topic_slug, updated_at);
+INSERT OR IGNORE INTO ask_session
+    (session_id, topic_slug, title, cli, model, thread_id, turns,
+     created_at, updated_at)
+SELECT 'ses_' || lower(hex(randomblob(12))), topic_slug, '이전 대화', cli, '',
+       thread_id, turns, created_at, updated_at
+FROM ask_thread;
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

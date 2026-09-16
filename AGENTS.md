@@ -18,9 +18,10 @@
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
   / `record_learning` / `get_topic_records` / `save_draft`)
 - 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
-- SQLite `~/.warruru/warruru.db` — 스키마 v5, 테이블 9개
+- SQLite `~/.warruru/warruru.db` — 스키마 v7, 테이블 10개
+  (v7 의 `ask_session` 이 대화마다 한 줄이다. `ask_thread` 는 옮긴 뒤 남긴 원본이고 더 쓰지 않는다)
   (`machine` / `client_instance` / `work_session` / `checkpoint`
-  / `learning_record` / `draft` / `ask_check` / `cert_progress` / `ask_thread`)
+  / `learning_record` / `draft` / `ask_check` / `cert_progress` / `ask_thread` / `ask_session`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 책 노트 `~/.warruru/career/books/{책}/notes/{날짜}.md` — **챗봇 답과 따로다.**
   내가 쓴 것과 받은 것을 가르는 것이 이 도구의 전부다
