@@ -773,6 +773,8 @@
   .chat-head {
     display: flex; align-items: center; gap: .5rem;
     padding: .85rem 1rem; border-bottom: 1px solid var(--rule);
+    /* 화면 머리(`header`)의 아래 여백을 물려받으면 목록과 대화 위에 빈 띠가 생긴다. */
+    margin-bottom: 0; flex-wrap: nowrap;
   }
   .chat-head b { font-size: var(--t-md); }
   .chat-sp { flex: 1; }
@@ -836,16 +838,52 @@
   button.stop-run { background: var(--alert); color: #fff; }
   #chat-sess-badge { max-width: 12rem; overflow: hidden; text-overflow: ellipsis;
                      white-space: nowrap; }
+  /* ── 대화 목록(왼쪽)과 지금 대화(오른쪽) — C 안 ──
+     넓게 끈 창(`.wide`, 56rem 이상)에서는 목록이 늘 선다. 그보다 좁으면
+     접혀 있다가 ☰ 로 대화 위에 겹쳐 뜬다 — 기본 폭에서 늘 펼치면 답 칸이
+     다시 25rem 남짓으로 줄어 긴 답이 안 읽힌다. */
+  .chat-frame { position: relative; flex: 1; display: flex; min-height: 0; }
+  .chat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .chat-side {
+    width: 15rem; flex: none; display: flex; flex-direction: column;
+    background: var(--panel-2); border-right: 1px solid var(--rule);
+    overflow-y: auto;
+  }
+  #chat-panel:not(.wide) .chat-side {
+    position: absolute; left: 0; top: 0; bottom: 0; z-index: 2;
+    box-shadow: 8px 0 24px rgba(25, 31, 40, .16);
+  }
+  [data-theme="dark"] #chat-panel:not(.wide) .chat-side { box-shadow: 8px 0 24px rgba(0, 0, 0, .45); }
+  #chat-panel:not(.wide) .chat-side:not(.open) { display: none; }
+  #chat-panel.wide #chat-menu { display: none; }
+  .chat-new {
+    margin: .7rem; padding: .5rem .7rem; border-radius: var(--radius-sm);
+    background: var(--key-fill); color: #fff; font-weight: 700; text-align: left;
+  }
+  .chat-sess-list { display: flex; flex-direction: column; }
+  .chat-group {
+    padding: .7rem .9rem .25rem; font-size: var(--t-xs); font-weight: 700;
+    letter-spacing: .06em; color: var(--ink-faint);
+  }
   .chat-sess-open {
-    display: flex; flex-direction: column; align-items: flex-start; gap: .15rem;
-    width: 100%; text-align: left; background: transparent; padding: .5rem .2rem;
-    border-radius: var(--radius-sm); color: var(--ink);
+    display: flex; flex-direction: column; align-items: flex-start; gap: .1rem;
+    width: 100%; text-align: left; background: transparent; border-radius: 0;
+    padding: .45rem .9rem; color: var(--ink);
   }
   .chat-sess-open:hover { background: var(--rule-soft); }
-  .chat-sess-open b { font-size: var(--t-md); overflow: hidden; text-overflow: ellipsis;
-                      white-space: nowrap; max-width: 100%; }
-  .chat-sess.on .chat-sess-open b { color: var(--key); }
-  .chat-archive { margin-top: 1rem; }
+  .chat-sess-open.on { background: var(--key-soft); }
+  .chat-sess-open b { font-size: var(--t-sm); font-weight: 600; overflow: hidden;
+                      text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .chat-sess-open.on b { color: var(--key); }
+  .chat-sess-open span { font-size: var(--t-xs); color: var(--ink-faint);
+                         font-variant-numeric: tabular-nums; }
+  .chat-side-empty { padding: 0 .9rem; }
+  .chat-archive-open {
+    margin-top: auto; padding: .7rem .9rem; text-align: left; background: transparent;
+    border-top: 1px solid var(--rule); border-radius: 0;
+    font-size: var(--t-sm); color: var(--ink-soft);
+  }
+  .chat-archive-open:hover { background: var(--rule-soft); }
   .chat-cli-line { margin-top: 1rem; }
 
   @media (max-width: 30rem) {
