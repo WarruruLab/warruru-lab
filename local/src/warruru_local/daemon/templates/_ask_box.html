@@ -201,19 +201,31 @@
       view("talk"); 넓이맞추기(); 목록그리기(); input.focus();
     }
   }
-  // ── 옆 목록 — 넓은 창에서는 늘 펼치고, 좁으면 ☰ 로 겹쳐 연다 ──
-  var 넓은폭 = 56 * parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
+  // ── 옆 목록 — **기본으로 펼쳐 둔다**(2026-09-16). ☰ 로 접고, 접은 것은 기억한다 ──
+  // 창이 아주 좁을 때(36rem 미만 · 휴대폰)만 대화 위에 겹쳐 뜨고, 그때는
+  // 기본으로 접혀 있다 — 펼친 채로 두면 대화 칸이 남지 않는다.
+  var 좁은폭 = 36 * parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
+  function 좁다() { return panel.classList.contains("tiny"); }
+  function 펼쳤나() {
+    return 좁다() ? panel.classList.contains("side-open") : !panel.classList.contains("side-off");
+  }
   function 넓이맞추기() {
-    var 넓다 = panel.offsetWidth >= 넓은폭;
-    panel.classList.toggle("wide", 넓다);
-    if (넓다) 옆열기(false);
+    panel.classList.toggle("tiny", panel.offsetWidth > 0 && panel.offsetWidth < 좁은폭);
+    menu.setAttribute("aria-expanded", String(펼쳤나()));
   }
   function 옆열기(열까) {
-    side.classList.toggle("open", 열까);
+    if (좁다()) {
+      panel.classList.toggle("side-open", 열까);
+    } else {
+      panel.classList.toggle("side-off", !열까);
+      try { localStorage.setItem("chat-side", 열까 ? "" : "off"); } catch (e) {}
+    }
     menu.setAttribute("aria-expanded", String(열까));
   }
-  function 좁으면닫기() { if (!panel.classList.contains("wide")) 옆열기(false); }
-  menu.addEventListener("click", function () { 옆열기(!side.classList.contains("open")); });
+  try { if (localStorage.getItem("chat-side") === "off") panel.classList.add("side-off"); } catch (e) {}
+  // 겹쳐 뜬 목록만 고른 뒤 닫는다. 옆에 선 목록은 그대로 둔다.
+  function 좁으면닫기() { if (좁다()) 옆열기(false); }
+  menu.addEventListener("click", function () { 옆열기(!펼쳤나()); });
   if (window.ResizeObserver) new ResizeObserver(넓이맞추기).observe(panel);
   else window.addEventListener("resize", 넓이맞추기);
   fab.addEventListener("click", function () { 열기(panel.hidden); });
@@ -225,7 +237,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape" || panel.hidden) return;
     // 겹쳐 연 목록이 있으면 그것부터 닫는다.
-    if (side.classList.contains("open")) 옆열기(false); else 열기(false);
+    if (좁다() && 펼쳤나()) 옆열기(false); else 열기(false);
   });
   document.getElementById("chat-archive-open").addEventListener("click", function () {
     view("past"); 좁으면닫기();
