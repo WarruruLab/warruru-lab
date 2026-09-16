@@ -533,7 +533,7 @@ def test_받은_답이_최신순으로_쌓인다(client, home):
             "---\nasked: 충돌 해결법\ntool: claude-code\n---\n\n체이닝과 개방주소법.\n")
     _answer(home, "ds-hash", "2026-08-30", "---\nasked: 리해싱\n---\n\n부하율.\n")
     page = client.get("/t/ds-hash").text
-    지난 = page[page.index('class="chat-archive"'):]
+    지난 = page[page.index('id="chat-past-view"'):]
     지난 = 지난[:지난.index('id="chat-promote"')]
     assert "2026-09-01" in 지난 and "2026-08-30" in 지난
     assert 지난.index("충돌 해결법") < 지난.index("리해싱")   # 최신이 위
@@ -891,10 +891,24 @@ def test_대화_목록에서_골라_이어_묻고_날짜별_보관본도_남는�
     세션 테이블(v7)을 들였다. 날짜별 보관본은 그대로 접어 둔다."""
     _answer(home, "ds-hash", "2026-09-01", "---\nasked: 충돌\n---\n\n답.\n")
     page = client.get("/t/ds-hash").text
-    지난 = page[page.index('id="chat-past-view"'):]
-    assert 'id="chat-sessions"' in 지난 and 'id="chat-new"' in page
-    assert "날짜별 보관본" in 지난 and "충돌" in 지난
-    assert 'id="ask-stop"' in page
+    # 왼쪽 목록에 대화와 [+ 새 대화], 맨 아래 보관본으로 가는 길이 있다(C 안).
+    옆 = page[page.index('id="chat-side"'):page.index('class="chat-main"')]
+    assert 'id="chat-sessions"' in 옆 and 'id="chat-new"' in 옆
+    assert 'id="chat-archive-open"' in 옆
+    보관 = page[page.index('id="chat-past-view"'):page.index('id="chat-promote"')]
+    assert "충돌" in 보관
+    assert 'id="ask-stop"' in page and 'id="chat-menu"' in page
+
+
+def test_챗봇을_열면_빈_새_대화다():
+    """하던 대화를 조용히 불러오면 새 질문이 어느 대화에 붙는지 모른 채 친다
+    (2026-09-16, C 안). 지난 대화는 옆 목록에서 고른다."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "src" / "warruru_local" / "daemon"
+           / "templates" / "_ask_box.html").read_text(encoding="utf-8")
+    열기 = src[src.index("function 열기(열까)"):src.index("function 넓이맞추기")]
+    assert "새대화(true)" in 열기 and "열기대화" not in 열기
 
 def test_화면_제목_블록은_한_줄에서_닫힌다():
     """`topic.html` 의 제목 블록이 닫히지 않아 '확인할 것' · 챗봇 · '참고' 가

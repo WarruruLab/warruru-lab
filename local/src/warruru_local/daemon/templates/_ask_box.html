@@ -22,35 +22,41 @@
     <div id="chat-grip" role="separator" aria-label="창 크기 조절 — 끌어서 바꾸고, 두 번 누르면 처음 크기"
          title="끌어서 크기 조절 · 두 번 누르면 처음 크기"></div>
     <header class="chat-head">
+      <button id="chat-menu" type="button" aria-label="대화 목록 열기" aria-expanded="false">☰</button>
       <button id="chat-back" type="button" hidden aria-label="대화로">←</button>
       <b id="chat-title">물어보기</b>
       <span class="badge" id="chat-sess-badge" hidden></span>
       <span class="chat-sp"></span>
-      <button id="chat-new" type="button">새 대화</button>
-      <button id="chat-past" type="button" aria-label="대화 목록">대화 목록</button>
       <button id="chat-close" type="button" aria-label="닫기">✕</button>
     </header>
 
+    {# 왼쪽이 대화 목록, 오른쪽이 지금 대화다(2026-09-16 확정, C 안).
+       여는 순간은 **빈 새 대화**다 — 바로 칠 수 있어야 읽다가 묻는 흐름이
+       안 끊긴다. 지난 대화는 옆 목록에서 한 번에 고른다. 창이 좁으면 목록은
+       접히고 ☰ 로 연다 — 기본 폭에서 늘 펼치면 답 칸이 다시 좁아진다. #}
+    <div class="chat-frame">
+      <nav id="chat-side" class="chat-side" aria-label="대화 목록">
+        <button id="chat-new" type="button" class="chat-new">+ 새 대화</button>
+        <div id="chat-sessions" class="chat-sess-list"></div>
+        <p class="meta quiet chat-side-empty" id="chat-sessions-empty" hidden>아직 대화가 없다.</p>
+        <button id="chat-archive-open" type="button" class="chat-archive-open">날짜별 보관본</button>
+      </nav>
+
+      <div class="chat-main">
     {# ── 대화 ── #}
     <div id="chat-talk" class="chat-body">
       <p class="meta quiet chat-hint" id="chat-hint">
         읽으면서 그대로 치면 된다. 이어서 물으면 <strong>앞 대화를 기억한다.</strong>
-        지난 대화는 <strong>대화 목록</strong>에서 다시 열어 이어 물을 수 있다.
       </p>
       <div id="chat-log"></div>
     </div>
 
-    {# ── 대화 목록 — 누르면 그 대화를 열고 이어 묻는다 ── #}
+    {# ── 날짜별 보관본 — 그날 물은 것을 한 장으로 모은 것. 읽기만 한다 ── #}
     <div id="chat-past-view" class="chat-body" hidden>
       <p class="meta quiet">
-        <strong>대화마다 따로 이어진다.</strong> 누르면 그 대화를 다시 열고,
-        거기서 물으면 그 대화에 이어진다.
+        그날 물은 것을 한 장으로 모은 것이다. <strong>터미널에서 물은 것도 여기 있다.</strong>
+        이어 물으려면 왼쪽 목록에서 대화를 고른다.
       </p>
-      <ul class="picks" id="chat-sessions"></ul>
-      <p class="empty" id="chat-sessions-empty" hidden>아직 대화가 없다.</p>
-
-      <details class="chat-archive">
-      <summary class="meta">날짜별 보관본 — 그날 물은 것을 한 장으로 모은 것</summary>
       {% if ask.answers %}
       <ul class="picks">
         {% for answer in ask.answers %}
@@ -69,7 +75,6 @@
       {% else %}
       <p class="empty">아직 없다. 물어보면 날짜별로 쌓인다.</p>
       {% endif %}
-      </details>
     </div>
 
     {# ── 기록으로 올리기 ── #}
@@ -138,6 +143,8 @@
         <span class="meta quiet" id="ask-status"></span>
       </div>
     </footer>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -163,7 +170,9 @@
   var 목록없음 = document.getElementById("chat-sessions-empty");
   var 주소 = "/web/topics/" + encodeURIComponent(key);
   // 지금 열린 대화. 빈 값이면 다음 질문이 **새 대화**를 연다.
-  var 세션 = "", 세션제목 = "", 불러옴 = false, 끊개 = null;
+  var 세션 = "", 세션제목 = "", 끊개 = null, 줄들 = [];
+  var side = document.getElementById("chat-side");
+  var menu = document.getElementById("chat-menu");
   var cli = document.getElementById("ask-cli");
   var title = document.getElementById("chat-title");
   var back = document.getElementById("chat-back");
@@ -174,7 +183,7 @@
     past.hidden = which !== "past";
     promote.hidden = which !== "promote";
     back.hidden = which === "talk";
-    title.textContent = which === "past" ? "대화 목록"
+    title.textContent = which === "past" ? "날짜별 보관본"
       : which === "promote" ? "기록으로 올리기" : "물어보기";
     document.querySelector(".chat-foot").hidden = which !== "talk";
   }
@@ -186,11 +195,27 @@
     fab.hidden = 열까;
     fab.setAttribute("aria-expanded", String(열까));
     if (열까) {
-      view("talk"); input.focus();
-      // 처음 열 때는 마지막 대화를 불러온다 — 챗봇을 다시 열면 하던 대화가 있어야 한다.
-      if (!불러옴) { 불러옴 = true; 마지막대화(); }
+      // **열면 빈 새 대화다.** 하던 대화는 옆 목록에서 고른다 — 조용히 불러오면
+      // 새 질문이 어느 대화에 붙는지 모른 채 치게 된다.
+      if (!끊개 && !log.children.length) 새대화(true);
+      view("talk"); 넓이맞추기(); 목록그리기(); input.focus();
     }
   }
+  // ── 옆 목록 — 넓은 창에서는 늘 펼치고, 좁으면 ☰ 로 겹쳐 연다 ──
+  var 넓은폭 = 56 * parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
+  function 넓이맞추기() {
+    var 넓다 = panel.offsetWidth >= 넓은폭;
+    panel.classList.toggle("wide", 넓다);
+    if (넓다) 옆열기(false);
+  }
+  function 옆열기(열까) {
+    side.classList.toggle("open", 열까);
+    menu.setAttribute("aria-expanded", String(열까));
+  }
+  function 좁으면닫기() { if (!panel.classList.contains("wide")) 옆열기(false); }
+  menu.addEventListener("click", function () { 옆열기(!side.classList.contains("open")); });
+  if (window.ResizeObserver) new ResizeObserver(넓이맞추기).observe(panel);
+  else window.addEventListener("resize", 넓이맞추기);
   fab.addEventListener("click", function () { 열기(panel.hidden); });
   document.getElementById("chat-close").addEventListener("click", function () {
     열기(false);
@@ -198,14 +223,16 @@
   });
   // 패널이 열려 있을 때 Esc 로 닫는다. 대화창의 기본 관습이다.
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !panel.hidden) 열기(false);
+    if (e.key !== "Escape" || panel.hidden) return;
+    // 겹쳐 연 목록이 있으면 그것부터 닫는다.
+    if (side.classList.contains("open")) 옆열기(false); else 열기(false);
   });
-  document.getElementById("chat-past").addEventListener("click", function () {
-    if (past.hidden) { 목록그리기(); view("past"); } else view("talk");
+  document.getElementById("chat-archive-open").addEventListener("click", function () {
+    view("past"); 좁으면닫기();
   });
   document.getElementById("chat-new").addEventListener("click", function () {
     새대화();
-    view("talk");
+    view("talk"); 좁으면닫기();
     input.focus();
   });
 
@@ -215,12 +242,13 @@
     badge.textContent = 세션 ? (세션제목.length > 18 ? 세션제목.slice(0, 18) + "…" : 세션제목) : "";
     badge.title = 세션제목;
   }
-  function 새대화() {
+  function 새대화(조용히) {
     if (끊개) return;
     세션 = ""; 세션제목 = "";
     log.innerHTML = "";
-    status.textContent = "새 대화 — 다음 질문부터 따로 이어진다";
+    status.textContent = 조용히 ? "" : "새 대화 — 다음 질문부터 따로 이어진다";
     표시();
+    목록칠하기();
   }
   function 에이전트맞추기(cliName, model) {
     if (!cli || !cliName) return;
@@ -256,6 +284,7 @@
       에이전트맞추기(s.cli, s.model);
       status.textContent = s.turns + "턴 · 이어서 물으면 이 대화에 붙는다";
       표시();
+      목록칠하기();
       talk.scrollTop = talk.scrollHeight;
     } catch (err) { status.textContent = "대화를 열지 못했습니다: " + err; }
   }
@@ -265,30 +294,51 @@
       return res.ok ? (await res.json()).sessions : [];
     } catch (err) { return []; }
   }
-  async function 마지막대화() {
-    var rows = await 대화목록();
-    if (rows.length && !세션 && !log.children.length) 열기대화(rows[0].session_id);
+  function 날짜(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "" : d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+  function 곁말(r) {
+    var d = new Date(r.updated_at);
+    var 때 = isNaN(d) ? ""
+      : 날짜(r.updated_at) === 날짜(new Date().toISOString())
+        ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0")
+        : (d.getMonth() + 1) + "월 " + d.getDate() + "일";
+    return r.cli + (r.model ? " · " + r.model : "") + " · " + r.turns + "턴 · " + 때;
   }
   async function 목록그리기() {
-    var rows = await 대화목록();
+    줄들 = await 대화목록();
+    목록칠하기();
+  }
+  // 목록을 다시 받지 않고 그린다 — 대화를 고를 때마다 서버에 묻지 않는다.
+  function 목록칠하기() {
     목록.innerHTML = "";
-    목록없음.hidden = rows.length > 0;
-    rows.forEach(function (r) {
-      var li = document.createElement("li");
-      li.className = "chat-sess" + (r.session_id === 세션 ? " on" : "");
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "chat-sess-open";
-      var 제목 = document.createElement("b");
-      제목.textContent = r.title;
-      var 곁 = document.createElement("span");
-      곁.className = "meta quiet";
-      곁.textContent = r.cli + (r.model ? " · " + r.model : "") + " · " + r.turns + "턴 · "
-        + (r.updated_at || "").slice(0, 16).replace("T", " ");
-      b.appendChild(제목); b.appendChild(곁);
-      b.addEventListener("click", function () { view("talk"); 열기대화(r.session_id); });
-      li.appendChild(b);
-      목록.appendChild(li);
+    목록없음.hidden = 줄들.length > 0;
+    var 오늘 = 날짜(new Date().toISOString());
+    [["오늘", function (r) { return 날짜(r.updated_at) === 오늘; }],
+     ["이전", function (r) { return 날짜(r.updated_at) !== 오늘; }]].forEach(function (g) {
+      var 묶음 = 줄들.filter(g[1]);
+      if (!묶음.length) return;
+      var h = document.createElement("div");
+      h.className = "chat-group";
+      h.textContent = g[0];
+      목록.appendChild(h);
+      묶음.forEach(function (r) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "chat-sess-open" + (r.session_id === 세션 ? " on" : "");
+        if (r.session_id === 세션) b.setAttribute("aria-current", "true");
+        var 제목 = document.createElement("b");
+        제목.textContent = r.title;
+        제목.title = r.title;
+        var 곁 = document.createElement("span");
+        곁.textContent = 곁말(r);
+        b.appendChild(제목); b.appendChild(곁);
+        b.addEventListener("click", function () {
+          view("talk"); 좁으면닫기(); 열기대화(r.session_id);
+        });
+        목록.appendChild(b);
+      });
     });
   }
   // ── 창 크기 — 왼쪽 위 손잡이를 끈다 ──
@@ -445,6 +495,7 @@
             }
             세션 = payload.session_id || 세션;
             표시();
+            목록칠하기();
           }
           if (name === "message") {
             모은글 += payload.text;
@@ -459,6 +510,8 @@
               ? payload.saved + " 저장" + (payload.tokens ? " · " + payload.tokens : "")
               : "답을 받지 못했습니다";
             if (mode === "summary" && 모은글) { 마지막정리 = 모은글; 승격버튼(모은글); }
+            // 답을 받아 세션이 생겼거나 턴이 늘었다 — 목록을 새로 받는다.
+            if (payload.session_id) 목록그리기();
           }
         });
       }
