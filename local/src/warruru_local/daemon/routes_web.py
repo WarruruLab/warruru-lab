@@ -22,6 +22,28 @@ from warruru_local.daemon.validation import validate_month_param as _validate_mo
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+# 에이전트마다 고를 수 있는 모델. 선택칸이 이 한 벌을 읽는다.
+templates.env.globals["MODELS"] = asking.MODELS
+
+
+def _check_cli(cli: str, model: str) -> None:
+    """에이전트와 모델을 고른 값이 넘겨도 되는 것인가.
+
+    **둘 다 자식의 argv 로 들어간다.** 목록 밖의 값은 여기서 막는다 —
+    `asking.Ask.argv` 도 한 번 더 막지만, 그쪽은 스트림이 열린 뒤라
+    화면에는 400 이 아니라 끊긴 답으로 보인다.
+    """
+    if cli not in asking.MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
+        )
+    if not asking.model_ok(cli, model):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "UNKNOWN_MODEL",
+                    "message": f"{cli} 에서 고를 수 없는 모델입니다: {model}"},
+        )
 
 
 @router.get("/")
@@ -478,6 +500,7 @@ async def summarize_chapter_form(
     key: str,
     num: str = Form(...),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """장 하나를 **복습용으로** 요약받는다 (명세 §2.15 e).
@@ -488,11 +511,7 @@ async def summarize_chapter_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
     장들 = {ch["num"]: ch for ch in reading.toc(ctx, key)}
     if num not in 장들:
         raise HTTPException(
@@ -507,6 +526,7 @@ async def summarize_chapter_form(
             num=num, chapter=장들[num]["title"]),
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():
@@ -537,6 +557,7 @@ async def fill_book_form(
     title: str = Form(...),
     url: str = Form(""),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """책 정보를 주면 **에이전트가 목차를 확인해 채운다** (명세 §2.15 d).
@@ -550,11 +571,7 @@ async def fill_book_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
     if not title.strip():
         raise HTTPException(
             status_code=400,
@@ -570,6 +587,7 @@ async def fill_book_form(
             title=title.strip(), url=url.strip() or "(없음)", slugs=골라쓸것),
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():
@@ -756,6 +774,7 @@ async def promote_note_form(
     key: str,
     day: str = Form(...),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """노트를 읽고 **바로 기록으로 올린다**(명세 §2.9 c). 확인 단계가 없다.
@@ -765,9 +784,7 @@ async def promote_note_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
-    if cli not in ("codex", "claude"):
-        raise HTTPException(status_code=400, detail={
-            "code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"})
+    _check_cli(cli, model)
     note = reading.read_note(ctx, key, day)
     진도 = reading.covered(ctx, key)
     if not note["text"].strip():
@@ -779,6 +796,7 @@ async def promote_note_form(
         prompt=reading.promote_prompt(note["text"], 진도["slugs"]),
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():
@@ -940,6 +958,7 @@ async def ask_form(
     prompt: str = Form(""),
     fresh: int = Form(0),
     cli: str = Form("codex"),
+    model: str = Form(""),
     mode: str = Form("ask"),
     form_token: str | None = Form(None, alias="_token"),
 ):
@@ -971,11 +990,7 @@ async def ask_form(
             detail={"code": "EMPTY_PROMPT", "message": "물어볼 것을 적어 주세요"},
         )
 
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
     if fresh:
         ctx.records.forget_thread(topic_slug)
     row = ctx.records.ask_thread(topic_slug)
@@ -988,6 +1003,7 @@ async def ask_form(
         prompt=asked,
         home=ctx.settings.home,
         cli=cli,
+        model=model,
         thread_id=row["thread_id"] if 이어감 else None,
     )
 
@@ -1063,6 +1079,7 @@ async def answer_form(
     text: str = Form(...),
     question: str = Form(""),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """질문 하나에 **말로 답해 본다**(명세 §2.10 d).
@@ -1095,11 +1112,7 @@ async def answer_form(
             status_code=400,
             detail={"code": "EMPTY_ANSWER", "message": "답을 적어 주세요"},
         )
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
 
     today = local_date_of(to_iso(ctx.clock.now()))
     checking.save_answer(ctx, topic_slug, ask, today, 답)
@@ -1110,6 +1123,7 @@ async def answer_form(
                                     answer=답),
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():
@@ -1337,6 +1351,7 @@ async def polish_draft_form(
     mode: str = Form("polish"),
     ask: str = Form(""),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """초안을 **화면에서** 다듬거나 다시 쓴다 (명세 §2.14).
@@ -1357,11 +1372,7 @@ async def polish_draft_form(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 초안이 없습니다"},
         )
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
 
     머리 = REWRITE_PROMPT if mode == "rewrite" else POLISH_PROMPT
     if ask.strip():
@@ -1371,6 +1382,7 @@ async def polish_draft_form(
         prompt=f"{머리}\n---\n{view['markdown']}",
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():
@@ -1469,6 +1481,7 @@ async def compose_draft_form(
     template: str = Form("six"),
     prompt: str = Form(""),
     cli: str = Form("codex"),
+    model: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ):
     """**체크한 기록을 에이전트에게 넘겨 글로 만든다** (명세 §2.14 e).
@@ -1483,11 +1496,7 @@ async def compose_draft_form(
     """
     _check_token(request, form_token)
     ctx = request.app.state.ctx
-    if cli not in ("codex", "claude"):
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "UNKNOWN_CLI", "message": "codex 또는 claude 만 됩니다"},
-        )
+    _check_cli(cli, model)
     rows = [row for row in (ctx.records.get_record(rid) for rid in record_id)
             if row is not None and not row.get("deleted_at")]
     if not rows:
@@ -1509,6 +1518,7 @@ async def compose_draft_form(
         prompt=f"{머리}{_WRITE_TAIL}\n---\n{재료}",
         home=ctx.settings.home,
         cli=cli,
+        model=model,
     )
 
     async def stream():

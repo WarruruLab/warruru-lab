@@ -135,6 +135,35 @@ def test_claude_로도_이어_물을_수_있다():
     assert "--resume" in argv and argv[argv.index("--resume") + 1] == "abc"
 
 
+def test_모델을_고르면_CLI_마다_제_옵션으로_넘긴다():
+    """Codex 는 `-m`, Claude 는 `--model`. 비우면 아무것도 안 붙인다 —
+    CLI 가 제 설정대로 고른다(2026-09-16)."""
+    codex = asking.Ask("db-index", "또", Path("/tmp"), thread_id="abc",
+                       model="gpt-5.5").argv()
+    assert codex[codex.index("-m") + 1] == "gpt-5.5"
+    # `-m` 도 `exec` 의 것이라 `resume` 앞이어야 이어 묻기가 안 죽는다.
+    assert codex.index("-m") < codex.index("resume")
+
+    claude = asking.Ask("db-index", "질문", Path("/tmp"), cli="claude",
+                        model="opus").argv()
+    assert claude[claude.index("--model") + 1] == "opus"
+
+    기본 = asking.Ask("db-index", "질문", Path("/tmp")).argv()
+    assert "-m" not in 기본 and "--model" not in 기본
+
+
+def test_목록_밖의_모델은_argv_로_안_들어간다():
+    """값이 자식의 옵션으로 읽히면 읽기 전용(규약 3)이 깨진다."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        asking.Ask("db-index", "질문", Path("/tmp"), cli="claude",
+                   model="--dangerously-skip-permissions").argv()
+    # 다른 CLI 의 모델도 안 된다 — Codex 에 Claude 별칭을 넘기면 실패한다.
+    assert not asking.model_ok("codex", "opus")
+    assert asking.model_ok("codex", "") and asking.model_ok("claude", "")
+
+
 # ── 실패를 덮지 않는다 ───────────────────────────────────────────
 
 def test_CLI_가_없으면_고치는_법을_화면이_말한다(tmp_path):

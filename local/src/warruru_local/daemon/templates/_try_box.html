@@ -25,7 +25,7 @@
 
     <div class="ask-row">
       <button type="button" id="try-send" class="primary">보내기</button>
-      <select id="try-cli" aria-label="어느 에이전트로">
+      <select id="try-cli" data-agent aria-label="어느 에이전트로">
         <option value="codex">Codex</option>
         <option value="claude">Claude</option>
       </select>
@@ -157,6 +157,7 @@
     body.set("text", 답);
     body.set("question", 지금.text);
     body.set("cli", cli.value);
+    body.set("model", window.고른모델(cli));
 
     var 모은글 = "";
     try {

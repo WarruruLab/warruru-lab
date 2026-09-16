@@ -70,7 +70,7 @@
           <div class="ask-row">
             <button type="button" class="btn sum-go" data-num="{{ ch.num }}">
               {{ '요약 다시 받기' if ch.has_summary else '복습 요약 받기' }}</button>
-            <select class="sum-cli" aria-label="어느 에이전트로">
+            <select class="sum-cli" data-agent aria-label="어느 에이전트로">
               <option value="codex">Codex</option>
               <option value="claude">Claude</option>
             </select>
@@ -126,14 +126,15 @@
       var num = btn.dataset.num;
       var 칸 = document.getElementById("ch-sum-" + num);
       var 알림 = document.getElementById("sum-st-" + num);
-      var cli = btn.parentElement.querySelector(".sum-cli").value;
+      var 칸 = btn.parentElement.querySelector(".sum-cli");
+      var cli = 칸.value, model = window.고른모델(칸);
       if (btn.disabled) return;
       btn.disabled = true;
       알림.textContent = "찾아 읽는 중…";
       칸.textContent = ""; 칸.classList.remove("empty-sum");
 
       var body = new URLSearchParams();
-      body.set("_token", token); body.set("num", num); body.set("cli", cli);
+      body.set("_token", token); body.set("num", num); body.set("cli", cli); body.set("model", model);
       var 모은글 = "";
       try {
         var res = await fetch("/web/books/" + encodeURIComponent(key) + "/summary",

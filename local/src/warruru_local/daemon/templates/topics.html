@@ -75,7 +75,7 @@
     <select name="template" id="pick-template" aria-label="글 템플릿">
       {% for key, name in templates %}<option value="{{ key }}">{{ name }}</option>{% endfor %}
     </select>
-    <select name="cli" id="pick-cli" aria-label="어느 에이전트로">
+    <select name="cli" id="pick-cli" data-agent aria-label="어느 에이전트로">
       <option value="codex">Codex</option>
       <option value="claude">Claude</option>
     </select>
@@ -213,6 +213,7 @@
     body.set("_token", {{ token|tojson }});
     body.set("template", document.getElementById("pick-template").value);
     body.set("cli", document.getElementById("pick-cli").value);
+    body.set("model", window.고른모델(document.getElementById("pick-cli")));
     body.set("prompt", document.getElementById("pick-prompt").value);
     고른것.forEach(function (b) { body.append("record_id", b.value); });
 
