@@ -879,6 +879,24 @@
   .chat-sess-open span { font-size: var(--t-xs); color: var(--ink-faint);
                          font-variant-numeric: tabular-nums; }
   .chat-side-empty { padding: 0 .9rem; }
+  /* 대화 한 줄 = 여는 버튼 + 지우기. 지우기는 줄에 손을 얹어야 드러난다 —
+     늘 보이면 목록이 ×  로 도배되고, 없으면 지울 길이 없다. */
+  .chat-sess-row { display: flex; align-items: center; }
+  .chat-sess-row.on { background: var(--key-soft); }
+  .chat-sess-row:hover { background: var(--rule-soft); }
+  .chat-sess-row .chat-sess-open { flex: 1; min-width: 0; }
+  .chat-sess-row .chat-sess-open:hover { background: transparent; }
+  .chat-sess-del {
+    flex: none; margin-right: .5rem; padding: .15rem .4rem; border-radius: 7px;
+    background: transparent; color: var(--ink-faint); font-size: var(--t-sm);
+    opacity: 0;
+  }
+  .chat-sess-row:hover .chat-sess-del, .chat-sess-del:focus-visible { opacity: 1; }
+  .chat-sess-del:hover { color: var(--alert); background: var(--alert-soft); }
+  .chat-sess-del.sure {
+    opacity: 1; color: #fff; background: var(--alert); font-size: var(--t-xs);
+    font-weight: 700;
+  }
   .chat-more {
     margin: .4rem .9rem; padding: .4rem .6rem; border-radius: var(--radius-sm);
     background: transparent; color: var(--key); font-size: var(--t-sm);

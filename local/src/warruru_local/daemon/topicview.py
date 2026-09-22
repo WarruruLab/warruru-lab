@@ -175,6 +175,18 @@ def append_turn(ctx, topic_slug: str, session_id: str, asked: str,
         handle.write(줄 + "\n")
 
 
+def forget_turns(ctx, topic_slug: str, session_id: str) -> None:
+    """그 대화의 문답 파일을 지운다. 없으면 아무 일도 하지 않는다.
+
+    **날짜 보관본(`{날짜}.md`)은 남긴다.** 거기에는 터미널에서 물은 것과
+    다른 대화가 같이 있고, 무엇보다 받은 답을 지우는 것이 이 버튼의 뜻이
+    아니다 — 목록에서 치우는 것이다.
+    """
+    path = _session_path(ctx, topic_slug, session_id)
+    if path is not None and path.is_file():
+        path.unlink()
+
+
 def archive_turns(ctx, topic_slug: str, first_day: str, last_day: str) -> list[dict]:
     """날짜 보관본에서 문답을 되살린다. **v7 이전에 시작한 대화 전용이다.**
 

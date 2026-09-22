@@ -1155,6 +1155,34 @@ async def ask_session(request: Request, topic_slug: str, session_id: str):
     }
 
 
+@router.post("/web/topics/{topic_slug}/sessions/{session_id}/delete")
+async def ask_session_delete(
+    request: Request,
+    topic_slug: str,
+    session_id: str,
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """대화 한 줄을 목록에서 치운다. 상태를 바꾸므로 토큰을 요구한다.
+
+    **날짜 보관본은 남는다.** 지우는 것은 대화 줄과 그 문답 파일뿐이다 —
+    보관본에는 터미널에서 물은 것과 다른 대화가 같이 있고, 이 버튼의 뜻은
+    "받은 답을 없앤다" 가 아니라 "목록에서 치운다" 다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    row = (ctx.records.ask_session(session_id)
+           if topicview.SESSION_ID.match(session_id) else None)
+    if not careerview.SLUG.match(topic_slug) or row is None \
+            or row["topic_slug"] != topic_slug:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 대화가 없습니다"},
+        )
+    ctx.records.forget_session(session_id)
+    topicview.forget_turns(ctx, topic_slug, session_id)
+    return {"deleted": session_id}
+
+
 # 답해보기의 프롬프트. **점수는 안 매기되 설명은 한다**(명세 §2.10 d,
 # 2026-09-08 개정).
 #

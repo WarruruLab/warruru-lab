@@ -302,6 +302,23 @@
       talk.scrollTop = talk.scrollHeight;
     } catch (err) { status.textContent = "대화를 열지 못했습니다: " + err; }
   }
+  async function 지우기(r) {
+    var body = new URLSearchParams();
+    body.set("_token", {{ token|tojson }});
+    try {
+      var res = await fetch(
+        주소 + "/sessions/" + encodeURIComponent(r.session_id) + "/delete",
+        { method: "POST", body: body });
+      if (!res.ok) { status.textContent = "지우지 못했습니다 (" + res.status + ")"; return; }
+    } catch (err) { status.textContent = "지우지 못했습니다: " + err; return; }
+    줄들 = 줄들.filter(function (x) { return x.session_id !== r.session_id; });
+    // 열려 있던 대화를 지웠으면 빈 새 대화로 돌아간다 — 지운 대화에
+    // 이어 물으면 그 id 로 새 대화가 열려 사용자가 헷갈린다.
+    if (세션 === r.session_id) 새대화(true);
+    목록칠하기();
+    status.textContent = "대화를 지웠습니다 — 날짜별 보관본은 남아 있습니다";
+  }
+
   // 목록은 최근 20개씩 받는다. 더 있으면 [이전 대화 더 보기] 로 뒤를 붙인다.
   async function 대화목록(offset) {
     try {
@@ -366,7 +383,34 @@
         b.addEventListener("click", function () {
           view("talk"); 좁으면닫기(); 열기대화(r.session_id);
         });
-        목록.appendChild(b);
+
+        // 지우기는 **두 번 눌러야** 지워진다. 목록에서 잘못 스치면 대화가
+        // 사라지는 것이 가장 나쁜 실수다. 날짜별 보관본은 그대로 남는다.
+        var 줄 = document.createElement("div");
+        줄.className = "chat-sess-row" + (r.session_id === 세션 ? " on" : "");
+        var 지움 = document.createElement("button");
+        지움.type = "button";
+        지움.className = "chat-sess-del";
+        지움.title = "이 대화를 목록에서 지운다 (보관본은 남는다)";
+        지움.setAttribute("aria-label", r.title + " 대화 지우기");
+        지움.textContent = "×";
+        지움.addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (지움.dataset.sure !== "1") {
+            지움.dataset.sure = "1";
+            지움.textContent = "지울까요?";
+            지움.classList.add("sure");
+            setTimeout(function () {
+              if (지움.dataset.sure !== "1") return;
+              지움.dataset.sure = ""; 지움.textContent = "×";
+              지움.classList.remove("sure");
+            }, 4000);
+            return;
+          }
+          지우기(r);
+        });
+        줄.appendChild(b); 줄.appendChild(지움);
+        목록.appendChild(줄);
       });
     });
   }

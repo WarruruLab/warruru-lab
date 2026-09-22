@@ -320,6 +320,14 @@ class RecordRepository:
         rows = self.ask_sessions(topic_slug, limit=1)
         return rows[0] if rows else None
 
+    def forget_session(self, session_id: str) -> None:
+        """대화 한 줄을 지운다. **날짜 보관본은 건드리지 않는다** —
+        그 파일에는 터미널에서 물은 것도 같이 있어서, 대화를 지운다고 그날
+        기록까지 사라지면 안 된다."""
+        self._conn.execute(
+            "DELETE FROM ask_session WHERE session_id = ?", (session_id,)
+        )
+
     def rename_session(self, session_id: str, title: str) -> None:
         """옮겨 온 대화에 첫 질문으로 이름을 붙인다. 시각은 건드리지 않는다 —
         이름을 붙였다고 목록 순서가 바뀌면 안 된다."""
