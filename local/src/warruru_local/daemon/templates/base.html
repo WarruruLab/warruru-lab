@@ -1207,6 +1207,36 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
   }
+  /* UML·ERD 연습판 — 라이브러리 없이 SVG 하나다. */
+  .uml-board {
+    margin: .8rem 0; background: var(--panel-2); border-radius: 10px;
+    overflow: hidden; touch-action: none;
+  }
+  .uml-board svg { display: block; width: 100%; height: auto; user-select: none; }
+  .uml-node { cursor: grab; }
+  .uml-node rect { fill: var(--panel); stroke: var(--rule); stroke-width: 1.5; }
+  .uml-node.on rect { stroke: var(--key); stroke-width: 2.5; }
+  .uml-node.linking rect { stroke: var(--alert); stroke-width: 2.5; }
+  .uml-split { stroke: var(--rule); stroke-width: 1; }
+  .uml-title { font-size: 13px; font-weight: 700; fill: var(--ink); }
+  .uml-body-t { font-size: 12px; fill: var(--ink-soft); }
+  .uml-link { cursor: pointer; }
+  .uml-edge { stroke: var(--ink-faint); stroke-width: 1.5; fill: none; }
+  .uml-link.on .uml-edge { stroke: var(--key); stroke-width: 2.5; }
+  /* 가는 선은 그대로 못 누른다. 안 보이는 두꺼운 선을 겹쳐 손잡이로 쓴다. */
+  .uml-hit { stroke: transparent; stroke-width: 14; }
+  .uml-elabel {
+    font-size: 11px; fill: var(--ink-faint); text-anchor: middle;
+  }
+  .uml-link.on .uml-elabel { fill: var(--key); font-weight: 700; }
+  #uml-arrow path { fill: var(--ink-faint); }
+  .uml-edit { display: grid; gap: .4rem; margin: 0 0 .8rem; }
+  .uml-edit input, .uml-edit textarea {
+    font: inherit; padding: .45rem .6rem; border: 1px solid var(--rule);
+    border-radius: 8px; background: var(--panel); color: var(--ink); width: 100%;
+  }
+  .uml-edit textarea { resize: vertical; font-family: var(--mono); font-size: var(--t-sm); }
+  #uml-dump { white-space: pre-wrap; }
 </style>
 </head>
 <body>

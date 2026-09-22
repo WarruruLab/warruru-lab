@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} UML 연습 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }} UML 연습</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/cert/{{ view.key }}">← {{ view.name }}</a> ·
+  <a href="/career/cert/{{ view.key }}/practice">연습 도구</a> ·
+  시험장 도구를 흉내 내지 않는다 — <strong>무엇을 그릴지</strong>를 익히는 자리다
+</p>
+
+{# **수행형은 시간이 점수다.** 한 문항을 몇 분에 그리는지 모르면 시험장에서
+   그 문항을 통째로 못 쓴다. 그래서 시계가 맨 위에 있다. #}
+<section class="tool">
+  <div class="work-head">
+    <h2>연습</h2>
+    <span class="dday-sm" id="uml-clock">00:00</span>
+    <button class="btn" type="button" id="uml-start">시작</button>
+    <button class="btn" type="button" id="uml-reset">되돌리기</button>
+    <span class="meta quiet">한 장을 12분 안에 끝내는 것이 목표다</span>
+  </div>
+
+  <div class="ask-row">
+    <select id="uml-kind" aria-label="무엇을 그리나">
+      <option value="class">클래스 다이어그램</option>
+      <option value="er">ER 다이어그램</option>
+      <option value="sequence">시퀀스 — 상자는 객체, 선은 메시지</option>
+      <option value="usecase">유스케이스</option>
+    </select>
+    <button class="btn primary" type="button" id="uml-add">상자 더하기</button>
+    <button class="btn" type="button" id="uml-link">선 잇기</button>
+    <button class="btn" type="button" id="uml-del">고른 것 지우기</button>
+    <button class="btn" type="button" id="uml-clear">판 비우기</button>
+    <span class="meta quiet" id="uml-hint">상자를 끌어 옮긴다 · 누르면 아래에서 고친다</span>
+  </div>
+
+  <div class="uml-board">
+    <svg id="uml-svg" viewBox="0 0 960 520" role="img" aria-label="다이어그램 판">
+      <defs>
+        <marker id="uml-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z"></path>
+        </marker>
+      </defs>
+      <g id="uml-edges"></g>
+      <g id="uml-nodes"></g>
+    </svg>
+  </div>
+
+  {# **글자는 판 밖에서 친다.** 떠 있는 창을 띄우면 그리다 말고 손이 멈추고,
+     여러 줄을 칠 수도 없다. 고른 것이 여기 실려 오고 치는 대로 판이 바뀐다. #}
+  <div class="uml-edit" id="uml-edit-node" hidden>
+    <input type="text" id="uml-title" maxlength="80" placeholder="이름 — 주문 · 회원">
+    <textarea id="uml-body" rows="4" maxlength="400"
+              placeholder="속성과 메서드 — 줄마다 하나&#10;id: Long&#10;합계(): int"></textarea>
+  </div>
+  <div class="uml-edit" id="uml-edit-edge" hidden>
+    <input type="text" id="uml-label" maxlength="60"
+           placeholder="이 선은 무슨 관계인가 — 1..* · 주문한다 · 상속">
+  </div>
+
+  <form class="ask-row" id="uml-save" method="post" action="/web/certs/{{ view.key }}/uml">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <input type="hidden" name="drawing" id="uml-json">
+    <input type="text" name="name" id="uml-name" placeholder="이름 — 예: 주문 클래스도"
+           value="{{ open.name if open else '' }}" maxlength="40">
+    <button class="primary" type="submit">저장</button>
+    <button class="btn" type="button" id="uml-text">글로 뽑기</button>
+    <span class="meta quiet" id="uml-status"></span>
+  </form>
+  <pre class="body" id="uml-dump" hidden></pre>
+  <p class="meta">
+    <strong>글로 뽑기</strong>는 그린 것을 말로 옮긴다. 그림은 면접에서 못 꺼내도
+    "주문이 회원을 1..* 로 문다" 는 문장은 꺼낼 수 있다.
+  </p>
+</section>
+
+{% if saved %}
+<section class="tool">
+  <h2>그린 것 {{ saved|length }}장</h2>
+  <ul class="checkpoints asks">
+    {% for row in saved %}
+    <li class="ask">
+      <a class="ask-text" href="/career/cert/{{ view.key }}/uml?name={{ row.name|urlencode }}">{{ row.name }}</a>
+      <span class="badge">{{ row.kind }}</span>
+      <span class="when">상자 {{ row.nodes }} · {{ row.saved_at[:16]|replace('T', ' ') }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta">
+    <code>~/.warruru/career/practice/{{ view.key }}/</code> 에 있다 —
+    <strong>저장소 밖이다.</strong>
+  </p>
+</section>
+{% endif %}
+
+<script>
+(function () {
+  var svg = document.getElementById("uml-svg");
+  if (!svg) return;
+  var NS = "http://www.w3.org/2000/svg";
+  var 상자칸 = document.getElementById("uml-nodes");
+  var 선칸 = document.getElementById("uml-edges");
+  var 상태 = document.getElementById("uml-status");
+  var 힌트 = document.getElementById("uml-hint");
+  var 종류 = document.getElementById("uml-kind");
+  var 이름칸 = document.getElementById("uml-title");
+  var 본문칸 = document.getElementById("uml-body");
+  var 라벨칸 = document.getElementById("uml-label");
+  var 상자판 = document.getElementById("uml-edit-node");
+  var 선판 = document.getElementById("uml-edit-edge");
+
+  // 열어 둔 것이 있으면 그것으로 시작한다.
+  var 그림 = {{ (open or {"kind": "class", "nodes": [], "edges": []}) | tojson }};
+  if (!그림.nodes) 그림.nodes = [];
+  if (!그림.edges) 그림.edges = [];
+  var 고른상자 = null, 고른선 = -1, 잇는중 = null, 셈 = 0;
+
+  function 새이름() { 셈 += 1; return "n" + Date.now().toString(36) + 셈; }
+  function 찾기(id) {
+    return 그림.nodes.filter(function (n) { return n.id === id; })[0] || null;
+  }
+  function 크기(n) {
+    var 줄 = (n.body || "").split("\n").length;
+    return { w: 180, h: 32 + Math.max(1, 줄) * 17 };
+  }
+  function 알림(말) { 상태.textContent = 말; }
+
+  function 고침판() {
+    var n = 고른상자 ? 찾기(고른상자) : null;
+    상자판.hidden = !n;
+    선판.hidden = 고른선 < 0;
+    if (n) { 이름칸.value = n.title || ""; 본문칸.value = n.body || ""; }
+    if (고른선 >= 0) 라벨칸.value = 그림.edges[고른선].label || "";
+  }
+
+  function 그리기() {
+    상자칸.textContent = ""; 선칸.textContent = "";
+
+    그림.edges.forEach(function (e, i) {
+      var a = 찾기(e.from), b = 찾기(e.to);
+      if (!a || !b) return;
+      var ka = 크기(a), kb = 크기(b);
+      var x1 = a.x + ka.w / 2, y1 = a.y + ka.h / 2;
+      var x2 = b.x + kb.w / 2, y2 = b.y + kb.h / 2;
+      var g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "uml-link" + (고른선 === i ? " on" : ""));
+      var line = document.createElementNS(NS, "line");
+      line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+      line.setAttribute("class", "uml-edge");
+      line.setAttribute("marker-end", "url(#uml-arrow)");
+      g.appendChild(line);
+      // 선은 가늘어서 그대로는 못 누른다. 안 보이는 두꺼운 선을 겹쳐 둔다.
+      var 손잡이 = document.createElementNS(NS, "line");
+      손잡이.setAttribute("x1", x1); 손잡이.setAttribute("y1", y1);
+      손잡이.setAttribute("x2", x2); 손잡이.setAttribute("y2", y2);
+      손잡이.setAttribute("class", "uml-hit");
+      g.appendChild(손잡이);
+      var t = document.createElementNS(NS, "text");
+      t.setAttribute("x", (x1 + x2) / 2); t.setAttribute("y", (y1 + y2) / 2 - 5);
+      t.setAttribute("class", "uml-elabel");
+      t.textContent = e.label || "관계?";
+      g.appendChild(t);
+      g.addEventListener("pointerdown", function (ev) {
+        ev.stopPropagation();
+        고른선 = i; 고른상자 = null; 잇는중 = null;
+        그리기(); 고침판(); 라벨칸.focus();
+      });
+      선칸.appendChild(g);
+    });
+
+    그림.nodes.forEach(function (n) {
+      var k = 크기(n);
+      var g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "uml-node" + (고른상자 === n.id ? " on" : "")
+                              + (잇는중 === n.id ? " linking" : ""));
+      var box = document.createElementNS(NS, "rect");
+      box.setAttribute("x", n.x); box.setAttribute("y", n.y);
+      box.setAttribute("width", k.w); box.setAttribute("height", k.h);
+      box.setAttribute("rx", 8);
+      g.appendChild(box);
+
+      var 칸선 = document.createElementNS(NS, "line");
+      칸선.setAttribute("x1", n.x); 칸선.setAttribute("y1", n.y + 26);
+      칸선.setAttribute("x2", n.x + k.w); 칸선.setAttribute("y2", n.y + 26);
+      칸선.setAttribute("class", "uml-split");
+      g.appendChild(칸선);
+
+      var 제목 = document.createElementNS(NS, "text");
+      제목.setAttribute("x", n.x + 10); 제목.setAttribute("y", n.y + 18);
+      제목.setAttribute("class", "uml-title");
+      제목.textContent = n.title || "이름 없음";
+      g.appendChild(제목);
+
+      (n.body || "").split("\n").forEach(function (줄, i) {
+        if (!줄) return;
+        var t = document.createElementNS(NS, "text");
+        t.setAttribute("x", n.x + 10); t.setAttribute("y", n.y + 44 + i * 17);
+        t.setAttribute("class", "uml-body-t");
+        t.textContent = 줄;
+        g.appendChild(t);
+      });
+
+      g.addEventListener("pointerdown", function (ev) {
+        ev.stopPropagation();
+        if (잇는중 && 잇는중 !== n.id) {
+          그림.edges.push({ from: 잇는중, to: n.id, label: "" });
+          고른선 = 그림.edges.length - 1;
+          잇는중 = null; 고른상자 = null;
+          알림("선을 이었다 — 관계 이름을 적는다");
+          그리기(); 고침판(); 라벨칸.focus();
+          return;
+        }
+        잇는중 = null; 고른선 = -1; 고른상자 = n.id;
+        그리기(); 고침판();
+
+        // 끌어 옮기기. 라이브러리 없이 포인터 이벤트만 쓴다.
+        var 판 = svg.getBoundingClientRect();
+        var 비율 = 960 / (판.width || 960);
+        var 처음 = { x: ev.clientX, y: ev.clientY, nx: n.x, ny: n.y };
+        var 움직였나 = false;
+        function 움직임(e2) {
+          움직였나 = true;
+          n.x = Math.max(0, Math.round(처음.nx + (e2.clientX - 처음.x) * 비율));
+          n.y = Math.max(0, Math.round(처음.ny + (e2.clientY - 처음.y) * 비율));
+          그리기();
+        }
+        function 놓음() {
+          window.removeEventListener("pointermove", 움직임);
+          window.removeEventListener("pointerup", 놓음);
+          if (!움직였나) 이름칸.focus();
+        }
+        window.addEventListener("pointermove", 움직임);
+        window.addEventListener("pointerup", 놓음);
+      });
+      상자칸.appendChild(g);
+    });
+    document.getElementById("uml-json").value = JSON.stringify(그림);
+  }
+
+  svg.addEventListener("pointerdown", function () {   // 빈 곳을 누르면 고른 것을 놓는다
+    고른상자 = null; 고른선 = -1; 잇는중 = null; 그리기(); 고침판();
+  });
+
+  이름칸.addEventListener("input", function () {
+    var n = 찾기(고른상자); if (!n) return;
+    n.title = 이름칸.value; 그리기();
+  });
+  본문칸.addEventListener("input", function () {
+    var n = 찾기(고른상자); if (!n) return;
+    n.body = 본문칸.value; 그리기();
+  });
+  라벨칸.addEventListener("input", function () {
+    if (고른선 < 0) return;
+    그림.edges[고른선].label = 라벨칸.value; 그리기();
+  });
+
+  document.getElementById("uml-add").addEventListener("click", function () {
+    var 몇 = 그림.nodes.length;
+    var n = { id: 새이름(), title: "", body: "",
+              x: 30 + (몇 % 5) * 186, y: 30 + Math.floor(몇 / 5) * 140 };
+    그림.nodes.push(n);
+    고른상자 = n.id; 고른선 = -1; 잇는중 = null;
+    그리기(); 고침판(); 이름칸.focus();
+    알림("이름부터 적는다");
+  });
+  document.getElementById("uml-link").addEventListener("click", function () {
+    if (!고른상자) { 알림("선이 나갈 상자를 먼저 누른다"); return; }
+    잇는중 = 고른상자;
+    힌트.textContent = "이을 상대 상자를 누른다";
+    그리기();
+  });
+  document.getElementById("uml-del").addEventListener("click", function () {
+    if (고른선 >= 0) {
+      그림.edges.splice(고른선, 1); 고른선 = -1;
+      그리기(); 고침판(); 알림("선을 지웠다"); return;
+    }
+    if (!고른상자) { 알림("지울 것을 먼저 누른다"); return; }
+    var id = 고른상자;
+    그림.nodes = 그림.nodes.filter(function (n) { return n.id !== id; });
+    그림.edges = 그림.edges.filter(function (e) {
+      return e.from !== id && e.to !== id;
+    });
+    고른상자 = null; 그리기(); 고침판(); 알림("상자를 지웠다");
+  });
+  document.getElementById("uml-clear").addEventListener("click", function () {
+    // **다시 그리는 것이 연습이다.** 같은 시나리오를 빈 판에서 두 번째로
+    // 그릴 때 비로소 몇 분에 되는지가 나온다.
+    그림.nodes = []; 그림.edges = [];
+    고른상자 = null; 고른선 = -1; 잇는중 = null;
+    그리기(); 고침판(); 알림("판을 비웠다 — 저장한 것은 그대로다");
+  });
+  종류.value = 그림.kind || "class";
+  종류.addEventListener("change", function () { 그림.kind = 종류.value; 그리기(); });
+
+  document.getElementById("uml-text").addEventListener("click", function () {
+    var 덤프 = document.getElementById("uml-dump");
+    var 줄 = 그림.nodes.map(function (n) {
+      return "- " + (n.title || "이름 없음")
+        + (n.body ? " : " + n.body.split("\n").join(", ") : "");
+    });
+    var 관계 = 그림.edges.map(function (e) {
+      var a = 찾기(e.from) || {}, b = 찾기(e.to) || {};
+      return "- " + (a.title || "?") + " → " + (b.title || "?")
+        + (e.label ? " (" + e.label + ")" : "");
+    });
+    덤프.hidden = false;
+    덤프.textContent = "상자 " + 그림.nodes.length + "\n" + 줄.join("\n")
+      + "\n\n관계 " + 그림.edges.length + "\n" + 관계.join("\n");
+  });
+
+  // 저장. 화면을 새로 그리지 않고 그 자리에서 알린다 — 그리던 것이 안 끊긴다.
+  document.getElementById("uml-save").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var 이름 = document.getElementById("uml-name").value.trim();
+    if (!이름) { 알림("이름을 적어야 저장한다"); return; }
+    그림.kind = 종류.value;
+    var 짐 = new URLSearchParams();
+    짐.set("_token", {{ token | tojson }});
+    짐.set("name", 이름);
+    짐.set("drawing", JSON.stringify(그림));
+    알림("저장하는 중");
+    fetch("/web/certs/{{ view.key }}/uml", { method: "POST", body: 짐 })
+      .then(function (res) {
+        알림(res.ok ? "저장했다 — " + 이름 + " (" + 그림.nodes.length + "상자)"
+                    : "저장하지 못했다 (" + res.status + ")");
+      })
+      .catch(function (err) { 알림("저장하지 못했다: " + err); });
+  });
+
+  // 시계. 수행형 한 문항을 몇 분에 끝내는지가 이 연습에서 재는 값이다.
+  var 초 = 0, 시계 = null;
+  var 시계칸 = document.getElementById("uml-clock");
+  function 찍기() {
+    var m = Math.floor(초 / 60), s = 초 % 60;
+    시계칸.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    시계칸.classList.toggle("near", 초 >= 12 * 60);
+  }
+  document.getElementById("uml-start").addEventListener("click", function () {
+    if (시계) { clearInterval(시계); 시계 = null; this.textContent = "이어서"; return; }
+    this.textContent = "멈춤";
+    시계 = setInterval(function () { 초 += 1; 찍기(); }, 1000);
+  });
+  document.getElementById("uml-reset").addEventListener("click", function () {
+    초 = 0; 찍기();
+  });
+
+  그리기(); 고침판(); 찍기();
+}());
+</script>
+{% endblock %}
