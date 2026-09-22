@@ -29,7 +29,7 @@
       {% elif cert.signup.state == "미접수" %}
       <span class="badge unsigned" title="{{ cert.signup.label }}">미접수</span>
       {% else %}
-      <span class="badge warn" title="{{ cert.signup.label }}">기간 아님</span>
+      <span class="badge warn">기간 아님</span>
       {% endif %}
 
       {% if cert.next %}

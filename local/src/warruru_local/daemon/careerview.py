@@ -743,27 +743,46 @@ _SIGNUP_WORD = "접수"
 
 
 def _signup_state(exams: list[dict], today: str) -> dict:
-    """접수했나 · 안 했나 · 아직 기간이 아닌가(2026-09-22).
+    """이 자격증, 접수했나(2026-09-22). **자격증마다 한 칸이다** —
+    일정 줄마다 버튼을 두면 시험 줄·발표 줄에도 접수 버튼이 붙어,
+    무엇을 누르는 것인지가 흐려진다.
+
+    돌려주는 것은 상태와 **그 표시가 매인 일정 한 줄**이다.
+    - `접수함` — 접수 줄 중 하나에 표시가 있다. 지난 줄이어도 센다
+      (접수는 원래 과거에 하는 일이다 — TOPCIT 은 9/11 에 접수하고
+      10/10 에 시험을 본다).
+    - `미접수` — 접수 기간이 **지금 열려 있는데** 표시가 없다.
+    - `기간 아님` — 아직 열리지 않았거나, 접수 줄이 없다.
 
     **"안 했다" 와 "아직 열리지도 않았다" 는 다른 말이다.** 둘을 같은 빨강으로
     칠하면 아무 때나 빨간 화면이 되어 진짜 급한 날을 못 알아본다.
     """
-    줄들 = [row for row in exams
-            if _SIGNUP_WORD in (row["label"] or "") and not row["past"]]
-    if not 줄들:
-        return {"state": "기간 아님", "label": "", "days": None, "open": False}
-    낸것 = next((row for row in 줄들 if row["signed"]), None)
-    if 낸것:
-        return {"state": "접수함", "label": 낸것["label"], "days": None,
-                "open": False}
-    열린것 = next((row for row in 줄들 if row["open"]), None)
-    if 열린것:
-        return {"state": "미접수", "label": 열린것["label"],
-                "days": 열린것["days"], "open": True}
-    다음것 = 줄들[0]
-    return {"state": "기간 아님", "label": 다음것["label"],
-            "days": 다음것["days"], "open": False}
+    접수줄 = [row for row in exams if _SIGNUP_WORD in (row["label"] or "")]
+    앞으로 = [row for row in 접수줄 if not row["past"]]
 
+    def 칸(state, row, days=None, open_=False):
+        return {
+            "state": state,
+            "label": row["label"] if row else "",
+            "date": row["date"] if row else "",
+            # 누를 대상. 없으면 화면은 배지만 그리고 버튼을 안 만든다.
+            "hash": row["hash"] if row else "",
+            "text": f"{row['date']} {row['label']}" if row else "",
+            "signed": bool(row and row["signed"]),
+            "days": days, "open": open_,
+        }
+
+    낸것 = next((row for row in 접수줄 if row["signed"]), None)
+    if 낸것:
+        return 칸("접수함", 낸것)
+    열린것 = next((row for row in 앞으로 if row["open"]), None)
+    if 열린것:
+        return 칸("미접수", 열린것, 열린것["days"], True)
+    if 앞으로:
+        return 칸("기간 아님", 앞으로[0], 앞으로[0]["days"])
+    # 앞으로 접수 줄이 없다. 지난 접수 줄이라도 있으면 그것을 표시 대상으로
+    # 둔다 — 기간이 끝난 뒤에 "나 접수했었다" 를 표시할 수 있어야 한다.
+    return 칸("기간 아님", 접수줄[-1] if 접수줄 else None)
 
 def _exam_hash(start: str, end: str, label: str) -> str:
     """일정 한 줄의 열쇠. **날짜와 이름으로 잡는다** — 회차마다 다른 값이라야
