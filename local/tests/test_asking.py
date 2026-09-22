@@ -293,3 +293,21 @@ def test_두_CLI_의_이벤트가_서로를_가리지_않는다():
     claude = json.dumps({"type": "system", "subtype": "init", "session_id": "l1"})
     assert asking.translate(codex) == ("started", {"thread_id": "c1"})
     assert asking.translate(claude) == ("started", {"thread_id": "l1"})
+
+def test_로그인이_풀리면_무엇을_해야_하는지_말한다(tmp_path):
+    """CLI 가 뱉은 401 한 줄만 흘리면 화면에 원인만 있고 할 일이 없다
+    (2026-09-22). 이 실패는 시간이 고쳐 주지 않는다."""
+    program = _fake(tmp_path, (
+        'echo "ERROR: 401 Unauthorized — please run codex login" >&2\n'
+        "exit 1"))
+    events = _run(asking.Ask("db-index", "질문", tmp_path, program=program))
+    이름, 값 = events[-1]
+    assert 이름 == "error"
+    assert "codex login" in 값["fix"]
+    assert "401" in 값["fix"]
+
+
+def test_로그인_말이_없으면_마지막_줄을_그대로_보여준다(tmp_path):
+    program = _fake(tmp_path, 'echo "ERROR: disk full" >&2\nexit 2')
+    events = _run(asking.Ask("db-index", "질문", tmp_path, program=program))
+    assert events[-1][1]["fix"] == "ERROR: disk full"

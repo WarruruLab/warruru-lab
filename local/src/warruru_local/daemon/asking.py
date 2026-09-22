@@ -207,6 +207,17 @@ def missing_cli(ask: Ask) -> dict | None:
     }
 
 
+# 로그인이 풀렸을 때 CLI 가 뱉는 말들. **맞히지 못해도 손해가 없다** —
+# 못 맞히면 종전대로 마지막 줄을 그대로 보여준다.
+LOGIN_HINTS = ("login", "unauthorized", "401", "not authenticated",
+               "authentication", "refresh failed", "credentials")
+
+
+def _needs_login(stderr: str) -> bool:
+    낮춤 = stderr.lower()
+    return any(말 in 낮춤 for 말 in LOGIN_HINTS)
+
+
 def _kill(proc) -> None:
     try:
         os.killpg(proc.pid, signal.SIGKILL)
@@ -280,7 +291,11 @@ async def run(ask: Ask):
 
     if proc.returncode not in (0, None):
         tail = (await proc.stderr.read()).decode("utf-8", errors="replace")
+        마지막 = tail.strip().splitlines()[-1][:200] if tail.strip() else ""
         yield "error", {
             "message": f"`{ask.cli}` 가 {proc.returncode} 로 끝났습니다.",
-            "fix": tail.strip().splitlines()[-1][:200] if tail.strip() else "",
+            # 로그인이 풀린 것은 **시간이 고쳐 주지 않는 실패**다. CLI 가 뱉은
+            # 줄을 그대로 흘리면 "401" 한 줄만 보이고 무엇을 해야 하는지가 없다.
+            "fix": f"터미널에서 `{ask.cli} login` 을 한 번 하세요 — {마지막}".strip(" —")
+                   if _needs_login(tail) else 마지막,
         }
