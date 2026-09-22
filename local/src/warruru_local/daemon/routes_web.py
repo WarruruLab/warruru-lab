@@ -391,6 +391,10 @@ async def career_cert(request: Request, key: str):
         {
             "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
             "token": ctx.settings.token,
+            # 챗봇 칸의 [그리기] 탭이 쓴다. 열어 둔 그림은 없다 —
+            # 빈 판에서 시작하고, 저장한 것은 고르는 칸에서 연다.
+            "saved": practicing.listing(ctx.settings.home, key),
+            "open": None,
         },
     )
 
@@ -1441,6 +1445,21 @@ async def career_cert_uml(request: Request, key: str, name: str = ""):
             "token": ctx.settings.token,
         },
     )
+
+
+@router.get("/web/certs/{cert_key}/uml")
+async def read_uml(request: Request, cert_key: str, name: str = ""):
+    """그린 것 한 장을 JSON 으로 준다. **챗봇 칸 안에서는 주소로 못 건너간다** —
+    탭 안에서 저장한 것을 열려면 이 길이 필요하다. 읽기라 토큰은 없다.
+    """
+    ctx = request.app.state.ctx
+    그림 = practicing.read(ctx.settings.home, cert_key, name)
+    if 그림 is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 그림이 없습니다"},
+        )
+    return 그림
 
 
 @router.post("/web/certs/{cert_key}/uml")

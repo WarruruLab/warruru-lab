@@ -793,6 +793,27 @@
   }
   .chat-head button:hover { background: var(--rule-soft); }
 
+  /* [챗봇 | 그리기] — 한 칸을 갈아 끼우는 탭(2026-09-23).
+     머리 가운데가 아니라 제목 옆에 붙는다. 닫기(✕)와 멀리 떼어 둬야
+     그리다가 실수로 창을 닫지 않는다. */
+  .chat-tabs {
+    display: inline-flex; gap: .15rem; padding: .15rem;
+    background: var(--rule-soft); border-radius: 9px;
+  }
+  .chat-head .chat-tabs button {
+    padding: .2rem .6rem; border-radius: 7px; font-weight: 600;
+  }
+  .chat-head .chat-tabs button.on {
+    background: var(--panel); color: var(--key);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+  }
+  .chat-draw {
+    flex: 1; overflow-y: auto; padding: .9rem 1rem 1rem;
+  }
+  /* 좁은 칸에서는 판이 절이 아니라 알맹이다 — 카드 테두리를 두르지 않는다. */
+  .uml-pane .work-head { margin-bottom: .5rem; }
+  .uml-pane .uml-board { margin: .5rem 0; }
+
   .chat-body {
     padding: 1rem; overflow-y: auto; flex: 1;
     display: flex; flex-direction: column; gap: .7rem;

@@ -888,11 +888,24 @@ def build_certs(ctx) -> list[dict]:
 
 
 def build_cert(ctx, key: str) -> dict | None:
+    """자격증 하나. **여기서도 묻는다**(2026-09-23) — 묶음·책과 같은 챗봇이고
+    대화 키만 `cert-{자격증}` 으로 갈린다. 공부하다 막히는 자리가 곧 이
+    화면이라, 물으려고 다른 화면으로 건너가면 그 질문은 안 남는다.
+    """
+    from warruru_local.daemon import topicview
+
     for cert in build_certs(ctx):
         if cert["key"] == key:
             wanted = demand(list_companies(ctx))
             for row in cert["slugs"]:
                 row["companies"] = wanted.get(row["slug"], [])
+            cert["ask_key"] = f"cert-{key}"
+            cert["thread"] = ctx.records.ask_thread(cert["ask_key"])
+            cert["answers"] = topicview.answers(ctx, cert["ask_key"])
+            # 승격할 주제는 **이 자격증이 덮는 로드맵 주제**다. 하나도 없으면
+            # 올릴 자리가 없으므로 기록 승격 칸이 비어 뜬다 — 그것이 맞다.
+            cert["ask_slugs"] = [{"slug": row["slug"], "label": row["label"]}
+                                 for row in cert["slugs"]]
             return cert
     return None
 

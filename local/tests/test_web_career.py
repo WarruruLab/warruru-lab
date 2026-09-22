@@ -1791,3 +1791,44 @@ def test_그림_저장에도_토큰이_있어야_한다(client, home):
     res = client.post("/web/certs/topcit/uml",
                       data={"name": "몰래", "drawing": _uml()})
     assert res.status_code == 401
+
+
+def test_자격증_화면에서_묻고_그린다(client, home):
+    """**한 칸에서 묻고 그린다**(2026-09-23, 사용자가 정함). 그리다 막히면
+    묻고 답을 듣고 다시 그리는 자리라, 화면을 건너가면 흐름이 끊긴다."""
+    _cert(home, "topcit", "---\nstatus: 준비중\npractice:\n  - UML | |\n---\n")
+    page = client.get("/career/cert/topcit").text
+
+    # 대화는 자격증마다 하나다 — 묶음·책과 같은 챗봇이고 키만 갈린다.
+    assert 'data-key="cert-topcit"' in page
+    assert "ask topic=cert-topcit" in page
+
+    # 머리에 탭이 서고, 판은 그 칸 **안**에 있다.
+    assert 'id="chat-tab-ask"' in page and 'id="chat-tab-draw"' in page
+    assert 'id="chat-draw"' in page
+    머리 = page.index('id="chat-draw"')
+    assert 머리 < page.index('id="uml-svg"') < page.index("</section>", 머리)
+
+    # 넓게 그리는 화면으로 나가는 길도 남는다.
+    assert "/career/cert/topcit/uml" in page
+
+
+def test_그린_것을_그_자리에서_연다(client, home):
+    """챗봇 칸 안에서는 주소로 못 건너간다 — 저장한 것을 여는 길이 따로 있다."""
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    client.post("/web/certs/topcit/uml",
+                data={"_token": 토큰, "name": "주문 클래스도", "drawing": _uml()})
+
+    res = client.get("/web/certs/topcit/uml", params={"name": "주문 클래스도"})
+    assert res.status_code == 200
+    assert [n["title"] for n in res.json()["nodes"]] == ["주문", "회원"]
+
+    # 읽기라 토큰은 없다. 없는 것은 404 고, 이름이 경로가 되지도 않는다.
+    assert client.get("/web/certs/topcit/uml",
+                      params={"name": "없는그림"}).status_code == 404
+    assert client.get("/web/certs/topcit/uml",
+                      params={"name": "../../등록정보"}).status_code == 404
+
+    # 고르는 칸에 저장한 것이 실려 온다.
+    assert "저장한 것 열기" in client.get("/career/cert/topcit").text
