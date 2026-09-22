@@ -1557,3 +1557,29 @@ def test_요약_받기는_요약_칸에_쓰고_선택칸을_건드리지_않는�
     assert 'var 에이전트 = btn.parentElement.querySelector(".sum-cli")' in 핸들러
     # 에이전트를 부르는 동안 중지할 수 있다.
     assert "window.중지붙이기(btn)" in 핸들러
+
+def test_접수_기간은_마감까지_센다(client, home):
+    """전에는 일정 한 줄이 날짜 하나였다. 접수가 **시작된 날** 그 줄이 지난
+    것이 되어 화면에서 사라졌다 — 정확히 접수할 수 있는 동안에만 안 보였다
+    (2026-09-22, 정처기 실기 접수를 하루 차이로 놓칠 뻔했다)."""
+    _cert(home, "network-2",
+          "---\nstatus: 준비중\nstages:\n  - 필기 | 준비중\n"
+          "exams:\n  - 2026-07-21..2026-07-23 | 4회 접수 | | | 필기\n"
+          "  - 2026-09-30 | 4회 필기 | | | 필기\n---\n")
+
+    page = client.get("/career/certs").text
+    assert "내일 마감" in page          # 오늘이 7-22, 기간은 7-23 까지
+    assert "4회 접수" in page
+
+    view = client.get("/career/cert/network-2").text
+    assert "내일 마감" in view
+
+
+def test_기간이_끝난_뒤에야_지난_것이_된다(client, home):
+    _cert(home, "network-2",
+          "---\nstatus: 준비중\nstages:\n  - 필기 | 준비중\n"
+          "exams:\n  - 2026-07-18..2026-07-20 | 지난 접수 | | | 필기\n"
+          "  - 2026-09-30 | 4회 필기 | | | 필기\n---\n")
+    page = client.get("/career/certs").text
+    assert "지난 접수" not in page.split("딴 것")[0]
+    assert "4회 필기" in page

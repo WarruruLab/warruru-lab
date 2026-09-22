@@ -79,7 +79,7 @@
 <section class="due-strip">
   {% for row in view.due %}
   <a class="due-one {{ 'now' if row.days <= 3 }}" href="{{ row.url }}">
-    <span class="dd">{% if row.days == 0 %}오늘{% else %}D-{{ row.days }}{% endif %}</span>
+    <span class="dd">{{ dday(row) }}</span>
     <span class="what"><b>{{ row.name }}</b> {{ row.label }}</span>
     <span class="when">{{ row.date }}</span>
   </a>
@@ -117,7 +117,7 @@
       <a class="ask-text" href="{{ row.url }}">{{ row.title }}</a>
       {% if row.note %}<span class="meta quiet">{{ row.note }}</span>{% endif %}
       {% if row.days is not none and row.days is defined %}
-      <span class="dday-sm {{ 'near' if row.days <= 7 }}">D-{{ row.days }}</span>
+      <span class="dday-sm {{ 'near' if row.days <= 7 }}">{{ dday(row) }}</span>
       {% endif %}
       {% if row.link %}<a class="btn primary" href="{{ row.link }}">바로가기</a>{% endif %}
       <span class="badge">{{ row.axis }}</span>

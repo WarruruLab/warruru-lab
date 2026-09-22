@@ -44,6 +44,9 @@ _GATE_OK = "충족"
 # 이미 접수가 끝난 회차의 시험 같은 것이다.
 _NOT_MINE = "해당없음"
 
+# 일정 한 줄의 날짜. 기간이면 `시작..끝` 이다.
+_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 # 자격증을 이미 딴 상태. 목록에서 조용해지고 D-day 를 세지 않는다.
 _CERT_DONE = "합격"
 
@@ -496,8 +499,10 @@ def deadlines(ctx) -> list[dict]:
             "name": cert["name"],
             "url": f"/career/cert/{cert['key']}",
             "label": cert["next"]["label"],
-            "date": cert["next"]["date"],
+            "date": cert["next"]["due"],
             "days": cert["next"]["days"],
+            # 접수 기간이 열려 있으면 D-day 는 **마감까지**다.
+            "open": cert["next"].get("open", False),
             "have": cert["coverage"]["covered"],
             "total": cert["coverage"]["total"],
             "blocked": 0,
@@ -596,19 +601,34 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
     exams = []
     for item in meta.get("exams") or []:
         date, label, note, mine, stage = _fields(item, 5)
-        if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        # **기간도 한 줄이다**(2026-09-22). `2026-09-21..2026-09-23` 처럼
+        # 적으면 접수 기간이 된다. 전에는 시작일 하나만 들어서, 접수가
+        # 시작된 날 그 줄이 "지난 것" 이 되어 화면에서 사라졌다 — 정확히
+        # **접수할 수 있는 동안에만** 안 보였고, 실제로 하루를 놓칠 뻔했다.
+        시작, _, 끝 = date.partition("..")
+        끝 = 끝 or 시작
+        if not (_DAY.match(시작) and _DAY.match(끝)):
             continue
+        열림 = 시작 <= today <= 끝
+        # 기간 안이면 카운트다운은 **마감까지**다. 시작일까지 세면 이미
+        # 지난 날짜라 음수가 되고, 급한 줄이 목록 맨 아래로 간다.
+        기준 = 끝 if 열림 else 시작
         exams.append({
-            "date": date, "label": label, "note": note,
+            "date": 시작, "end": 끝, "label": label, "note": note,
+            # 화면에 적는 날짜. **기간이 열려 있으면 마감일**이다 —
+            # "내일 마감" 옆에 시작일이 있으면 어느 날이 마감인지 모른다.
+            "due": 끝 if 시작 <= today <= 끝 else 시작,
             # 넷째 칸이 `해당없음` 이면 내가 못 하는 일정이다. 앞 단계에
             # 합격해야 볼 수 있는 실기 같은 것. 목록에는 남기되 D-day 로는
             # 안 쓴다 — 못 하는 일을 카운트다운하면 그 숫자가 거짓말이다.
             "mine": mine != _NOT_MINE,
             "stage": stage,
-            "past": date < today,
-            "days": (_days(date) - _days(today)),
+            "past": 끝 < today,
+            "open": 열림,
+            "days": (_days(기준) - _days(today)),
         })
-    exams.sort(key=lambda row: row["date"])
+    # 기간이 열려 있으면 마감이 기준이라 그쪽으로 선다.
+    exams.sort(key=lambda row: (row["end"] if row["open"] else row["date"], row["date"]))
 
     links = parse_links(meta.get("links"))
 
@@ -691,6 +711,22 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
     }
+
+
+def dday_text(row) -> str:
+    """D-day 한 조각. **기간이 열려 있으면 마감까지를 말한다**(2026-09-22).
+
+    "D-1" 만 보여 주면 무엇이 하루 남았는지 알 수 없다. 접수는 놓치면 그
+    회차가 통째로 날아가므로, 열려 있는 동안에는 `마감` 을 붙여 말한다.
+    """
+    if row is None:
+        return ""
+    days = row["days"] if hasattr(row, "__getitem__") else 0
+    열림 = bool(row["open"]) if "open" in row else False
+    if 열림:
+        return "오늘 마감" if days <= 0 else (
+            "내일 마감" if days == 1 else f"D-{days} 마감")
+    return "오늘" if days == 0 else f"D-{days}"
 
 
 def _days(date: str) -> int:
