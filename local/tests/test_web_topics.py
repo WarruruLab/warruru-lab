@@ -996,3 +996,32 @@ def test_홈_챗봇은_올릴_주제를_고르게_준다(client):
     slugs = [row["slug"] for row in topicview.home_ask(client.app.state.ctx)["slugs"]]
     assert slugs[0] == "jvm-gc"
     assert len(slugs) == len(set(slugs)) == len(topics.all_slugs()) + (0 if "jvm-gc" in topics.all_slugs() else 1)
+
+def test_대화를_지우면_목록에서_빠지고_보관본은_남는다(client, fake_ask, home):
+    """지우는 것은 **목록에서 치우는 것**이지 받은 답을 없애는 것이 아니다.
+    날짜 보관본에는 터미널에서 물은 것과 다른 대화도 같이 있다(2026-09-22)."""
+    from warruru_local import paths
+
+    세션 = dict(_events(_ask(client, "db-index", "지울 대화").text))["started"]["session_id"]
+    보관 = paths.answer_dir(home) / "db-index" / "2026-08-24.md"
+    문답 = paths.answer_dir(home) / "db-index" / "sessions" / f"{세션}.jsonl"
+    assert 보관.is_file() and 문답.is_file()
+
+    res = client.post(f"/web/topics/db-index/sessions/{세션}/delete",
+                      data={"_token": client.app.state.ctx.settings.token})
+    assert res.status_code == 200 and res.json()["deleted"] == 세션
+    assert client.get("/web/topics/db-index/sessions").json()["sessions"] == []
+    assert not 문답.exists()
+    assert 보관.is_file()          # 보관본은 남는다
+
+
+def test_남의_주제_대화는_못_지우고_토큰도_있어야_한다(client, fake_ask):
+    세션 = dict(_events(_ask(client, "db-index", "질문").text))["started"]["session_id"]
+    토큰 = client.app.state.ctx.settings.token
+    assert client.post(f"/web/topics/algo-dp/sessions/{세션}/delete",
+                       data={"_token": 토큰}).status_code == 404
+    assert client.post("/web/topics/db-index/sessions/ses_없음/delete",
+                       data={"_token": 토큰}).status_code == 404
+    assert client.post(f"/web/topics/db-index/sessions/{세션}/delete").status_code == 401
+    # 하나도 안 지워졌다.
+    assert len(client.get("/web/topics/db-index/sessions").json()["sessions"]) == 1
