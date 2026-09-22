@@ -369,6 +369,33 @@ class RecordRepository:
         ).fetchall()
         return {row["item_hash"]: row["done"] for row in rows}
 
+    # ── 회차별 접수 (v8) ────────────────────────────────────────
+
+    def exam_signups(self, cert_key: str) -> set[str]:
+        """접수했다고 표시한 일정들. 없으면 빈 집합이다."""
+        rows = self._conn.execute(
+            "SELECT exam_hash FROM exam_signup WHERE cert_key = ?", (cert_key,)
+        ).fetchall()
+        return {row["exam_hash"] for row in rows}
+
+    def set_exam_signup(self, cert_key: str, exam_hash: str, exam_text: str,
+                        signed: bool, now_iso: str) -> None:
+        """접수했다 / 아니다를 뒤집는다. **되돌릴 수 있어야 누른다** —
+        잘못 누른 한 번이 회차를 영영 놓친 것처럼 보이면 아무도 안 누른다."""
+        if signed:
+            self._conn.execute(
+                "INSERT INTO exam_signup (cert_key, exam_hash, exam_text, signed_at)"
+                " VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(cert_key, exam_hash) DO UPDATE SET"
+                " exam_text = excluded.exam_text, signed_at = excluded.signed_at",
+                (cert_key, exam_hash, exam_text[:200], now_iso),
+            )
+        else:
+            self._conn.execute(
+                "DELETE FROM exam_signup WHERE cert_key = ? AND exam_hash = ?",
+                (cert_key, exam_hash),
+            )
+
     def bump_cert_item(self, cert_key: str, item_hash: str, item_text: str,
                        delta: int, total: int, now_iso: str) -> int:
         """진도를 올리고 내린다. **0 아래로도 전체 위로도 안 간다.**

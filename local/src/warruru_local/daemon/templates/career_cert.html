@@ -127,10 +127,25 @@
       <div class="work-head">
         {% if exam.stage %}<span class="badge">{{ exam.stage }}</span>{% endif %}
         <strong>{{ exam.label or exam.date }}</strong>
-        <span class="badge {{ '' if exam.past else 'ok' }}">{{ exam.date }}</span>
-        {% if exam.past %}<span class="badge">지남</span>
-        {% elif not exam.mine %}<span class="badge">해당없음</span>{% endif %}
+        <span class="badge {{ '' if exam.past else 'ok' }}">
+          {{ exam.date }}{% if exam.end != exam.date %} ~ {{ exam.end }}{% endif %}</span>
+        {% if exam.signed %}<span class="badge ok">접수함</span>
+        {% elif exam.past %}<span class="badge">지남</span>
+        {% elif not exam.mine %}<span class="badge">해당없음</span>
+        {% elif not exam.past %}<span class="dday-sm {{ 'near' if exam.days <= 7 }}">{{ dday(exam) }}</span>
+        {% endif %}
         <span class="meta">{{ exam.note }}</span>
+
+        {# **접수했나**(2026-09-22). 누르면 그 회차는 D-day 에서 빠지고
+           표시만 남는다. 되돌릴 수 있어야 누른다. #}
+        <form class="inline" method="post" action="/web/certs/{{ view.key }}/signup">
+          <input type="hidden" name="_token" value="{{ token }}">
+          <input type="hidden" name="exam" value="{{ exam.hash }}">
+          <input type="hidden" name="text" value="{{ exam.date }} {{ exam.label }}">
+          <input type="hidden" name="signed" value="{{ 0 if exam.signed else 1 }}">
+          <button class="btn" type="submit">
+            {{ '접수 취소' if exam.signed else '접수함' }}</button>
+        </form>
       </div>
     </li>
     {% endfor %}

@@ -561,10 +561,21 @@ def test_v7_이_옛_스레드를_대화_세션으로_옮긴다(tmp_path):
         "INSERT INTO ask_thread (topic_slug, thread_id, cli, turns, created_at, updated_at)"
         " VALUES ('db-index', 'th_옛', 'codex', 3, ?, ?)", (NOW, NOW))
 
-    assert migrations.migrate(conn, NOW) == 7
+    assert migrations.migrate(conn, NOW) == migrations.CURRENT_VERSION
     row = conn.execute("SELECT * FROM ask_session").fetchone()
     assert (row["topic_slug"], row["thread_id"], row["cli"], row["turns"]) == \
         ("db-index", "th_옛", "codex", 3)
     assert row["session_id"].startswith("ses_") and len(row["session_id"]) == 28
     # 원본은 남긴다 — 옮기다 틀려도 되짚을 곳이 있어야 한다.
     assert conn.execute("SELECT COUNT(*) AS n FROM ask_thread").fetchone()["n"] == 1
+
+def test_v8_이_회차별_접수_표시를_담는다(tmp_path):
+    """접수를 기간으로 들기 시작하니 "이미 접수한 회차인데도 마감이 계속
+    재촉한다" 가 바로 나왔다(2026-09-22)."""
+    conn = db.connect(tmp_path / "warruru.db")
+    migrations.migrate(conn, NOW)
+    conn.execute(
+        "INSERT INTO exam_signup (cert_key, exam_hash, exam_text, signed_at)"
+        " VALUES ('jeongcheogi', 'abc', '2026-09-21 3회 실기 접수', ?)", (NOW,))
+    row = conn.execute("SELECT * FROM exam_signup").fetchone()
+    assert row["cert_key"] == "jeongcheogi" and row["exam_hash"] == "abc"

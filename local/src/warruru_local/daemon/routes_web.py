@@ -1391,6 +1391,32 @@ async def add_cert_form(
     return RedirectResponse(f"/career/cert/{quote(key.strip())}", status_code=303)
 
 
+@router.post("/web/certs/{cert_key}/signup")
+async def cert_signup_form(
+    request: Request,
+    cert_key: str,
+    exam: str = Form(...),
+    text: str = Form(""),
+    signed: int = Form(1),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """이 회차를 접수했다 / 아니다를 뒤집는다(명세 §2.11 g).
+
+    접수한 회차는 D-day 에서 빠진다 — 이미 한 일을 재촉하면 그 숫자가
+    `해당없음` 과 같은 이유로 거짓말이 된다. 표시는 목록에 남는다.
+    """
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.KEY.match(cert_key):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    ctx.records.set_exam_signup(
+        cert_key, exam, text, bool(signed), to_iso(ctx.clock.now()))
+    return RedirectResponse(f"/career/cert/{quote(cert_key)}", status_code=302)
+
+
 @router.post("/web/certs/{cert_key}/status")
 async def cert_status_form(
     request: Request,

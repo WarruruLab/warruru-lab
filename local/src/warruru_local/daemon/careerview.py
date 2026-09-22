@@ -598,6 +598,7 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
 
     text = path.read_text(encoding="utf-8", errors="replace")
     meta, body = parse_front_matter(text)
+    signups = ctx.records.exam_signups(key)
     exams = []
     for item in meta.get("exams") or []:
         date, label, note, mine, stage = _fields(item, 5)
@@ -613,15 +614,22 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         # 기간 안이면 카운트다운은 **마감까지**다. 시작일까지 세면 이미
         # 지난 날짜라 음수가 되고, 급한 줄이 목록 맨 아래로 간다.
         기준 = 끝 if 열림 else 시작
+        열쇠 = _exam_hash(시작, 끝, label)
+        접수함 = 열쇠 in signups
         exams.append({
             "date": 시작, "end": 끝, "label": label, "note": note,
+            "hash": 열쇠,
+            # **접수한 회차는 더 재촉하지 않는다**(2026-09-22). 표시만 남기고
+            # D-day 에서는 뺀다 — 이미 한 일을 카운트다운하면 그 숫자가
+            # `해당없음` 과 같은 이유로 거짓말이 된다.
+            "signed": 접수함,
             # 화면에 적는 날짜. **기간이 열려 있으면 마감일**이다 —
             # "내일 마감" 옆에 시작일이 있으면 어느 날이 마감인지 모른다.
             "due": 끝 if 시작 <= today <= 끝 else 시작,
             # 넷째 칸이 `해당없음` 이면 내가 못 하는 일정이다. 앞 단계에
             # 합격해야 볼 수 있는 실기 같은 것. 목록에는 남기되 D-day 로는
             # 안 쓴다 — 못 하는 일을 카운트다운하면 그 숫자가 거짓말이다.
-            "mine": mine != _NOT_MINE,
+            "mine": mine != _NOT_MINE and not 접수함,
             "stage": stage,
             "past": 끝 < today,
             "open": 열림,
@@ -711,6 +719,14 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
     }
+
+
+def _exam_hash(start: str, end: str, label: str) -> str:
+    """일정 한 줄의 열쇠. **날짜와 이름으로 잡는다** — 회차마다 다른 값이라야
+    "이번 회차는 접수했다" 가 다음 회차로 새지 않는다."""
+    from warruru_local.daemon.topicview import ask_hash
+
+    return ask_hash(f"{start}..{end}|{label}")
 
 
 def dday_text(row) -> str:
