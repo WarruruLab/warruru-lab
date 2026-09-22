@@ -1078,8 +1078,14 @@ async def ask_form(
     )
 
 
+# 대화 목록이 한 번에 보여주는 수(2026-09-16). 나머지는 [이전 대화 더 보기].
+# 원문은 줄이지 않는다 — 답 파일은 몇 KB 라 공간이 문제 되지 않고, 요약으로
+# 바꾸면 받은 것을 한 번 더 가공한 사본만 남아 되짚을 곳이 사라진다.
+SESSION_PAGE = 20
+
+
 @router.get("/web/topics/{topic_slug}/sessions")
-async def ask_sessions(request: Request, topic_slug: str):
+async def ask_sessions(request: Request, topic_slug: str, offset: int = 0):
     """이 주제의 대화 목록. 조회라 토큰이 없다."""
     ctx = request.app.state.ctx
     if not careerview.SLUG.match(topic_slug):
@@ -1087,10 +1093,14 @@ async def ask_sessions(request: Request, topic_slug: str):
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 주제가 없습니다"},
         )
-    rows = ctx.records.ask_sessions(topic_slug)
+    offset = max(0, offset)
+    # 하나 더 읽어 뒤에 더 있는지만 본다. 전체 수를 세지 않는다.
+    rows = ctx.records.ask_sessions(topic_slug, limit=SESSION_PAGE + 1, offset=offset)
+    more = len(rows) > SESSION_PAGE
+    rows = rows[:SESSION_PAGE]
     for row in rows:
         _옛대화_이름(ctx, row)
-    return {"sessions": [
+    return {"more": more, "next": offset + len(rows), "sessions": [
         {key: row[key] for key in
          ("session_id", "title", "cli", "model", "turns", "created_at", "updated_at")}
         for row in rows

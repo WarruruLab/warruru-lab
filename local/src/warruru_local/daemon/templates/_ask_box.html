@@ -39,6 +39,7 @@
         <button id="chat-new" type="button" class="chat-new">+ 새 대화</button>
         <div id="chat-sessions" class="chat-sess-list"></div>
         <p class="meta quiet chat-side-empty" id="chat-sessions-empty" hidden>아직 대화가 없다.</p>
+        <button id="chat-more" type="button" class="chat-more" hidden>이전 대화 더 보기</button>
         <button id="chat-archive-open" type="button" class="chat-archive-open">날짜별 보관본</button>
       </nav>
 
@@ -170,7 +171,8 @@
   var 목록없음 = document.getElementById("chat-sessions-empty");
   var 주소 = "/web/topics/" + encodeURIComponent(key);
   // 지금 열린 대화. 빈 값이면 다음 질문이 **새 대화**를 연다.
-  var 세션 = "", 세션제목 = "", 끊개 = null, 줄들 = [];
+  var 세션 = "", 세션제목 = "", 끊개 = null, 줄들 = [], 다음 = 0;
+  var 더보기 = document.getElementById("chat-more");
   var side = document.getElementById("chat-side");
   var menu = document.getElementById("chat-menu");
   var cli = document.getElementById("ask-cli");
@@ -300,11 +302,12 @@
       talk.scrollTop = talk.scrollHeight;
     } catch (err) { status.textContent = "대화를 열지 못했습니다: " + err; }
   }
-  async function 대화목록() {
+  // 목록은 최근 20개씩 받는다. 더 있으면 [이전 대화 더 보기] 로 뒤를 붙인다.
+  async function 대화목록(offset) {
     try {
-      var res = await fetch(주소 + "/sessions");
-      return res.ok ? (await res.json()).sessions : [];
-    } catch (err) { return []; }
+      var res = await fetch(주소 + "/sessions?offset=" + (offset || 0));
+      return res.ok ? await res.json() : { sessions: [], more: false, next: 0 };
+    } catch (err) { return { sessions: [], more: false, next: 0 }; }
   }
   function 날짜(iso) {
     var d = new Date(iso);
@@ -319,9 +322,23 @@
     return r.cli + (r.model ? " · " + r.model : "") + " · " + r.turns + "턴 · " + 때;
   }
   async function 목록그리기() {
-    줄들 = await 대화목록();
+    // 처음부터 다시 받는다 — 이어 물은 대화가 맨 위로 올라와야 한다.
+    var 받은 = await 대화목록(0);
+    줄들 = 받은.sessions; 다음 = 받은.next;
+    더보기.hidden = !받은.more;
     목록칠하기();
   }
+  더보기.addEventListener("click", async function () {
+    더보기.disabled = true;
+    var 받은 = await 대화목록(다음);
+    var 있던 = {};
+    줄들.forEach(function (r) { 있던[r.session_id] = true; });
+    줄들 = 줄들.concat(받은.sessions.filter(function (r) { return !있던[r.session_id]; }));
+    다음 = 받은.next;
+    더보기.hidden = !받은.more;
+    더보기.disabled = false;
+    목록칠하기();
+  });
   // 목록을 다시 받지 않고 그린다 — 대화를 고를 때마다 서버에 묻지 않는다.
   function 목록칠하기() {
     목록.innerHTML = "";
