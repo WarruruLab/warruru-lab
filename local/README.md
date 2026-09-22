@@ -10,7 +10,7 @@
 ## 환경 — Task 0 은 끝났다 (2026-08-18)
 
 이 머신에는 `local/.venv/`(Python 3.12.14)와 `~/.warruru/` 가 이미 있고,
-**테스트 1,018개가 있다.** 매번 다시 만들 필요 없다.
+**테스트 1,020개가 있다.** 매번 다시 만들 필요 없다.
 
 ```bash
 cd local && source .venv/bin/activate

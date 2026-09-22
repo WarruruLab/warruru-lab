@@ -11,7 +11,7 @@
 ## 1. 지금 이 저장소에 있는 것
 
 **실제로 도는 코드는 `local/` 하나다.** 소스 12,266줄(`.py` 기준, 템플릿 포함 17,924),
-테스트 파일 49개(`conftest.py` 별도), 테스트 1,018개다(2026-09-22 실측, Python 3.12.14).
+테스트 파일 49개(`conftest.py` 별도), 테스트 1,020개다(2026-09-23 실측, Python 3.12.14).
 `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
 
 **이 머신에서는 git 을 부르는 17개가 실패한다** — `test_gitinfo` · `test_publish_git_repo`
@@ -51,13 +51,14 @@
   · **`/career/certs`**(자격증 목록 — 오늘 할 일과 접수일) · `/career/cert/{자격증}`
   · **`/career/cert/{자격증}/practice`**(시험장 도구 연습 체크)
   · **`/career/cert/{자격증}/uml`**(UML·ERD 연습판 — 라이브러리 없는 SVG 하나,
-    그린 것은 `~/.warruru/career/practice/` 에 앉는다)
+    그린 것은 `~/.warruru/career/practice/` 에 앉는다. 자격증 화면의 챗봇 칸
+    머리에서 **[챗봇 | 그리기]** 로 같은 판을 갈아 끼운다)
   · **`/career/stacks`**(기술스택 태그) · **`/career/s/{스택}`**(스택 정리 문서)
   · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
   · **`/career/books`**(읽는 중 · 다음에 읽을 것) ·
   **`/career/book/{책}/today`**(오늘 읽기 — 노트) · **`/notes/{날짜}`**(그날 노트)
-  홈 · 주제 · 책 · 묶음 화면에서 **물을 수 있다** — 데몬이 구독 CLI(Codex 또는
+  홈 · 주제 · 책 · 묶음 · **자격증** 화면에서 **물을 수 있다** — 데몬이 구독 CLI(Codex 또는
   Claude)를 자식 프로세스로 띄우고 답을 SSE 로 흘린다.
   **대화마다 세션이 하나다**(v7, 2026-09-16) — 왼쪽 목록에서 지난 대화를 골라
   이어 묻고, 열면 빈 새 대화다. 목록은 스무 개씩 보여주고 [더 보기] 로 잇는다.
@@ -338,4 +339,4 @@ RAG/Qdrant/임베딩 · 크로스 플랫폼 동기화 · `measurement`/`tech_opt
 
 ---
 
-**Last Updated:** 2026-09-22
+**Last Updated:** 2026-09-23

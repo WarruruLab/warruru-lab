@@ -26,6 +26,16 @@
       <button id="chat-back" type="button" hidden aria-label="대화로">←</button>
       <b id="chat-title">물어보기</b>
       <span class="badge" id="chat-sess-badge" hidden></span>
+      {% if board %}
+      {# **한 칸에서 묻고 그린다**(2026-09-23, 사용자가 정함). 그리다 막히면
+         묻고, 답을 듣고 다시 그리는 자리라 화면을 건너가면 흐름이 끊긴다. #}
+      <span class="chat-tabs" role="tablist" aria-label="무엇을 할까">
+        <button id="chat-tab-ask" type="button" role="tab" class="on"
+                aria-selected="true">챗봇</button>
+        <button id="chat-tab-draw" type="button" role="tab"
+                aria-selected="false">그리기</button>
+      </span>
+      {% endif %}
       <span class="chat-sp"></span>
       <button id="chat-close" type="button" aria-label="닫기">✕</button>
     </header>
@@ -146,8 +156,41 @@
     </footer>
       </div>
     </div>
+
+    {% if board %}
+    <div id="chat-draw" class="chat-draw" hidden>
+      {% with key = board, big = False %}{% include "_uml_board.html" %}{% endwith %}
+    </div>
+    {% endif %}
   </section>
 </div>
+
+{% if board %}
+<script>
+(function () {
+  var 탭묻기 = document.getElementById("chat-tab-ask");
+  var 탭그리기 = document.getElementById("chat-tab-draw");
+  var 대화칸 = document.querySelector("#chat-panel .chat-frame");
+  var 판칸 = document.getElementById("chat-draw");
+  if (!탭묻기 || !판칸 || !대화칸) return;
+  function 고르기(그리나) {
+    대화칸.hidden = 그리나; 판칸.hidden = !그리나;
+    탭묻기.classList.toggle("on", !그리나);
+    탭그리기.classList.toggle("on", 그리나);
+    탭묻기.setAttribute("aria-selected", String(!그리나));
+    탭그리기.setAttribute("aria-selected", String(그리나));
+    // 고른 것은 이 브라우저에만 남는다. 다음에 열 때 같은 탭으로 뜬다.
+    try { localStorage.setItem("warruru-chat-pane", 그리나 ? "draw" : "ask"); }
+    catch (e) { /* 사생활 보호 창에서는 못 쓴다. 그래도 화면은 돈다 */ }
+  }
+  탭묻기.addEventListener("click", function () { 고르기(false); });
+  탭그리기.addEventListener("click", function () { 고르기(true); });
+  try {
+    if (localStorage.getItem("warruru-chat-pane") === "draw") 고르기(true);
+  } catch (e) { /* 위와 같다 */ }
+}());
+</script>
+{% endif %}
 
 {# 터미널에서 물을 때는 이 한 줄이다. JS 가 꺼져 있어도 길이 남는다. #}
 <p class="meta quiet chat-cli-line">터미널에서: <code>ask topic={{ ask.key }}</code></p>

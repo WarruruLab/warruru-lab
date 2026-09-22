@@ -10,7 +10,6 @@
   <a href="/career">← 포트폴리오</a> ·
   <a href="/career/certs">자격증 전체</a> ·
   {% if view.practice %}<a href="/career/cert/{{ view.key }}/practice">연습하기</a> ·{% endif %}
-  {% if view.practice %}<a href="/career/cert/{{ view.key }}/uml">UML 그리기</a> ·{% endif %}
   <span class="badge {{ 'ok' if view.done or view.held else '' }}">{{ view.status }}</span>
   {% if view.goal %}· <strong>목표 — {{ view.goal }}</strong>{% endif %}
 </p>
@@ -229,4 +228,12 @@
   </ul>
 </section>
 {% endif %}
+
+{# **여기서 묻고 여기서 그린다**(2026-09-23). 칸 머리의 [챗봇 | 그리기] 가
+   같은 자리를 갈아 끼운다 — 그리다 막혀서 물을 때 화면을 안 건너간다. #}
+{% with ask = {"key": view.ask_key, "thread": view.thread,
+               "answers": view.answers, "slugs": view.ask_slugs},
+        board = view.key %}
+{% include "_ask_box.html" %}
+{% endwith %}
 {% endblock %}
