@@ -679,6 +679,25 @@ def test_지난_대화를_열면_문답이_돌아온다(client, fake_ask):
     assert (열림["cli"], 열림["turns"]) == ("codex", 2)
 
 
+def test_대화_목록은_스무_개씩_준다(client):
+    """대화가 쌓이면 옆 목록이 끝없이 길어진다. **원문을 줄이지는 않는다** —
+    답 파일은 몇 KB 라 공간이 문제가 아니고, 요약으로 바꾸면 받은 것을 한 번 더
+    가공한 사본만 남는다(2026-09-16). 목록만 끊고 [더 보기] 로 잇는다."""
+    ctx = client.app.state.ctx
+    for n in range(25):
+        ctx.records.remember_session(
+            f"ses_{n:024d}", "db-index", f"{n}번째 대화", "codex", "", f"th_{n}",
+            f"2026-08-{n % 28 + 1:02d}T0{n % 10}:00:00.000Z")
+
+    첫장 = client.get("/web/topics/db-index/sessions").json()
+    assert len(첫장["sessions"]) == 20 and 첫장["more"] is True and 첫장["next"] == 20
+    둘째장 = client.get("/web/topics/db-index/sessions?offset=20").json()
+    assert len(둘째장["sessions"]) == 5 and 둘째장["more"] is False
+    # 두 장이 겹치지도, 빠뜨리지도 않는다.
+    모두 = [row["session_id"] for row in 첫장["sessions"] + 둘째장["sessions"]]
+    assert len(set(모두)) == 25
+
+
 def test_v7_이전_대화는_날짜_보관본에서_되살린다(client, home):
     """옮겨 온 대화는 세션 파일이 없어 열면 빈 창만 떴다(2026-09-16).
     제목도 '이전 대화' 뿐이라 목록에서 무엇인지 몰랐다."""

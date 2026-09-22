@@ -302,12 +302,16 @@ class RecordRepository:
         ).fetchone()
         return dict(row) if row else None
 
-    def ask_sessions(self, topic_slug: str, limit: int = 50) -> list[dict]:
+    def ask_sessions(self, topic_slug: str, limit: int = 50,
+                     offset: int = 0) -> list[dict]:
         """이 주제의 대화들. 마지막으로 이어 물은 것이 먼저다."""
         rows = self._conn.execute(
             "SELECT * FROM ask_session WHERE topic_slug = ?"
-            " ORDER BY updated_at DESC, created_at DESC LIMIT ?",
-            (topic_slug, limit),
+            # 시각이 같으면 **나중에 들어온 것**이 먼저다. 무작위 id 로 가르면
+            # 같은 초에 두 대화가 생긴 날 순서가 흔들리고, 페이지를 넘길 때
+            # 같은 줄이 두 번 나오거나 한 줄이 통째로 빠진다.
+            " ORDER BY updated_at DESC, created_at DESC, rowid DESC LIMIT ? OFFSET ?",
+            (topic_slug, limit, offset),
         ).fetchall()
         return [dict(row) for row in rows]
 
