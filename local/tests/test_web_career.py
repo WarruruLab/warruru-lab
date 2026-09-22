@@ -1603,7 +1603,7 @@ def test_접수한_회차는_더_재촉하지_않는다(client, home):
     토큰 = client.app.state.ctx.settings.token
 
     page = client.get("/career/cert/network-2").text
-    assert "내일 마감" in page and "접수함" in page
+    assert "내일 마감" in page and "접수했다고 표시" in page
     열쇠 = page.split('name="exam" value="')[1].split('"')[0]
 
     client.post("/web/certs/network-2/signup",
@@ -1611,7 +1611,7 @@ def test_접수한_회차는_더_재촉하지_않는다(client, home):
                 follow_redirects=False)
 
     page = client.get("/career/cert/network-2").text
-    assert "접수 취소" in page            # 되돌릴 수 있다
+    assert "접수 표시 지우기" in page      # 되돌릴 수 있다
     assert "내일 마감" not in page        # 더는 재촉하지 않는다
     assert "4회 필기" in page             # 다음 일정이 D-day 를 받는다
     목록 = client.get("/career/certs").text
