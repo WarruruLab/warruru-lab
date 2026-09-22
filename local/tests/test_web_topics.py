@@ -968,3 +968,31 @@ def test_주제_화면에_챗봇과_확인할_것이_본문에_있다(client, fa
     본문 = page[page.index("<main>"):]
     assert 'id="chat-panel"' in 본문
 
+def test_홈에서도_아무_것이나_물을_수_있다(client, fake_ask):
+    """주제 화면까지 찾아가야 물을 수 있으면 **무엇을 물을지 아직 모를 때**
+    물을 곳이 없다(2026-09-22). 홈에도 같은 챗봇을 연다."""
+    from warruru_local import topics
+    from warruru_local.daemon import topicview
+
+    # 키가 주제 슬러그와 겹치면 답 파일이 그 주제의 답과 섞인다.
+    assert topicview.HOME_KEY not in topics.all_slugs()
+
+    page = client.get("/").text
+    assert f'data-key="{topicview.HOME_KEY}"' in page
+    assert 'id="chat-panel"' in page
+
+    events = dict(_events(_ask(client, topicview.HOME_KEY, "오늘 뭐부터 할까").text))
+    assert events["done"]["saved"]
+    assert events["started"]["session_id"].startswith("ses_")
+
+
+def test_홈_챗봇은_올릴_주제를_고르게_준다(client):
+    """홈은 덮는 주제가 없다. **자동으로 정하지 않는다**(2026-09-08 규칙) —
+    요즘 쓴 주제를 앞에 두고 전체를 잇는다."""
+    from warruru_local import topics
+    from warruru_local.daemon import topicview
+
+    _record(client, "rec_A", topic="jvm gc")
+    slugs = [row["slug"] for row in topicview.home_ask(client.app.state.ctx)["slugs"]]
+    assert slugs[0] == "jvm-gc"
+    assert len(slugs) == len(set(slugs)) == len(topics.all_slugs()) + (0 if "jvm-gc" in topics.all_slugs() else 1)

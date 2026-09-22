@@ -13,9 +13,11 @@ from pathlib import Path
 
 from warruru_local import paths, topics
 from warruru_local.clock import (
+    local_date_of,
     local_date_or_none,
     local_day_bounds,
     local_time_or_none,
+    to_iso,
 )
 from warruru_local.daemon import draft as draft_builder
 from warruru_local.publish import tistory_clipboard
@@ -220,6 +222,39 @@ def session_turns(ctx, topic_slug: str, session_id: str) -> list[dict]:
             made.append({"q": str(row.get("q") or ""), "a": str(row.get("a") or ""),
                          "at": str(row.get("at") or "")})
     return made
+
+
+# 홈의 챗봇이 쓰는 키. **주제 슬러그와 겹치지 않는 이름**이어야 한다 —
+# 답 파일이 `career/answers/{키}/` 에 앉으므로 겹치면 주제의 답과 섞인다.
+HOME_KEY = "warruru-home"
+
+
+def home_ask(ctx) -> dict:
+    """홈 챗봇이 받는 것. 화면마다 있던 챗봇을 **아무 데도 안 붙은 질문**에도
+    열어 준다(2026-09-22). 주제 화면까지 가서 묻는 것이 아니라, 무엇을 물을지
+    아직 모를 때 여는 자리다.
+
+    **승격할 주제는 자동으로 정하지 않는다**(2026-09-08 규칙 그대로). 홈은
+    덮는 주제가 없으므로 고를 목록을 준다 — 요즘 쓴 주제를 앞에 두고,
+    그 뒤에 로드맵·CS·AI 전체를 잇는다. 앞쪽만 주면 그 밖의 것을 물었을 때
+    올릴 자리가 없다.
+    """
+    from warruru_local.daemon import today as todayview
+
+    앞 = []
+    for row in ctx.records.list_records(limit=20):
+        if row["topic_slug"] not in 앞:
+            앞.append(row["topic_slug"])
+    for row in todayview.build(ctx, local_date_of(to_iso(ctx.clock.now())))["todo"]:
+        if row.get("slug") and row["slug"] not in 앞:
+            앞.append(row["slug"])
+    순서 = 앞 + [slug for slug in topics.all_slugs() if slug not in 앞]
+    return {
+        "key": HOME_KEY,
+        "thread": ctx.records.ask_thread(HOME_KEY),
+        "answers": answers(ctx, HOME_KEY),
+        "slugs": [{"slug": slug, "label": topics.label_of(slug)} for slug in 순서],
+    }
 
 
 def _note_with_checks(ctx, topic_slug: str) -> dict:

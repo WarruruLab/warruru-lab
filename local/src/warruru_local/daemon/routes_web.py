@@ -100,6 +100,9 @@ async def index(request: Request, date: str | None = None,
             "made_before": len(
                 ctx.records.list_records(since=시작2, until=끝2, limit=200)),
             "token": ctx.settings.token,
+            # 홈에도 챗봇을 연다(2026-09-22). 주제 화면까지 찾아가야 물을 수
+            # 있으면 **무엇을 물을지 아직 모를 때** 물을 곳이 없다.
+            "ask": topicview.home_ask(ctx),
         },
     )
 
