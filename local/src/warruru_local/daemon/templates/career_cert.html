@@ -9,6 +9,7 @@
 <p class="meta subline">
   <a href="/career">← 포트폴리오</a> ·
   <a href="/career/certs">자격증 전체</a> ·
+  {% if view.practice %}<a href="/career/cert/{{ view.key }}/practice">연습하기</a> ·{% endif %}
   <span class="badge {{ 'ok' if view.done or view.held else '' }}">{{ view.status }}</span>
   {% if view.goal %}· <strong>목표 — {{ view.goal }}</strong>{% endif %}
 </p>

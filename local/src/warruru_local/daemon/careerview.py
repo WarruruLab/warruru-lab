@@ -591,7 +591,8 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
     path = paths.cert_dir(ctx.settings.home) / f"{key}.md"
     if not path.is_file():
         return {
-            "exams": [], "links": [], "stages": [], "curriculum": [],
+            "exams": [], "links": [], "practice": [], "stages": [],
+            "curriculum": [],
             "next": None, "status": "미시작",
             "signup": {"state": "기간 아님", "label": "", "days": None,
                        "open": False},
@@ -659,6 +660,22 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
 
     progress = ctx.records.cert_progress(key)
     counts = counts if counts is not None else _counts(ctx)
+
+    # **연습 도구**(2026-09-22). TOPCIT 처럼 시험장 도구를 미리 만져 봐야 하는
+    # 시험이 있다. 링크만 모아 두면 "해 봤나" 가 안 남아서, 커리큘럼과 같은
+    # 방식으로 하나씩 체크한다 — 진도는 `cert_progress` 한 곳에만 산다.
+    practice = []
+    for item in meta.get("practice") or []:
+        name, url, note2 = _fields(item, 3)
+        if not name:
+            continue
+        practice.append({
+            "name": name,
+            "url": url if url.startswith(("http://", "https://")) else "",
+            "note": note2,
+            "hash": ask_hash(f"연습:{name}"),
+            "done": bool(progress.get(ask_hash(f"연습:{name}"), 0)),
+        })
     curriculum = []
     for item in meta.get("curriculum") or []:
         stage, title, amount, slugs = _fields(item, 4)
@@ -722,6 +739,7 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "checked": meta.get("checked") or "",
         "exams": exams,
         "links": links,
+        "practice": practice,
         "stages": stages,
         "curriculum": curriculum,
         # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —

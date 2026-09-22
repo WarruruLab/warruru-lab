@@ -49,6 +49,7 @@
   · `/career`(허브 — 내가 채울 것 / 채용공고) · `/career/stack`
   · `/career/stack/{묶음}` — 축 셋(로드맵 78 · CS 71 · AI 31)이 같은 주소를 쓴다
   · **`/career/certs`**(자격증 목록 — 오늘 할 일과 접수일) · `/career/cert/{자격증}`
+  · **`/career/cert/{자격증}/practice`**(시험장 도구 연습 체크)
   · **`/career/stacks`**(기술스택 태그) · **`/career/s/{스택}`**(스택 정리 문서)
   · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`

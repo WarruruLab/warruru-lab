@@ -1673,3 +1673,38 @@ def test_접수했으면_빈자리_접수는_재촉하지_않는다(client, home
     assert "접수함" in page
     assert "빈자리 접수" not in page      # 다음 할 일로 안 선다
     assert "3회 실기 시험" in page        # 시험이 다음이다
+
+def test_연습_도구를_하나씩_해_보고_체크한다(client, home):
+    """TOPCIT 은 배점의 절반이 수행형이고 답안을 코드 에디터와 UML 도구로
+    쓴다. 링크만 모아 두면 "해 봤나" 가 안 남는다(2026-09-22)."""
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit",
+          "---\nstatus: 준비중\npractice:\n"
+          "  - IBT 모의응시 | https://topcit.or.kr/ibtsimulation/IBT.do | 실제 화면\n"
+          "  - UML — Class Diagram | https://www.topcit.or.kr/board/preview.do |\n"
+          "  - 훔쳐온 링크 | javascript:alert(1) |\n---\n")
+
+    page = client.get("/career/cert/topcit/practice").text
+    assert "IBT 모의응시" in page and "Class Diagram" in page
+    assert "https://topcit.or.kr/ibtsimulation/IBT.do" in page
+    # `http(s)` 가 아니면 링크로 걸지 않는다.
+    assert "javascript:alert" not in page
+    assert ">0</b> / 3" in page.replace(" ", "").replace("\n", "") or "0" in page
+
+    열쇠 = page.split('name="item" value="')[1].split('"')[0]
+    res = client.post("/web/certs/topcit/progress",
+                      data={"_token": 토큰, "item": 열쇠, "text": "연습: IBT 모의응시",
+                            "total": 1, "delta": 1, "back": "practice"},
+                      follow_redirects=False)
+    # 눌렀던 화면으로 돌아간다.
+    assert res.headers["location"] == "/career/cert/topcit/practice"
+    assert 'class="tick on"' in client.get("/career/cert/topcit/practice").text
+
+    # 자격증 화면에서 연습으로 가는 길이 있다.
+    assert "/career/cert/topcit/practice" in client.get("/career/cert/topcit").text
+
+
+def test_연습_목록이_없으면_그_화면도_없다(client, home):
+    _cert(home, "network-2", "---\nstatus: 준비중\n---\n")
+    assert client.get("/career/cert/network-2/practice").status_code == 404
+    assert "/practice" not in client.get("/career/cert/network-2").text
