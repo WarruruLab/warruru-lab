@@ -1583,3 +1583,40 @@ def test_기간이_끝난_뒤에야_지난_것이_된다(client, home):
     page = client.get("/career/certs").text
     assert "지난 접수" not in page.split("딴 것")[0]
     assert "4회 필기" in page
+
+def test_접수한_회차는_더_재촉하지_않는다(client, home):
+    """이미 접수했는데 마감이 계속 재촉하면 그 D-day 를 안 믿게 된다
+    (2026-09-22). 표시는 목록에 남고 D-day 에서만 빠진다."""
+    _cert(home, "network-2",
+          "---\nstatus: 준비중\nstages:\n  - 필기 | 준비중\n"
+          "exams:\n  - 2026-07-21..2026-07-23 | 4회 접수 | | | 필기\n"
+          "  - 2026-09-30 | 4회 필기 | | | 필기\n---\n")
+    토큰 = client.app.state.ctx.settings.token
+
+    page = client.get("/career/cert/network-2").text
+    assert "내일 마감" in page and "접수함" in page
+    열쇠 = page.split('name="exam" value="')[1].split('"')[0]
+
+    client.post("/web/certs/network-2/signup",
+                data={"_token": 토큰, "exam": 열쇠, "text": "4회 접수", "signed": 1},
+                follow_redirects=False)
+
+    page = client.get("/career/cert/network-2").text
+    assert "접수 취소" in page            # 되돌릴 수 있다
+    assert "내일 마감" not in page        # 더는 재촉하지 않는다
+    assert "4회 필기" in page             # 다음 일정이 D-day 를 받는다
+    목록 = client.get("/career/certs").text
+    assert "내일 마감" not in 목록
+
+    # 되돌리면 다시 선다.
+    client.post("/web/certs/network-2/signup",
+                data={"_token": 토큰, "exam": 열쇠, "text": "4회 접수", "signed": 0},
+                follow_redirects=False)
+    assert "내일 마감" in client.get("/career/cert/network-2").text
+
+
+def test_접수_표시도_토큰이_있어야_한다(client, home):
+    _cert(home, "network-2",
+          "---\nstatus: 준비중\nexams:\n  - 2026-07-21..2026-07-23 | 4회 접수 | | | 필기\n---\n")
+    assert client.post("/web/certs/network-2/signup",
+                       data={"exam": "abc"}).status_code == 401

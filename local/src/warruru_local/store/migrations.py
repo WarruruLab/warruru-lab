@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 7
+CURRENT_VERSION = 8
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -299,7 +299,27 @@ SELECT 'ses_' || lower(hex(randomblob(12))), topic_slug, '이전 대화', cli, '
 FROM ask_thread;
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7}
+_V8 = """
+-- **이 회차, 접수했나**(2026-09-22). 접수를 기간으로 들기 시작하니 다음
+-- 질문이 바로 왔다 — "이미 접수한 회차인데도 마감이 계속 재촉한다".
+--
+-- 접수 여부는 시험마다가 아니라 **회차마다** 다르다. 그래서 자격증 키가
+-- 아니라 일정 한 줄(날짜+이름)의 해시로 잡는다. 노트에서 날짜를 고치면
+-- 다른 줄이 되고 표시가 풀리는데, 그것이 맞다 — 바뀐 일정은 다시 확인해야
+-- 하는 일정이다.
+--
+-- 노트 파일이 아니라 DB 인 이유는 `ask_check` 와 같다. 화면에서 3초 만에
+-- 눌리는 값이라야 눌린다. 파일이면 에디터를 열어야 하고, 그러면 아무도 안 누른다.
+CREATE TABLE IF NOT EXISTS exam_signup (
+    cert_key   TEXT NOT NULL,
+    exam_hash  TEXT NOT NULL,
+    exam_text  TEXT NOT NULL,
+    signed_at  TEXT NOT NULL,
+    PRIMARY KEY (cert_key, exam_hash)
+);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7, 8: _V8}
 
 
 def current_version(conn: sqlite3.Connection) -> int:
