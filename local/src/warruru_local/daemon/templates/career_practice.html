@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} 연습 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }} 연습</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/cert/{{ view.key }}">← {{ view.name }}</a> ·
+  시험장에서 쓰는 도구를 미리 만져 본다 ·
+  <b>{{ view.practice | selectattr("done") | list | length }}</b> / {{ view.practice | length }}
+</p>
+
+{# **링크만 모아 두면 "해 봤나" 가 안 남는다.** 수행형은 아는 것이 아니라
+   할 수 있는 것을 묻고, 할 수 있는지는 해 봐야 안다. 하나씩 체크한다. #}
+<section class="tool">
+  <h2>해 볼 것</h2>
+  <ul class="checkpoints asks">
+    {% for row in view.practice %}
+    <li class="ask">
+      <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="item" value="{{ row.hash }}">
+        <input type="hidden" name="text" value="연습: {{ row.name }}">
+        <input type="hidden" name="total" value="1">
+        <input type="hidden" name="delta" value="{{ -1 if row.done else 1 }}">
+        <input type="hidden" name="back" value="practice">
+        <button class="tick {{ 'on' if row.done }}" type="submit"
+                aria-pressed="{{ 'true' if row.done else 'false' }}"
+                aria-label="{{ row.name }} 해 봤음">&nbsp;</button>
+      </form>
+      {% if row.url %}
+      <a class="ask-text" href="{{ row.url }}" target="_blank" rel="noopener">{{ row.name }}</a>
+      {% else %}
+      <span class="ask-text">{{ row.name }}</span>
+      {% endif %}
+      {% if row.note %}<span class="meta quiet">{{ row.note }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta">
+    동그라미는 <strong>한 번 해 봤다</strong>는 표시다. 잘하게 됐다는 뜻은 아니다 —
+    느렸던 것은 다시 눌러 풀고 또 해 본다.
+  </p>
+</section>
+{% endblock %}

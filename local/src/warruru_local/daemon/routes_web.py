@@ -1299,6 +1299,7 @@ async def bump_cert_form(
     text: str = Form(""),
     total: int = Form(0),
     delta: int = Form(1),
+    back: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ) -> RedirectResponse:
     """커리큘럼 한 항목의 진도를 올리고 내린다."""
@@ -1308,7 +1309,12 @@ async def bump_cert_form(
         cert_key, item, text, max(-1, min(1, delta)), total,
         to_iso(ctx.clock.now()),
     )
-    return RedirectResponse(f"/career/cert/{quote(cert_key)}", status_code=302)
+    # 눌렀던 화면으로 돌아간다. **경로는 우리가 만든다** — 폼이 준 주소로
+    # 그대로 보내면 열린 리다이렉트가 된다.
+    뒤 = f"/career/cert/{quote(cert_key)}"
+    if back == "practice":
+        뒤 += "/practice"
+    return RedirectResponse(뒤, status_code=302)
 
 
 @router.post("/web/stacks/{key}/section")
@@ -1389,6 +1395,27 @@ async def add_cert_form(
                                "이미 있는 것은 덮지 않습니다"},
         )
     return RedirectResponse(f"/career/cert/{quote(key.strip())}", status_code=303)
+
+
+@router.get("/career/cert/{key}/practice")
+async def career_cert_practice(request: Request, key: str):
+    """시험장 도구를 미리 만져 보는 자리(명세 §2.11 h).
+
+    TOPCIT 은 배점의 절반이 수행형이고 답안을 코드 에디터와 UML·ERD 도구로
+    쓴다. **도구를 다루는 속도 자체가 점수**라 링크만 모아 두는 것으로는
+    부족하다 — 무엇을 해 봤는지가 남아야 다음에 무엇을 할지가 정해진다.
+    """
+    ctx = request.app.state.ctx
+    view = careerview.build_cert(ctx, key)
+    if view is None or not view["practice"]:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "연습할 도구가 적혀 있지 않습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_practice.html",
+        {"view": view, "token": ctx.settings.token},
+    )
 
 
 @router.post("/web/certs/{cert_key}/signup")
