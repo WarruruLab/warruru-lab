@@ -15,7 +15,8 @@ from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, certs, checking, dayview, drafting,
-    learning, publishing, reading, stacking, today as todayview, topicview,
+    learning, practicing, publishing, reading, stacking,
+    today as todayview, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
 from warruru_local.daemon.validation import validate_month_param as _validate_month
@@ -1416,6 +1417,63 @@ async def career_cert_practice(request: Request, key: str):
         request, "career_practice.html",
         {"view": view, "token": ctx.settings.token},
     )
+
+
+@router.get("/career/cert/{key}/uml")
+async def career_cert_uml(request: Request, key: str, name: str = ""):
+    """UML·ERD 연습장(명세 §2.11 h). **시험장 도구를 흉내 내지 않는다** —
+    거기서 배우는 것은 버튼 위치이고, 여기서 배우는 것은 무엇을 그릴지다.
+    """
+    ctx = request.app.state.ctx
+    view = careerview.build_cert(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    열린것 = practicing.read(ctx.settings.home, key, name) if name else None
+    return templates.TemplateResponse(
+        request, "career_uml.html",
+        {
+            "view": view,
+            "saved": practicing.listing(ctx.settings.home, key),
+            "open": 열린것,
+            "token": ctx.settings.token,
+        },
+    )
+
+
+@router.post("/web/certs/{cert_key}/uml")
+async def save_uml_form(
+    request: Request,
+    cert_key: str,
+    name: str = Form(...),
+    drawing: str = Form(...),
+    form_token: str | None = Form(None, alias="_token"),
+):
+    """그린 것을 저장한다. **저장소 밖**(`career/practice/`)에 앉는다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.KEY.match(cert_key) or not practicing.NAME.match(name):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_NAME",
+                    "message": "이름은 한글·영문·숫자·공백만, 40자까지"},
+        )
+    try:
+        payload = json.loads(drawing)
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    ok = practicing.save(ctx.settings.home, cert_key, name, payload,
+                         to_iso(ctx.clock.now()))
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "BAD_NAME", "message": "저장하지 못했습니다"},
+        )
+    return {"saved": name}
 
 
 @router.post("/web/certs/{cert_key}/signup")

@@ -69,6 +69,13 @@ def career_dir(home: Path) -> Path:
     return home / "career"
 
 
+def practice_dir(home: Path) -> Path:
+    """연습장에서 그린 것과 쓴 것. **노트와 섞지 않는다** — 노트는 사람이
+    손으로 적는 사실이고, 이쪽은 연습하며 쌓이는 결과물이다.
+    """
+    return career_dir(home) / "practice"
+
+
 def cert_dir(home: Path) -> Path:
     """자격증 노트. 회사 노트와 **같은 자리에 섞지 않는다** —
     `career/*.md` 는 회사 하나를 뜻하므로, 자격증이 그 자리에 들어오면

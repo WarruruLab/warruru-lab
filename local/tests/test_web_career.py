@@ -1708,3 +1708,86 @@ def test_연습_목록이_없으면_그_화면도_없다(client, home):
     _cert(home, "network-2", "---\nstatus: 준비중\n---\n")
     assert client.get("/career/cert/network-2/practice").status_code == 404
     assert "/practice" not in client.get("/career/cert/network-2").text
+
+
+def _uml(그림=None):
+    import json
+    return json.dumps(그림 or {
+        "kind": "class",
+        "nodes": [{"id": "n1", "title": "주문", "body": "id\n합계", "x": 40, "y": 40},
+                  {"id": "n2", "title": "회원", "body": "id", "x": 300, "y": 40}],
+        "edges": [{"from": "n1", "to": "n2", "label": "1..*"}],
+    }, ensure_ascii=False)
+
+
+def test_UML_을_그려_저장하고_다시_연다(client, home):
+    """수행형 답안은 그림이다. **무엇을 그릴지**를 익히는 자리라
+    시험장 도구를 흉내 내지 않는다(2026-09-22)."""
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit", "---\nstatus: 준비중\npractice:\n  - UML | |\n---\n")
+
+    res = client.post("/web/certs/topcit/uml",
+                      data={"_token": 토큰, "name": "주문 클래스도", "drawing": _uml()})
+    assert res.status_code == 200
+
+    # **저장소 밖**에 앉는다 — 초안·노트와 같은 이유다.
+    쓴것 = paths.practice_dir(home) / "topcit" / "주문 클래스도.json"
+    assert 쓴것.is_file()
+
+    page = client.get("/career/cert/topcit/uml").text
+    assert "주문 클래스도" in page and "상자 2" in page
+
+    # 이름으로 다시 열면 그림이 화면 안에 실려 온다.
+    열림 = client.get("/career/cert/topcit/uml", params={"name": "주문 클래스도"}).text
+    assert "\\uc8fc\\ubb38" in 열림 or "주문" in 열림
+    assert "1..*" in 열림
+
+    # 자격증·연습 화면에서 들어가는 길이 있다.
+    assert "/career/cert/topcit/uml" in client.get("/career/cert/topcit").text
+    assert "/career/cert/topcit/uml" in client.get("/career/cert/topcit/practice").text
+
+
+def test_그림_이름이_경로가_되지_않는다(client, home):
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    for 이름 in ["../../탈출", "a/b", "."]:
+        res = client.post("/web/certs/topcit/uml",
+                          data={"_token": 토큰, "name": 이름, "drawing": _uml()})
+        assert res.status_code == 400, 이름
+    assert not (paths.practice_dir(home) / "topcit").exists()
+
+
+def test_없는_상자를_가리키는_선은_버린다(client, home):
+    """열 때 허공에 선이 그려지는 것을 막는다. 브라우저가 보낸 것을
+    그대로 믿지 않는다."""
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    client.post("/web/certs/topcit/uml", data={
+        "_token": 토큰, "name": "반쪽",
+        "drawing": _uml({"kind": "er",
+                         "nodes": [{"id": "n1", "title": "주문", "x": 1, "y": 2}],
+                         "edges": [{"from": "n1", "to": "없음", "label": "x"},
+                                   {"from": "n1", "to": "n1", "label": "자기"}],
+                         "몰래": "버려진다"}),
+    })
+    import json
+    그림 = json.loads((paths.practice_dir(home) / "topcit" / "반쪽.json")
+                      .read_text(encoding="utf-8"))
+    assert [e["to"] for e in 그림["edges"]] == ["n1"]
+    assert "몰래" not in 그림
+    assert 그림["kind"] == "er"
+
+
+def test_연습판은_바깥_것을_안_부른다(client, home):
+    """라이브러리 없이 SVG 하나로 그린다(§3 — 새 런타임 의존성 금지)."""
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    page = client.get("/career/cert/topcit/uml").text
+    assert "<script src" not in page
+    assert "https://" not in page
+
+
+def test_그림_저장에도_토큰이_있어야_한다(client, home):
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    res = client.post("/web/certs/topcit/uml",
+                      data={"name": "몰래", "drawing": _uml()})
+    assert res.status_code == 401
