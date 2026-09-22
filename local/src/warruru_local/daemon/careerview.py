@@ -593,6 +593,8 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         return {
             "exams": [], "links": [], "stages": [], "curriculum": [],
             "next": None, "status": "미시작",
+            "signup": {"state": "기간 아님", "label": "", "days": None,
+                       "open": False},
             "done": False, "html": "", "markdown": "", "meta": {},
         }
 
@@ -637,6 +639,17 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         })
     # 기간이 열려 있으면 마감이 기준이라 그쪽으로 선다.
     exams.sort(key=lambda row: (row["end"] if row["open"] else row["date"], row["date"]))
+
+    # **접수는 한 회차에 한 번이다**(2026-09-22). 같은 단계에서 이미 접수했으면
+    # 남은 접수 줄(빈자리 접수 같은 것)은 D-day 에서 뺀다 — 접수해 놓고도
+    # "빈자리 접수 D-6" 이 오늘 할 일로 서 있으면 그 목록을 못 믿는다.
+    낸단계 = {row["stage"] for row in exams
+              if row["signed"] and _SIGNUP_WORD in (row["label"] or "")}
+    for row in exams:
+        if (not row["signed"] and row["stage"] in 낸단계
+                and _SIGNUP_WORD in (row["label"] or "")):
+            row["mine"] = False
+            row["covered"] = True
 
     links = parse_links(meta.get("links"))
 
@@ -716,9 +729,40 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "next": next(
             (row for row in exams if not row["past"] and row["mine"]), None
         ),
+        # 이 자격증, 접수했나. 목록에서 한눈에 보여야 하는 값이다(2026-09-22).
+        "signup": _signup_state(exams, today),
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
     }
+
+
+# 접수 일정을 알아보는 말. 라벨에 이 말이 있으면 접수 줄로 본다 —
+# 단계 이름은 자격증마다 다르고(`접수` · `필기` · `정기평가`), 접수 줄이
+# 시험 단계 안에 들어 있는 경우가 더 많다.
+_SIGNUP_WORD = "접수"
+
+
+def _signup_state(exams: list[dict], today: str) -> dict:
+    """접수했나 · 안 했나 · 아직 기간이 아닌가(2026-09-22).
+
+    **"안 했다" 와 "아직 열리지도 않았다" 는 다른 말이다.** 둘을 같은 빨강으로
+    칠하면 아무 때나 빨간 화면이 되어 진짜 급한 날을 못 알아본다.
+    """
+    줄들 = [row for row in exams
+            if _SIGNUP_WORD in (row["label"] or "") and not row["past"]]
+    if not 줄들:
+        return {"state": "기간 아님", "label": "", "days": None, "open": False}
+    낸것 = next((row for row in 줄들 if row["signed"]), None)
+    if 낸것:
+        return {"state": "접수함", "label": 낸것["label"], "days": None,
+                "open": False}
+    열린것 = next((row for row in 줄들 if row["open"]), None)
+    if 열린것:
+        return {"state": "미접수", "label": 열린것["label"],
+                "days": 열린것["days"], "open": True}
+    다음것 = 줄들[0]
+    return {"state": "기간 아님", "label": 다음것["label"],
+            "days": 다음것["days"], "open": False}
 
 
 def _exam_hash(start: str, end: str, label: str) -> str:

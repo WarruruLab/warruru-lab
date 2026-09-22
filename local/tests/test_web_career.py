@@ -1242,10 +1242,15 @@ def test_색이_둘을_넘지_않는다():
     그 규칙은 종이·잉크 위에서 성립했고, 흰 카드 위에서는 파랑이
     '누를 수 있다' 를 맡아야 상태와 조작이 갈린다.
 
-    다만 **둘을 넘기지 않는다.** 셋이 되는 순간 어느 것도 신호가 못 된다 —
+    다만 **늘리지 않는다.** 셋이 되는 순간 어느 것도 신호가 못 된다 —
     이전 판(청록·주황·붉은색)이 정확히 그렇게 실패했고, 그때는 주황과
     붉은색이 정상 시각에서도 ΔE 10.5 로 구별조차 안 됐다.
     `--key-fill` 은 `--key` 와 같은 색상의 다른 단이라 따로 세지 않는다.
+
+    **예외 하나 — 초록(`--good`)은 접수 여부에만 쓴다**(2026-09-22, 사용자가
+    정함). 접수는 "했다 / 안 했다" 가 한눈에 갈려야 하는데 빨강은 이미 마감을
+    맡고 있다. 이 테스트가 지키는 것은 **그 예외가 다른 화면으로 안 번지는
+    것**이다 — 초록을 쓰는 클래스는 접수 배지 둘뿐이어야 한다.
     """
     import re
     from pathlib import Path
@@ -1258,7 +1263,11 @@ def test_색이_둘을_넘지_않는다():
             if t.split("-")[0] not in
             {"ground", "panel", "ink", "rule", "sans", "mono", "t", "radius",
              "pad", "shadow"}}
-    assert 색상 == {"key", "alert"}, 색상
+    assert 색상 == {"key", "alert", "good"}, 색상
+
+    # 초록이 새는지 본다. `--good` 을 읽는 규칙은 접수 배지 둘뿐이다.
+    쓰는곳 = [줄.strip() for 줄 in css.splitlines() if "var(--good" in 줄]
+    assert 쓰는곳 and all(줄.startswith(".badge.signed") for 줄 in 쓰는곳), 쓰는곳
 
 
 def test_흐린_글자도_읽힌다():
@@ -1620,3 +1629,47 @@ def test_접수_표시도_토큰이_있어야_한다(client, home):
           "---\nstatus: 준비중\nexams:\n  - 2026-07-21..2026-07-23 | 4회 접수 | | | 필기\n---\n")
     assert client.post("/web/certs/network-2/signup",
                        data={"exam": "abc"}).status_code == 401
+
+def test_목록에서_접수_여부가_한눈에_보인다(client, home):
+    """접수를 놓치면 회차가 통째로 날아간다. 남은 날보다 **했나 안 했나**가
+    앞에 선다(2026-09-22). "안 했다" 와 "아직 기간이 아니다" 는 다른 말이라
+    같은 빨강으로 칠하지 않는다."""
+    토큰 = client.app.state.ctx.settings.token
+    # 기간이 열렸는데 안 냈다 → 미접수
+    _cert(home, "network-2",
+          "---\nstatus: 준비중\nexams:\n  - 2026-07-21..2026-07-23 | 4회 접수 | | | 필기\n---\n")
+    # 접수 기간이 아직 멀다 → 기간 아님
+    _cert(home, "linux-2",
+          "---\nstatus: 준비중\nexams:\n  - 2026-09-01..2026-09-10 | 2604회 1차 접수 | | | 1차\n---\n")
+
+    page = client.get("/career/certs").text
+    assert 'class="badge unsigned"' in page and "미접수" in page
+    assert "기간 아님" in page
+
+    열쇠 = client.get("/career/cert/network-2").text.split('name="exam" value="')[1].split('"')[0]
+    client.post("/web/certs/network-2/signup",
+                data={"_token": 토큰, "exam": 열쇠, "text": "4회 접수", "signed": 1},
+                follow_redirects=False)
+
+    page = client.get("/career/certs").text
+    assert 'class="badge signed"' in page and "접수함" in page
+    assert "미접수" not in page
+
+def test_접수했으면_빈자리_접수는_재촉하지_않는다(client, home):
+    """접수해 놓고도 "빈자리 접수 D-6" 이 오늘 할 일로 서 있으면 그 목록을
+    못 믿는다. 접수는 한 회차에 한 번이다(2026-09-22)."""
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "jeongcheogi",
+          "---\nstatus: 준비중\nstages:\n  - 실기 | 준비중\n"
+          "exams:\n  - 2026-07-21..2026-07-23 | 3회 실기 접수 | | | 실기\n"
+          "  - 2026-07-28 | 3회 실기 빈자리 접수 | 놓쳤을 때만 | | 실기\n"
+          "  - 2026-08-24 | 3회 실기 시험 | | | 실기\n---\n")
+    열쇠 = client.get("/career/cert/jeongcheogi").text.split('name="exam" value="')[1].split('"')[0]
+    client.post("/web/certs/jeongcheogi/signup",
+                data={"_token": 토큰, "exam": 열쇠, "text": "3회 실기 접수", "signed": 1},
+                follow_redirects=False)
+
+    page = client.get("/career/certs").text
+    assert "접수함" in page
+    assert "빈자리 접수" not in page      # 다음 할 일로 안 선다
+    assert "3회 실기 시험" in page        # 시험이 다음이다

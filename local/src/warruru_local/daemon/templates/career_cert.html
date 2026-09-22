@@ -17,6 +17,14 @@
    다른 시험이라 날짜가 따로 가는데, 하나만 띄우면 다른 하나를 잊는다. #}
 {% if view.stages %}
 <p class="cert-ddays">
+  {% if view.signup.state == "접수함" %}
+  <span class="badge signed">접수함</span><span class="quiet">{{ view.signup.label }}</span>
+  {% elif view.signup.state == "미접수" %}
+  <span class="badge unsigned">미접수</span><span class="quiet">{{ view.signup.label }} · {{ dday(view.signup) }}</span>
+  {% else %}
+  <span class="badge warn">접수 기간 아님</span>
+  {% if view.signup.label %}<span class="quiet">{{ view.signup.label }}</span>{% endif %}
+  {% endif %}
   <span class="quiet">단계</span>
   {% for stage in view.stages %}
   <span class="{{ 'quiet' if stage.done }}">
