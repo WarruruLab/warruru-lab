@@ -72,6 +72,12 @@
     --key-fill:  #3182F6;   /* 칸을 채우는 면. 글자로 쓰지 않는다 */
     --key-soft:  #E8F3FF;
     --alert:     #E02D3C;   /* 마감이 닥쳤다 · 0 이다 */
+    /* 초록은 **접수 여부 하나에만** 쓴다(2026-09-22, 사용자가 정함).
+       색 규칙은 원래 둘이었다 — 파랑(누를 수 있다·채워졌다) · 빨강(마감·0).
+       접수는 "했다/안 했다" 가 한눈에 갈려야 하는 값이라 여기만 연다.
+       다른 화면으로 번지면 셋 다 신호를 잃는다. */
+    --good:      #0F8A5F;   /* 흰 바탕 4.55:1 */
+    --good-soft: #E3F5EC;
     --alert-soft:#FEECEE;
 
     --sans: -apple-system, BlinkMacSystemFont, "Pretendard",
@@ -109,6 +115,8 @@
     --key-fill:  #4A8DEE;
     --key-soft:  #1B2B42;
     --alert:     #F4707B;
+    --good:      #4ED09A;
+    --good-soft: #14352A;
     --alert-soft:#3A2226;
 
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .22);
@@ -1025,6 +1033,8 @@
   .badge.ok   { color: var(--key);   background: var(--key-soft); }
   .badge.warn { color: var(--ink-faint); background: var(--rule-soft); }
   .badge.due  { color: var(--alert); background: var(--alert-soft); }
+  .badge.signed { color: var(--good); background: var(--good-soft); font-weight: 700; }
+  .badge.unsigned { color: var(--alert); background: var(--alert-soft); font-weight: 700; }
   a.badge:hover { filter: brightness(.96); }
 
   /* ── 목록 ─────────────────────────────────────────────────── */
