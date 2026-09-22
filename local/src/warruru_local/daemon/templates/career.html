@@ -23,7 +23,7 @@
   <ul class="picks">
     {% for row in deadlines[:3] %}
     <li>
-      <span class="dday-sm {{ 'near' if row.days <= 7 }}">D-{{ row.days }}</span>
+      <span class="dday-sm {{ 'near' if row.days <= 7 }}">{{ dday(row) }}</span>
       <a href="{{ row.url }}">{{ row.name }}</a>
       {% if row.total %}<span class="gauge-read">{{ row.have }}/{{ row.total }}</span>{% endif %}
     </li>

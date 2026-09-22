@@ -23,7 +23,7 @@
       <a class="ask-text" href="/career/cert/{{ cert.key }}">{{ cert.name }}</a>
 
       {% if cert.next %}
-      <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">D-{{ cert.next.days }}</span>
+      <span class="dday-sm {{ 'near' if cert.next.days <= 7 }}">{{ dday(cert.next) }}</span>
       <span class="quiet">{{ cert.next.label }}</span>
       {% else %}
       <span class="badge warn">일정 미정</span>

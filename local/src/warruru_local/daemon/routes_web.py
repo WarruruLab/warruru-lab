@@ -24,6 +24,8 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 # 에이전트마다 고를 수 있는 모델. 선택칸이 이 한 벌을 읽는다.
 templates.env.globals["MODELS"] = asking.MODELS
+# D-day 문구. 접수 기간이 열려 있으면 "내일 마감" 처럼 말한다.
+templates.env.globals["dday"] = careerview.dday_text
 
 
 def _check_cli(cli: str, model: str) -> None:

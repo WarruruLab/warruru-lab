@@ -23,8 +23,8 @@
     <b>{{ stage.name }}</b>
     {% if stage.done %}<span class="badge ok">{{ stage.state }}</span>
     {% elif stage.next %}
-      <span class="dday-sm {{ 'near' if stage.next.days <= 7 }}">D-{{ stage.next.days }}</span>
-      <span class="quiet">{{ stage.next.date }}</span>
+      <span class="dday-sm {{ 'near' if stage.next.days <= 7 }}">{{ dday(stage.next) }}</span>
+      <span class="quiet">{{ stage.next.due }}</span>
     {% else %}<span class="badge">일정 미정</span>{% endif %}
   </span>
   {% endfor %}
@@ -38,8 +38,8 @@
   <div class="work-head">
     <h2>오늘</h2>
     {% if view.next %}
-    <span class="dday-sm {{ 'near' if view.next.days <= 7 }}">D-{{ view.next.days }}</span>
-    <span class="meta">{{ view.next.label }} · {{ view.next.date }}</span>
+    <span class="dday-sm {{ 'near' if view.next.days <= 7 }}">{{ dday(view.next) }}</span>
+    <span class="meta">{{ view.next.label }} · {{ view.next.due }}</span>
     {% endif %}
   </div>
   {% if view.today %}
