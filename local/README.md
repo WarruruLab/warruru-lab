@@ -10,11 +10,11 @@
 ## 환경 — Task 0 은 끝났다 (2026-08-18)
 
 이 머신에는 `local/.venv/`(Python 3.12.14)와 `~/.warruru/` 가 이미 있고,
-**489개 테스트가 전원 통과한다.** 매번 다시 만들 필요 없다.
+**테스트 998개가 있다.** 매번 다시 만들 필요 없다.
 
 ```bash
 cd local && source .venv/bin/activate
-python -m pytest -q           # 489 passed 여야 한다
+python -m pytest -q           # 998 passed — 단, 이 머신은 git 을 부르는 17개가 Xcode 라이선스 때문에 실패한다
 warruru-daemon                # 필요할 때만. 어댑터가 알아서 띄운다
 ```
 
@@ -29,7 +29,7 @@ cd local
 /opt/homebrew/bin/python3.12 -m venv .venv    # 2. venv
 source .venv/bin/activate
 pip install -e '.[dev]'                       # 3. 개발 의존성까지
-python -m pytest -q                           # 4. 489 passed 확인
+python -m pytest -q                           # 4. 998 passed 확인(git 테스트 17개 실패는 Xcode 라이선스 문제다)
 ```
 
 **3.13 이 아니라 3.12 인 이유** — 의존성이 여섯 개라 그중 하나라도

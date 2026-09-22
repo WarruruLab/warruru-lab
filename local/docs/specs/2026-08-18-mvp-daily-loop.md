@@ -281,7 +281,11 @@ DB 가 비면 (b)(c)(d) 가 전부 빈 화면이고 나머지 설계의 장점�
 **창은 왼쪽 목록 + 오른쪽 대화다**(2026-09-16, 세 안을 화면으로 비교해 C 안).
 열면 **빈 새 대화**다 — 하던 대화를 조용히 불러오면 새 질문이 어디에 붙는지
 모른 채 친다. 목록은 오늘 / 이전으로 나누고 맨 위에 [+ 새 대화], 맨 아래에
-날짜별 보관본으로 가는 길을 둔다. **목록은 기본으로 펼쳐져 옆에 선다**
+날짜별 보관본으로 가는 길을 둔다. 목록은 **스무 개씩** 보여주고 나머지는
+[이전 대화 더 보기] 로 잇는다 — **원문은 줄이지 않는다.** 답 파일은 몇 KB 라
+공간이 문제가 아니고, 요약으로 바꾸면 받은 것을 한 번 더 가공한 사본만 남아
+되짚을 곳이 사라진다. 통과해야 하는 테스트: `test_대화_목록은_스무_개씩_준다`.
+**목록은 기본으로 펼쳐져 옆에 선다**
 (같은 날 개정) — ☰ 로 접을 수 있고 접은 것은 기억한다. 목록이 서도 대화 칸이
 40rem 남게 기본 창을 54rem 으로 넓혔다. 창이 36rem 보다 좁을 때만 목록이
 대화 위에 겹쳐 뜨고 기본으로 접혀 있다. 누르는 횟수는 새로 묻기 1,
@@ -334,10 +338,11 @@ Claude 는 `--model` 로 넘기고, Codex 쪽은 `-C` · `-s` 처럼 `resume` �
 **챗봇은 세 화면에 같은 모양으로 뜬다** — 주제 · 책 · 묶음.
 부분 템플릿 하나(`_ask_box.html`)를 세 곳이 include 한다.
 
-**지난 대화는 읽기만 한다.** 이어가려면 CLI 세션 id 를 날짜별로 들어야 해서
-`ask_thread` 가 키당 한 줄에서 여러 줄이 된다. 하루가 한 대화이고 지난
-날의 대화를 이어야 할 일이 드물어서, 스키마를 늘리는 값을 못 한다고 봤다.
-지난 것을 읽고 오늘 대화에서 다시 물으면 된다.
+**지난 대화도 이어 묻는다**(2026-09-16 개정). 2026-09-08 에는 "읽기만 한다"
+로 정했다 — 스키마가 키당 한 줄에서 여러 줄로 늘어나는 값을 못 한다고 봤다.
+써 보니 챗봇이라면 당연히 되는 일이 안 되는 것이었고, 그래서 뒤집어
+`ask_session`(v7)을 들였다. 규칙은 §2.6 에 있다. 날짜 파일은 그대로 남아
+**보관본**이 된다 — 터미널에서 물은 것도 거기 모인다.
 
 ### 2.9 책 — 읽고, 쓰고, 기록으로 올린다 (2026-09-08 개정으로 추가)
 
@@ -1372,21 +1377,55 @@ CREATE TABLE ask_thread (
 );
 ```
 
-주제당 한 줄이다. 스레드 목록을 만들지 않는다 — 축이 주제이므로
-"어느 스레드였더라" 를 사람이 고를 일이 없어야 한다.
+주제당 한 줄이었다. **2026-09-16 에 v7 이 이것을 대체한다** — 대화 하나가
+한 줄이고, 옛 행은 옮긴 뒤 원본으로 남긴다(`ask_thread` 는 더 쓰지 않는다).
+
+```sql
+CREATE TABLE ask_session (
+    session_id TEXT PRIMARY KEY,        -- ses_<hex 24>
+    topic_slug TEXT NOT NULL,
+    title      TEXT NOT NULL,           -- 처음 질문
+    cli        TEXT NOT NULL,           -- 'codex' | 'claude'
+    model      TEXT NOT NULL DEFAULT '',
+    thread_id  TEXT NOT NULL,
+    turns      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX ix_ask_session_topic ON ask_session (topic_slug, updated_at);
+```
+
+행은 **답을 받았을 때만** 생긴다. 실패한 왕복까지 행으로 남기면 이어 물을
+것이 없는 대화가 목록에 선다. 되살릴 문답은 DB 가 아니라
+`career/answers/{주제}/sessions/{세션}.jsonl` 이고, 대화의 진짜 기억은
+CLI 가 `thread_id` 로 들고 있다.
+
+**조회 라우트 둘 — 토큰 없이 연다(조회다)**
+
+| 라우트 | 돌려주는 것 |
+|---|---|
+| `GET /web/topics/{주제}/sessions?offset=N` | `{sessions: [...20개], more, next}` |
+| `GET /web/topics/{주제}/sessions/{세션}` | `{session_id, title, cli, model, turns, messages}` |
+
+세션 파일이 없으면(v7 이전에 시작한 대화) 날짜 보관본에서 문답을 되살리고,
+목록에서는 '이전 대화' 를 첫 질문으로 고쳐 준다. 시각은 건드리지 않는다 —
+이름을 붙였다고 목록 순서가 바뀌면 안 된다.
+통과해야 하는 테스트: `test_v7_이전_대화는_날짜_보관본에서_되살린다`.
 
 **`POST /web/ask` — 폼 토큰 필요, 응답은 `text/event-stream`**
 
-요청: `topic_slug` · `prompt`
+요청: `topic_slug` · `prompt` · `cli` · `model` · `session_id`(비면 새 대화)
+· `fresh` · `mode`. `cli`·`model` 은 `asking.MODELS` 밖이면 400 이다 —
+그 값이 자식의 argv 로 들어가므로 목록으로 가둔다(§2.6).
 
 이벤트 넷. 이름은 `codex exec --json` 의 것을 그대로 쓰지 않는다 —
 CLI 가 이름을 바꿔도 화면이 안 깨지도록 여기서 한 겹 옮긴다.
 
 | event | data | 언제 |
 |---|---|---|
-| `started` | `{"thread_id": "...", "resumed": true\|false}` | 스레드가 잡혔을 때 |
+| `started` | `{"thread_id": "...", "session_id": "ses_…", "resumed": true\|false}` | 스레드가 잡혔을 때 |
 | `message` | `{"text": "..."}` | 모델이 사람에게 할 말을 냈을 때 |
-| `done` | `{"tokens": 21326, "saved": "2026-09-06.md"}` | 정상 종료 |
+| `done` | `{"tokens": 21326, "saved": "2026-09-06.md", "session_id": "ses_…"}` | 정상 종료 |
 | `error` | `{"message": "...", "fix": "codex login"}` | 실패. **원인을 그대로 말한다** |
 
 **자식 프로세스 실행 규약 — 넷 다 안 지키면 매달린다**
@@ -1403,6 +1442,9 @@ codex exec resume <thread_id> --json -C <홈> -s read-only <프롬프트>
 3. **`-s read-only`.** 재료는 MCP 로 읽고 답은 데몬이 파일에 쓴다.
    자식에게 쓰기 권한을 줄 이유가 없다.
 4. **타임아웃과 동시 실행 1.** 넘으면 죽이고 `error` 를 낸다.
+5. **끊기면 그룹째 죽인다**(2026-09-16). 화면의 [중지] 는 요청을 끊는 것이고,
+   그때 자식만 죽이면 CLI 가 띄운 손자가 파이프를 쥐어 `wait` 가 끝나지 않는다.
+   `start_new_session=True` 로 띄우고 `killpg` 한다. 받다 만 답은 저장하지 않는다.
 
 **`thread_id` 를 얻는 곳** — 첫 이벤트다(2026-09-05 실측).
 
