@@ -445,7 +445,7 @@ def build_books(ctx) -> dict:
 
     made = []
     for book in stack["books"]:
-        slugs = next((s for k, _, s in topics.BOOK_GROUPS if k == book["key"]), ())
+        slugs = reading.slugs_of(ctx, book["key"])
         공고 = {c for slug in slugs for c in wanted.get(slug, [])}
         자격증 = [name for key, name, cs in topics.CERTIFICATIONS
                   if set(slugs) & set(cs)]
@@ -534,12 +534,22 @@ def build_stack(ctx) -> dict:
     CS 49개는 *면접에서 묻는 것* 이라, 한 막대로 합치면 어느 쪽이 비었는지
     알 수 없다.
     """
+    from warruru_local.daemon import reading
+
     counts = _counts(ctx)
     wanted = demand(list_companies(ctx))
     groups = _group_rows(topics.SLUG_GROUPS, counts, wanted, ordered=True)
     cs_groups = _group_rows(topics.CS_GROUPS, counts, wanted)
     ai_groups = _group_rows(topics.AI_GROUPS, counts, wanted)
     books = _group_rows(topics.BOOK_GROUPS, counts, wanted)
+    # **화면에서 더한 책도 목록에 선다**(2026-09-23). [책 더하기] 는 노트를
+    # 앉히는데 목록이 코드 상수만 읽어서, 더한 책이 어디에도 안 보였다 —
+    # 자격증이 이미 같은 일을 한다(`build_certs`).
+    books += _group_rows(
+        tuple((key, reading.title_of(ctx, key), reading.slugs_of(ctx, key))
+              for key in reading.note_keys(ctx)),
+        counts, wanted,
+    )
     notes = _book_notes(ctx, local_date_of(to_iso(ctx.clock.now())))
     for book in books:
         # 노트가 없는 책이 대부분이다. **빈 값을 먼저 채운다** — 템플릿에서
