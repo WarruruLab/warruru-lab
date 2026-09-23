@@ -461,3 +461,65 @@ def test_읽는_상태_셋이_나란히_온다(client, ctx):
     for 이름 in ("읽는 중", "중단", "다 읽음"):
         assert f"<h2>{이름}</h2>" in 머리, 이름
     assert 'class="picks shelf-3"' in 머리
+
+
+# ── 책 더하기 (2026-09-23 되살림) ────────────────────────────────
+#
+# **이 절은 #103(책 목록 재작성)에 딸려 나갔다.** 라우트는 살아 있었고
+# 화면만 없어서, 책을 더할 길이 넉 달 가까이 없었다. 사용자가 찾아냈다.
+# 아래 둘이 그 구멍을 막는다 — 화면이 있는지, 더한 책이 실제로 서는지.
+
+
+def test_책_목록에_책_더하기가_있다(client):
+    page = client.get("/career/books").text
+    assert 'id="add-book"' in page
+    assert "책 더하기" in page
+    # 목차는 에이전트가 확인해 채우고, 사람이 눌러야 저장된다.
+    assert '"/web/books/fill"' in page
+    assert 'action="/web/books/save"' in page
+    assert "이대로 저장" in page
+    # 모델도 고른다 — 에이전트 칸 뒤에 base.html 이 칸을 만든다.
+    assert 'id="bk-cli" data-agent' in page
+
+
+def test_화면에서_더한_책이_목록에_선다(client, home):
+    """[책 더하기] 는 노트를 앉히는데 목록이 코드 상수만 읽어서, 더한 책이
+    어디에도 안 보였다 — 목록에도, 주소로도(404). 자격증은 이미 노트만
+    있는 것도 세운다."""
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "sinagong-gisa.md").write_text(
+        "---\nname: 2026 시나공 정보처리기사 실기 기본서\n"
+        "state: 소장\n"
+        "toc:\n"
+        "  - 0 | 준비운동\n"
+        "  - 8 | SQL 응용 | db-join, db-execution-plan\n"
+        "  - 11 | 응용 SW 기초 기술 활용 | os-process-thread, 없는슬러그\n"
+        "---\n", encoding="utf-8")
+
+    목록 = client.get("/career/books").text
+    assert "2026 시나공 정보처리기사 실기 기본서" in 목록
+
+    page = client.get("/career/book/sinagong-gisa")
+    assert page.status_code == 200
+    assert "SQL 응용" in page.text and "준비운동" in page.text
+
+
+def test_더한_책이_덮는_주제는_목차에서_온다(client, ctx, home):
+    """코드 상수에 없는 책이라 슬러그는 목차에 붙은 것이 전부다.
+    **없는 슬러그는 버린다** — 어느 화면에도 안 보이면서 총량만 늘린다."""
+    from warruru_local.daemon import reading
+
+    paths.book_note_dir(home).mkdir(parents=True, exist_ok=True)
+    (paths.book_note_dir(home) / "sinagong-gisa.md").write_text(
+        "---\nname: 시나공 실기\ntoc:\n"
+        "  - 8 | SQL 응용 | db-join, db-join\n"
+        "  - 11 | 기초 기술 | os-process-thread, 없는슬러그\n"
+        "---\n", encoding="utf-8")
+
+    assert reading.slugs_of(ctx, "sinagong-gisa") == (
+        "db-join", "os-process-thread")
+    assert reading.covered(ctx, "sinagong-gisa")["total"] == 2
+    assert reading.title_of(ctx, "sinagong-gisa") == "시나공 실기"
+    # 코드 상수에 있는 책은 그 상수가 이긴다.
+    assert len(reading.slugs_of(ctx, "kafka-practice")) > 0
+    assert "kafka-practice" not in reading.note_keys(ctx)

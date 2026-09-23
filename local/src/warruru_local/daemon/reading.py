@@ -125,12 +125,56 @@ def _book_label(key: str) -> str:
     return key
 
 
+def note_keys(ctx) -> list[str]:
+    """**노트 파일로만 있는 책**(2026-09-23). 화면에서 [책 더하기] 로 넣은 책은
+    코드 상수(`topics.BOOK_GROUPS`)에 없다 — 그것만 읽으면 방금 더한 책이
+    목록에도 안 서고 주소도 404 다. 자격증이 이미 같은 일을 한다.
+    """
+    root = paths.book_note_dir(ctx.settings.home)
+    if not root.is_dir():
+        return []
+    코드에있는것 = {key for key, _, _ in topics.BOOK_GROUPS}
+    return sorted(
+        path.stem for path in root.glob("*.md")
+        if SLUG.match(path.stem) and path.stem not in 코드에있는것
+    )
+
+
+def title_of(ctx, key: str) -> str:
+    """책 이름. 노트의 `name:` 이 이기고, 없으면 열쇠 그대로다."""
+    path = paths.book_note_dir(ctx.settings.home) / f"{key}.md"
+    if not SLUG.match(key) or not path.is_file():
+        return key
+    meta, _ = parse_front_matter(path.read_text(encoding="utf-8", errors="replace"))
+    이름 = meta.get("name")
+    return (이름.strip() if isinstance(이름, str) and 이름.strip() else key)
+
+
+def slugs_of(ctx, key: str) -> tuple[str, ...]:
+    """이 책이 덮는 주제. 코드 상수가 있으면 그것이고, 없으면 **목차에 붙은
+    슬러그를 모은 것**이다 — 화면에서 더한 책은 상수에 없다.
+
+    목록에 없는 슬러그는 버린다. 지어낸 슬러그는 어느 화면에서도 안 보이는데,
+    총량에만 잡혀서 준비도를 조용히 깎는다.
+    """
+    상수 = next((s for k, _, s in topics.BOOK_GROUPS if k == key), None)
+    if 상수 is not None:
+        return tuple(상수)
+    아는것 = set(topics.all_slugs())
+    모은것: list[str] = []
+    for 장 in toc(ctx, key):
+        for row in 장["slugs"]:
+            if row["slug"] in 아는것 and row["slug"] not in 모은것:
+                모은것.append(row["slug"])
+    return tuple(모은것)
+
+
 def covered(ctx, key: str) -> dict:
     """진도 — **덮는 주제 중 기록이 있는 것**(명세 §2.9 a).
 
     몇 장 읽었나가 아니다. 손이 안 가고, 읽기만 하고 안 남기는 것이 잡힌다.
     """
-    slugs = next((s for k, _, s in topics.BOOK_GROUPS if k == key), ())
+    slugs = slugs_of(ctx, key)
     counts = {row["topic_slug"]: row["count"] for row in ctx.records.slug_summary()}
     have = [s for s in slugs if counts.get(s)]
     return {"covered": len(have), "total": len(slugs), "slugs": list(slugs)}
