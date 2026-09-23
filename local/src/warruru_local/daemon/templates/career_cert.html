@@ -70,7 +70,7 @@
   <ul class="asks">
     {% for row in view.today %}
     <li>
-      {% if row.kind == "item" %}
+      {% if row.kind in ("item", "plan") %}
       <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
         <input type="hidden" name="_token" value="{{ token }}">
         <input type="hidden" name="item" value="{{ row.hash }}">
@@ -81,7 +81,12 @@
                 title="한 번 했으면 누른다">○</button>
       </form>
       <span class="ask-text">{{ row.title }}</span>
+      {% if row.kind == "plan" %}
+      <span class="when">{{ row.date[5:] }}{% if row.note %} · {{ row.note }}{% endif %}</span>
+      {% if row.late %}<span class="badge due">{{ -row.days }}일 밀림</span>{% endif %}
+      {% else %}
       <span class="when">{{ row.done }} / {{ row.total }}{{ row.unit }} 함</span>
+      {% endif %}
       {% else %}
       <span class="tick alert" aria-hidden="true">!</span>
       <span class="ask-text"><strong>{{ row.title }}</strong>
@@ -140,6 +145,48 @@
     {% endfor %}
   </ul>
 </details>
+{% endif %}
+
+{% if view.plan %}
+{# **날짜가 박힌 계획**(2026-09-23). 커리큘럼은 "무엇을 할까" 이고 이 절은
+   "언제 할까" 다. 지난 것을 지우지 않는다 — 밀린 것이 보여야 칸을 다시 잡는다. #}
+<section class="tool">
+  <div class="work-head">
+    <h2>공부 일정 {{ view.plan|selectattr("done")|list|length }} / {{ view.plan|length }}</h2>
+    {% if view.late %}
+    <span class="badge due">밀린 것 {{ view.late|length }}</span>
+    {% endif %}
+  </div>
+  <ul class="checkpoints asks">
+    {% for row in view.plan %}
+    <li class="ask {{ 'quiet' if row.done }}">
+      <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="item" value="{{ row.hash }}">
+        <input type="hidden" name="text" value="계획: {{ row.date }}: {{ row.title }}">
+        <input type="hidden" name="total" value="1">
+        <input type="hidden" name="delta" value="{{ -1 if row.done else 1 }}">
+        <button class="tick {{ 'on' if row.done }}" type="submit"
+                aria-pressed="{{ 'true' if row.done else 'false' }}"
+                aria-label="{{ row.date }} {{ row.title }} 했음">&nbsp;</button>
+      </form>
+      <span class="when">{{ row.date[5:] }}</span>
+      <span class="ask-text">{{ row.title }}</span>
+      {% if row.note %}<span class="meta quiet">{{ row.note }}</span>{% endif %}
+      {% if row.done %}<span class="badge ok">했다</span>
+      {% elif row.today %}<span class="badge due">오늘</span>
+      {% elif row.past %}<span class="badge due">{{ -row.days }}일 밀림</span>
+      {% else %}<span class="dday-sm {{ 'near' if row.days <= 3 }}">D-{{ row.days }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta">
+    <strong>밀린 것을 지우지 않는다.</strong> 하루가 밀리면 그 칸은 밀린 채로
+    남고, 오늘 칸에는 <strong>오늘 것이 먼저</strong> 선다 — 밀린 것으로만 차면
+    정작 오늘 할 일이 화면에서 사라진다.
+  </p>
+</section>
 {% endif %}
 
 {% if view.exams %}
