@@ -50,6 +50,22 @@ def today_items(cert: dict) -> list[dict]:
     있으면 그 화면은 급한 것을 말하지 않는 화면이다.
     """
     made: list[dict] = []
+    # **날짜가 박힌 계획이 맨 위다**(2026-09-23). 밀린 것 먼저, 그다음 오늘 것.
+    # 커리큘럼은 "무엇을 할까" 라 순서를 안 정해 주는데, 시험이 보름 앞이면
+    # 정해야 하는 것은 순서다. 내일 것은 안 세운다 — 오늘 화면이다.
+    # **오늘 것이 밀린 것보다 앞이다.** 밀린 것이 셋이면 오늘 칸이 밀린 것으로만
+    # 차서, 정작 오늘 할 일이 화면에서 사라진다.
+    for row in sorted(cert.get("plan") or [],
+                      key=lambda r: (not r["today"], r["date"])):
+        if row["done"] or not (row["past"] or row["today"]):
+            continue
+        made.append({
+            "kind": "plan", "title": row["title"], "stage": "계획",
+            "hash": row["hash"], "total": 1, "done": 0, "unit": "회",
+            "days": row["days"], "date": row["date"], "note": row["note"],
+            "late": row["past"],
+        })
+
     단계들 = sorted(
         [s for s in cert.get("stages") or [] if not s["done"]],
         key=lambda s: (s["next"] is None, s["next"]["days"] if s["next"] else 0),

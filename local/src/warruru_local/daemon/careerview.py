@@ -602,6 +602,7 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
     if not path.is_file():
         return {
             "exams": [], "links": [], "practice": [], "stages": [],
+            "plan": [], "late": [],
             "curriculum": [],
             "next": None, "status": "미시작",
             "signup": {"state": "기간 아님", "label": "", "days": None,
@@ -686,6 +687,27 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
             "hash": ask_hash(f"연습:{name}"),
             "done": bool(progress.get(ask_hash(f"연습:{name}"), 0)),
         })
+    # **날짜가 박힌 계획**(2026-09-23 추가). 커리큘럼은 "무엇을 할까" 이고
+    # 이것은 "언제 할까" 다. 시험이 보름 앞일 때 둘은 다른 질문이다 —
+    # 남은 것 목록만 보면 오늘 무엇을 할지는 여전히 내가 정해야 한다.
+    #
+    # **지난 계획을 지우지 않는다.** 밀린 것이 보여야 다음 칸을 다시 잡는다.
+    plan = []
+    for item in meta.get("plan") or []:
+        day, title, note2 = _fields(item, 3)
+        if not title or not re.match(r"^\d{4}-\d{2}-\d{2}$", day or ""):
+            continue
+        열쇠 = ask_hash(f"계획:{day}:{title}")
+        남은날 = _days(day) - _days(today)
+        plan.append({
+            "date": day, "title": title, "note": note2, "hash": 열쇠,
+            "done": bool(progress.get(열쇠, 0)),
+            "days": 남은날,
+            "past": 남은날 < 0,
+            "today": 남은날 == 0,
+        })
+    plan.sort(key=lambda row: (row["date"], row["title"]))
+
     curriculum = []
     for item in meta.get("curriculum") or []:
         stage, title, amount, slugs = _fields(item, 4)
@@ -750,6 +772,8 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "exams": exams,
         "links": links,
         "practice": practice,
+        "plan": plan,
+        "late": [row for row in plan if row["past"] and not row["done"]],
         "stages": stages,
         "curriculum": curriculum,
         # 다음에 실제로 할 수 있는 것. 지난 회차는 지나간 대로 남겨 둔다 —

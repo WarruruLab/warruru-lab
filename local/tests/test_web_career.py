@@ -1832,3 +1832,52 @@ def test_그린_것을_그_자리에서_연다(client, home):
 
     # 고르는 칸에 저장한 것이 실려 온다.
     assert "저장한 것 열기" in client.get("/career/cert/topcit").text
+
+
+def test_날짜가_박힌_계획이_오늘_칸에_선다(client, home):
+    """커리큘럼은 "무엇을 할까" 이고 계획은 "언제 할까" 다. 시험이 보름
+    앞이면 정해야 하는 것은 순서다(2026-09-23)."""
+    _cert(home, "topcit",
+          "---\nstatus: 준비중\n"
+          "plan:\n"
+          "  - 2026-07-21 | 밀린 것 | 어제\n"
+          "  - 2026-07-22 | 오늘 할 것 | 진단\n"
+          "  - 2026-07-25 | 나중 것 |\n"
+          "  - 날짜아님 | 이건 버린다 |\n"
+          "curriculum:\n  - | 커리큘럼 한 줄 | 3\n---\n")
+
+    page = client.get("/career/cert/topcit").text
+    assert "공부 일정 0 / 3" in page          # 날짜 아닌 줄은 버린다
+    assert "밀린 것 1" in page
+
+    오늘칸 = page[page.index("<h2>오늘</h2>"):page.index("커리큘럼 전체")]
+    # **오늘 것이 밀린 것보다 앞이다** — 밀린 것으로만 차면 오늘이 사라진다.
+    assert 오늘칸.index("오늘 할 것") < 오늘칸.index("밀린 것")
+    assert "1일 밀림" in 오늘칸
+    # 아직 안 온 날은 오늘 칸에 안 선다.
+    assert "나중 것" not in 오늘칸
+
+
+def test_계획은_체크하면_오늘_칸에서_빠진다(client, home):
+    토큰 = client.app.state.ctx.settings.token
+    _cert(home, "topcit",
+          "---\nstatus: 준비중\nplan:\n  - 2026-07-22 | 오늘 할 것 |\n---\n")
+    page = client.get("/career/cert/topcit").text
+    열쇠 = page.split('name="item" value="')[1].split('"')[0]
+
+    client.post("/web/certs/topcit/progress",
+                data={"_token": 토큰, "item": 열쇠, "text": "계획: 2026-07-22: 오늘 할 것",
+                      "total": 1, "delta": 1},
+                follow_redirects=False)
+
+    page = client.get("/career/cert/topcit").text
+    assert "공부 일정 1 / 1" in page
+    assert "했다" in page
+    오늘칸 = page[page.index("<h2>오늘</h2>"):page.index("</section>", page.index("<h2>오늘</h2>"))]
+    # 끝낸 것은 오늘 칸에서 빠진다 — 할 일이 그것뿐이었으니 빈 칸이 된다.
+    assert "오늘 할 것이 없다" in 오늘칸
+
+
+def test_계획이_없으면_그_칸도_없다(client, home):
+    _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
+    assert "공부 일정" not in client.get("/career/cert/topcit").text
