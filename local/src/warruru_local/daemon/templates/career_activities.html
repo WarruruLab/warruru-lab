@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}자소서 소스 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>자소서 소스</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career">← 포트폴리오</a> ·
+  회사마다 새로 쓰지 않는다 — <strong>재료는 그대로고 고르는 문장만 달라진다</strong>
+</p>
+
+{% if view %}
+<section class="tool">
+  <h2>활동 {{ view|length }}개 · 문장 {{ view|map(attribute='sources')|map('length')|sum }}줄</h2>
+  <ul class="picks">
+    {% for row in view %}
+    <li>
+      <a class="bk-name" href="/career/activity/{{ row.key }}">{{ row.name }}</a>
+      {% if row.kind %}<span class="badge">{{ row.kind }}</span>{% endif %}
+      {% if row.award %}<span class="badge ok">{{ row.award }}</span>{% endif %}
+      <span class="when">{{ row.start[:7] }}{% if row.end %} ~ {{ row.end[:7] }}{% endif %}</span>
+      <span class="badge {{ 'ok' if row.sources else 'warn' }}">문장 {{ row.sources|length }}</span>
+      {% for word in row.keywords[:4] %}<span class="badge">{{ word }}</span>{% endfor %}
+      {% for 회사 in row.used %}<a class="badge due" href="/career/c/{{ 회사 }}">{{ 회사 }}에 씀</a>{% endfor %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta">
+    <strong>문장 수가 곧 쓸 수 있는 재료다.</strong> 0 인 활동은 있었던 일이지
+    아직 자소서 재료가 아니다 — 눌러 들어가 한 줄씩 적는다.
+  </p>
+</section>
+{% else %}
+<section class="tool">
+  <p class="empty">
+    아직 활동 노트가 없다. <code>~/.warruru/career/activities/{활동}.md</code> 에
+    한 장씩 적으면 여기 선다.
+  </p>
+</section>
+{% endif %}
+{% endblock %}

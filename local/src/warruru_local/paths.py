@@ -76,6 +76,16 @@ def practice_dir(home: Path) -> Path:
     return career_dir(home) / "practice"
 
 
+def activity_dir(home: Path) -> Path:
+    """자소서 소스 — 활동 하나마다 한 장(2026-09-24 추가).
+
+    **회사 노트와 자격증 노트 사이에 낀 세 번째 것이다.** 회사 노트는
+    "이 회사에 무엇을 냈나" 이고, 이쪽은 "쓸 수 있는 내 이야기가 무엇인가" 다.
+    회사가 늘어도 재료는 그대로라, 같은 활동을 회사마다 다시 적지 않으려고 가른다.
+    """
+    return career_dir(home) / "activities"
+
+
 def cert_dir(home: Path) -> Path:
     """자격증 노트. 회사 노트와 **같은 자리에 섞지 않는다** —
     `career/*.md` 는 회사 하나를 뜻하므로, 자격증이 그 자리에 들어오면

@@ -15,7 +15,7 @@ from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, certs, checking, dayview, drafting,
-    learning, practicing, publishing, reading, stacking,
+    acting, learning, practicing, publishing, reading, stacking,
     today as todayview, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
@@ -288,6 +288,7 @@ async def career_index(request: Request):
     return templates.TemplateResponse(
         request, "career.html",
         {
+            "activities": acting.build_activities(ctx),
             "companies": companies,
             "stack": stack,
             "books": stack["books"],
@@ -341,6 +342,35 @@ async def career_stack_note(request: Request, key: str):
             "view": view, "today": local_date_of(to_iso(ctx.clock.now())),
             "token": ctx.settings.token,
         },
+    )
+
+
+@router.get("/career/activities")
+async def career_activities(request: Request):
+    """자소서 소스 — 내가 한 활동 목록(명세 §2.16).
+
+    **회사마다 자소서를 새로 쓰지 않는다.** 회사는 늘어나는데 재료는 그대로다.
+    """
+    ctx = request.app.state.ctx
+    return templates.TemplateResponse(
+        request, "career_activities.html",
+        {"view": acting.build_activities(ctx),
+         "today": local_date_of(to_iso(ctx.clock.now()))},
+    )
+
+
+@router.get("/career/activity/{key}")
+async def career_activity(request: Request, key: str):
+    ctx = request.app.state.ctx
+    view = acting.build_activity(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 활동이 없습니다"},
+        )
+    return templates.TemplateResponse(
+        request, "career_activity.html",
+        {"view": view, "today": local_date_of(to_iso(ctx.clock.now()))},
     )
 
 

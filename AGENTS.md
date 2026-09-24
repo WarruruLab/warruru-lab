@@ -11,7 +11,7 @@
 ## 1. 지금 이 저장소에 있는 것
 
 **실제로 도는 코드는 `local/` 하나다.** 소스 12,266줄(`.py` 기준, 템플릿 포함 17,924),
-테스트 파일 49개(`conftest.py` 별도), 테스트 1,026개다(2026-09-23 실측, Python 3.12.14).
+테스트 파일 49개(`conftest.py` 별도), 테스트 1,029개다(2026-09-23 실측, Python 3.12.14).
 `local/.venv/` 와 `~/.warruru/` 가 이미 있다.
 
 **이 머신에서는 git 을 부르는 17개가 실패한다** — `test_gitinfo` · `test_publish_git_repo`
@@ -34,7 +34,8 @@
   `~/.warruru/career/certs/*.md` · 주제 참고 노트
   `~/.warruru/career/topics/*.md` · 묶음 머리말
   `~/.warruru/career/groups/*.md` · 물어보고 받은 답
-  `~/.warruru/career/answers/{주제}/*.md` · 책 한 권의 내 사정(빌렸는지 ·
+  `~/.warruru/career/answers/{주제}/*.md` · **자소서 소스**
+  `~/.warruru/career/activities/*.md` · 책 한 권의 내 사정(빌렸는지 ·
   언제까지인지) `~/.warruru/career/books/*.md` — 저장소 바깥이다.
   `/career` 는 이 파일들을 읽어 보여줄 뿐 **데몬은 노션에 닿지 않는다**
 - 에이전트 플러그인 `agent-plugin/` — **스킬 5개** + MCP 연결 + 훅.
@@ -57,6 +58,8 @@
   · **`/career/stacks`**(기술스택 태그) · **`/career/s/{스택}`**(스택 정리 문서)
   · `/career/book/{책}`
   · `/career/companies` · `/career/c/{회사}`
+  · **`/career/activities`**(자소서 소스 — 활동별 재료) ·
+    **`/career/activity/{활동}`**(쓸 수 있는 문장 · 기록에서 온 면접 문장)
   · **`/career/books`**(읽는 중 · 다음에 읽을 것 · **책 더하기** — 제목과 링크를
     주면 에이전트가 목차를 확인해 채우고, 사람이 [이대로 저장] 을 누른다.
     **노트만 있는 책도 목록에 선다** — 코드 상수에 없는 책이 그것이다) ·

@@ -1881,3 +1881,65 @@ def test_계획은_체크하면_오늘_칸에서_빠진다(client, home):
 def test_계획이_없으면_그_칸도_없다(client, home):
     _cert(home, "topcit", "---\nstatus: 준비중\n---\n")
     assert "공부 일정" not in client.get("/career/cert/topcit").text
+
+
+# ── 자소서 소스 (2026-09-24) ─────────────────────────────────────
+#
+# **회사마다 자소서를 새로 쓰지 않는다.** 회사는 늘어나는데 재료는 그대로다.
+
+
+def _활동(home, key, text):
+    d = paths.activity_dir(home)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{key}.md").write_text(text, encoding="utf-8")
+
+
+def test_활동을_모아_두고_문장을_고른다(client, home):
+    _활동(home, "kakao-tech-campus",
+          "---\nname: 카카오 테크 캠퍼스 2기\nkind: 교육\norg: 카카오\n"
+          "period: 2024-04-01..2024-11-30\nrole: 백엔드 채팅 담당\n"
+          "keywords: 협업, Git 충돌\nused: lg-cns\n"
+          "sources:\n"
+          "  - 행동 | 작업 범위를 먼저 나누고 시작했다\n"
+          "  - 배움 | 협업은 병합 절차를 미리 맞추는 일이다\n"
+          "  - 엉뚱한유형 | 모르는 유형은 기타로 간다\n"
+          "  - 행동 |\n"
+          "---\n\n## 메모\n\n본문도 읽는다.\n")
+
+    목록 = client.get("/career/activities").text
+    assert "카카오 테크 캠퍼스 2기" in 목록
+    assert "활동 1개 · 문장 3줄" in 목록      # 문장이 빈 줄은 버린다
+    assert "lg-cns에 씀" in 목록
+
+    page = client.get("/career/activity/kakao-tech-campus").text
+    assert "쓸 수 있는 문장 3줄" in page
+    assert "작업 범위를 먼저 나누고 시작했다" in page
+    assert "기타" in page                     # 모르는 유형은 기타로
+    assert "본문도 읽는다" in page             # 본문은 마크다운으로 그린다
+    assert 'href="/career/c/lg-cns"' in page  # 어느 회사에 썼는지로 간다
+
+
+def test_활동에_기록의_면접_문장이_붙는다(client, home):
+    """자소서를 쓰다 막히는 자리는 "그래서 뭐라고 말할 건데" 이고,
+    그 문장은 이미 기록에 있다. 지어내지 않고 잇는다."""
+    client.post("/v1/records", json={
+        "record_id": "rec_A", "client_instance_id": "cli_X", "tool": "codex",
+        "kind": "EXPERIMENT", "topic": "latency p95",
+        "title": "산책온 응답 시간 측정", "body": "수십 초 → 0.81초",
+        "interview": "측정 결과를 근거로 판단했고 못 빨라진 수정도 같이 말한다",
+        "occurred_at": "2026-07-22T09:00:00.000Z",
+    })
+    _활동(home, "swmaestro-17",
+          "---\nname: SW 마에스트로 17기\nslugs: latency-p95\n"
+          "sources:\n  - 수치 | 평균 0.81초\n---\n")
+
+    page = client.get("/career/activity/swmaestro-17").text
+    assert "기록에서 온 면접 문장 1줄" in page
+    assert "측정 결과를 근거로 판단했고" in page
+    assert 'href="/t/latency-p95#rec_A"' in page
+
+
+def test_활동_이름이_경로가_되지_않는다(client, home):
+    _활동(home, "kakao-tech-campus", "---\nname: 카카오\n---\n")
+    assert client.get("/career/activity/..%2F..%2Fetc").status_code == 404
+    assert client.get("/career/activity/없는활동").status_code == 404
