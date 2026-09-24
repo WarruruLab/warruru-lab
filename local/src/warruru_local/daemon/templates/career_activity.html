@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} — 자소서 소스{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }}</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/activities">← 자소서 소스</a> ·
+  {% if view.kind %}<span class="badge">{{ view.kind }}</span>{% endif %}
+  {% if view.org %}{{ view.org }} · {% endif %}
+  {{ view.start }}{% if view.end %} ~ {{ view.end }}{% endif %}
+  {% if view.award %} · <strong>{{ view.award }}</strong>{% endif %}
+</p>
+
+{% if view.role or view.keywords %}
+<p class="cert-ddays">
+  {% if view.role %}<span class="quiet">맡은 것</span> <strong>{{ view.role }}</strong>{% endif %}
+  {% for word in view.keywords %}<span class="badge">{{ word }}</span>{% endfor %}
+</p>
+{% endif %}
+
+{# **문장이 이 화면의 주인공이다.** 활동 설명은 이미 노션에도 있다 —
+   여기서만 할 수 있는 일은 자소서에 그대로 옮길 단위로 잘라 두는 것이다. #}
+<section class="tool">
+  <div class="work-head">
+    <h2>쓸 수 있는 문장 {{ view.sources|length }}줄</h2>
+    <span class="meta quiet">누르면 복사된다</span>
+  </div>
+  {% if view.sources %}
+  {% for 종류 in ["상황", "행동", "수치", "협업", "배움", "기타"] %}
+  {% if view.counts[종류] %}
+  <h3 class="src-kind">{{ 종류 }} <span class="quiet">{{ view.counts[종류] }}</span></h3>
+  <ul class="checkpoints asks">
+    {% for row in view.sources if row.kind == 종류 %}
+    <li class="ask">
+      <button class="btn src-copy" type="button" data-text="{{ row.text }}">복사</button>
+      <span class="ask-text">{{ row.text }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endfor %}
+  {% else %}
+  <p class="empty">
+    아직 문장이 없다. 노트 앞머리 <code>sources:</code> 에
+    <code>유형 | 문장</code> 으로 적으면 여기 선다.
+  </p>
+  {% endif %}
+</section>
+
+{% if view.interviews %}
+{# **기록 축에서 끌어온다**(2026-09-24). 자소서를 쓰다 막히는 자리는 대개
+   "그래서 뭐라고 말할 건데" 이고, 그 문장은 이미 기록에 있다. #}
+<section class="tool">
+  <h2>기록에서 온 면접 문장 {{ view.interviews|length }}줄</h2>
+  <ul class="checkpoints asks">
+    {% for row in view.interviews %}
+    <li class="ask">
+      <button class="btn src-copy" type="button" data-text="{{ row.text }}">복사</button>
+      <span class="ask-text">{{ row.text }}</span>
+      <a class="meta quiet" href="/t/{{ row.slug }}#{{ row.id }}">{{ row.title[:28] }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="meta">
+    이 줄들은 <strong>내가 기록에 적어 둔 것</strong>이다. 자소서에 넣을 때는
+    그대로 옮기지 말고 한 번 더 내 말로 고친다 — 기록은 나에게 쓴 글이고
+    자소서는 남에게 쓰는 글이다.
+  </p>
+</section>
+{% endif %}
+
+{% if view.html %}
+<section class="tool">
+  <h2>활동 기록</h2>
+  <div class="preview">{{ view.html|safe }}</div>
+</section>
+{% endif %}
+
+<section class="tool">
+  <h2>어디에 썼나</h2>
+  {% if view.used %}
+  <p>
+    {% for 회사 in view.used %}
+    <a class="btn" href="/career/c/{{ 회사 }}">{{ 회사 }}</a>
+    {% endfor %}
+  </p>
+  <p class="meta">
+    <strong>낸 글은 회사 노트에 있다.</strong> 같은 활동이라도 회사마다 고른
+    문장이 다르니, 면접 전에는 그 회사에 낸 글을 먼저 읽는다.
+  </p>
+  {% else %}
+  <p class="empty">아직 어느 회사 자소서에도 안 썼다.</p>
+  {% endif %}
+  {% if view.links %}
+  <nav aria-label="관련 링크">
+    {% for url in view.links %}<a href="{{ url }}">{{ url[:60] }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+  </nav>
+  {% endif %}
+  {% if view.slugs %}
+  <p class="meta quiet">
+    이어진 주제 {% for slug in view.slugs %}<a href="/t/{{ slug }}">{{ slug }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    — 기록 {{ view.records }}건
+  </p>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  // 복사. 초안 화면과 같은 방식이다 — 실패하면 조용히 고르기만 해 준다.
+  document.querySelectorAll(".src-copy").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var 글 = b.dataset.text || "";
+      function 알림(말) {
+        var 전 = b.textContent;
+        b.textContent = 말;
+        setTimeout(function () { b.textContent = 전; }, 1200);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(글).then(function () { 알림("복사됨"); },
+                                              function () { 알림("실패"); });
+        return;
+      }
+      var t = document.createElement("textarea");
+      t.value = 글; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); 알림("복사됨"); }
+      catch (e) { 알림("실패"); }
+      t.remove();
+    });
+  });
+}());
+</script>
+{% endblock %}

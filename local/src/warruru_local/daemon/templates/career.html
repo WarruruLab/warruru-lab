@@ -107,6 +107,28 @@
   {% endif %}
 </section>
 
+{# 4-1. 자소서 소스 — **회사마다 새로 쓰지 않는다**(2026-09-24).
+   회사는 늘어나는데 재료는 그대로다. 여기서 문장을 고르고 회사 노트에서 잇는다. #}
+<section class="tool">
+  <h2><a href="/career/activities">자소서 소스</a></h2>
+  {% if activities %}
+  <ul class="picks">
+    {% for row in activities[:3] %}
+    <li>
+      <a href="/career/activity/{{ row.key }}">{{ row.name }}</a>
+      {% if row.kind %}<span class="badge">{{ row.kind }}</span>{% endif %}
+      <span class="badge {{ 'ok' if row.sources else 'warn' }}">문장 {{ row.sources|length }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <a class="more" href="/career/activities">{{ activities|length }}개 전체 →</a>
+  {% else %}
+  <p class="empty">
+    아직 없다. <code>~/.warruru/career/activities/</code> 에 활동을 한 장씩 적는다.
+  </p>
+  {% endif %}
+</section>
+
 {# 5. 기술스택 — **이력서와 공고에 적히는 말**이다(2026-09-08 교체).
    전에는 세 축(프로젝트 78 · CS 71 · AI 31)의 격자가 이 자리였는데,
    그 자름은 공부에는 맞아도 이력서에 적을 때는 안 맞았다 — 공고는
