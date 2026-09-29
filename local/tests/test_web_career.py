@@ -1259,6 +1259,8 @@ def test_긴_글_상자는_높이가_고정되고_줄을_접는다():
     assert "overflow-y: auto" in 상자, "고정한 높이 안에서 굴러야 나머지를 읽는다"
     assert "white-space: pre-wrap" in 상자, "줄을 접지 않으면 옆으로 흘러 읽을 수 없다"
     assert "var(--mono)" not in 상자, "모노는 숫자에만 남긴다 — 여기는 산문이다"
+    assert "scrollbar-gutter: stable" in 상자, \
+        "막대가 설 자리를 비워 두지 않으면 [복사] 가 그 위에 겹친다"
 
 
 def test_긴_글_상자에_복사_버튼이_붙는다():
@@ -1282,9 +1284,19 @@ def test_긴_글_상자에_복사_버튼이_붙는다():
     assert "navigator.clipboard" in html, "초안 화면과 같은 방식으로 복사한다"
     assert "execCommand" in html, "클립보드를 못 쓰는 자리에서도 한 번은 더 시도한다"
 
+    # 글자 대신 기호를 쓰되, 기호만 두면 읽어 주는 장치에서 말이 안 되므로
+    # 이름을 따로 붙인다.
+    assert "\\u29C9" in html, "겹친 네모(⧉)를 복사 기호로 쓴다"
+    assert 'setAttribute("aria-label", "복사")' in html, "기호에는 이름을 붙인다"
+    assert '버튼.title = "복사"' in html
+
     규칙 = html[html.index(".snip-copy {"):]
     규칙 = 규칙[:규칙.index("}")]
     assert "position: absolute" in 규칙, "감싼 쪽에 붙어야 굴러도 따라 내려가지 않는다"
+    # 거터가 15px 안팎이라 .5rem(8px)이면 막대 위에 올라앉는다.
+    오른쪽 = 규칙[규칙.index("right:"):]
+    오른쪽 = float(오른쪽[len("right:"):오른쪽.index("rem")].strip())
+    assert 오른쪽 >= 1.0, f"right 가 {오른쪽}rem 이면 스크롤 막대를 가린다"
 
 def test_색이_둘을_넘지_않는다():
     """상태에 쓰는 색은 **파랑과 빨강 둘뿐**이다.
