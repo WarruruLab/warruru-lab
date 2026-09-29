@@ -1111,6 +1111,26 @@
                              padding: .5rem .6rem; text-align: left; }
   .preview pre { overflow-x: auto; }
 
+  /* 통째로 옮겨 적을 긴 글이 앉는 상자 (2026-09-29).
+     자소서처럼 붙여넣을 것이 여기 온다. 규칙 셋 —
+     ① **높이를 고정하고 안에서 굴린다.** 안 그러면 상자 하나가 화면을 다 먹는다.
+     ② **줄을 접는다.** 한국어 산문은 접지 않으면 옆으로 흘러 읽을 수도 없다.
+     ③ **모노를 쓰지 않는다.** 코드가 아니라 사람이 읽을 글이고,
+        이 도구에서 모노는 숫자에만 남기기로 했다. */
+  .snip { position: relative; margin: .6rem 0; }
+  .snip > pre {
+    margin: 0; max-height: 18rem; overflow-y: auto; overflow-x: hidden;
+    font-family: var(--sans); font-size: var(--t-md); line-height: 1.75;
+    color: var(--ink); background: var(--panel-2);
+    border: 0; border-radius: var(--radius-sm);
+    padding: 2.3rem 1rem .9rem;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .snip > pre code { font-family: inherit; font-size: inherit; }
+  /* 버튼은 감싼 쪽에 붙어 있어 상자를 굴려도 따라 내려가지 않는다. */
+  .snip-copy { position: absolute; top: .5rem; right: .5rem;
+               font-size: var(--t-xs); padding: .25rem .6rem; }
+
   /* ── 폼 ───────────────────────────────────────────────────── */
 
   button, .btn {
@@ -1324,6 +1344,44 @@
     var pick = agent && agent.nextElementSibling;
     return pick && pick.classList.contains("model-pick") ? pick.value : "";
   };
+</script>
+<script>
+  (function () {
+    // 긴 글 상자에 [복사] 를 붙인다. 초안 화면과 같은 방식이다.
+    // **이 스크립트가 죽어도 상자는 그대로 읽히고 손으로 고를 수 있다.**
+    var 상자들 = document.querySelectorAll(".preview pre");
+    Array.prototype.forEach.call(상자들, function (pre) {
+      var 감쌈 = document.createElement("div");
+      감쌈.className = "snip";
+      pre.parentNode.insertBefore(감쌈, pre);
+      감쌈.appendChild(pre);
+
+      var 버튼 = document.createElement("button");
+      버튼.type = "button";
+      버튼.className = "btn snip-copy";
+      버튼.textContent = "복사";
+      감쌈.appendChild(버튼);
+
+      버튼.addEventListener("click", function () {
+        var 글 = pre.innerText;
+        function 알림(말) {
+          버튼.textContent = 말;
+          setTimeout(function () { 버튼.textContent = "복사"; }, 1200);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(글).then(
+            function () { 알림("복사됨"); },
+            function () { 알림("실패"); });
+          return;
+        }
+        var t = document.createElement("textarea");
+        t.value = 글; document.body.appendChild(t); t.select();
+        try { document.execCommand("copy"); 알림("복사됨"); }
+        catch (error) { 알림("실패"); }
+        t.remove();
+      });
+    });
+  }());
 </script>
 <script>
   (function () {

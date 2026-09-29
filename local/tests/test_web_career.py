@@ -1235,6 +1235,57 @@ def test_준비도가_막대가_아니라_칸이다(client, home):
     assert "0 / 4 슬러그" in page               # 글자는 이어져 있어야 한다
 
 
+
+def test_긴_글_상자는_높이가_고정되고_줄을_접는다():
+    """통째로 옮겨 적을 글이 앉는 상자(`.snip`)의 규칙 셋을 지킨다.
+
+    자소서처럼 **붙여넣을 것**이 이 상자에 온다. 셋 다 실제로 겪어서 세운 규칙이다.
+
+    ① **높이를 고정한다.** 안 그러면 1,000자짜리 상자 하나가 화면을 다 먹고
+       다음 항목이 안 보인다.
+    ② **줄을 접는다.** 한국어 산문을 `white-space: pre` 로 두면 옆으로 흘러
+       읽을 수도 복사할 수도 없다 — 사용자가 이것을 먼저 말했다.
+    ③ **모노를 쓰지 않는다.** 코드가 아니라 사람이 읽을 글이고,
+       이 도구에서 모노는 숫자에만 남기기로 했다.
+    """
+    from pathlib import Path as _Path
+
+    css = (_Path(__file__).resolve().parents[1] / "src" / "warruru_local" /
+           "daemon" / "templates" / "base.html").read_text(encoding="utf-8")
+    상자 = css[css.index(".snip > pre {"):]
+    상자 = 상자[:상자.index("}")]
+
+    assert "max-height" in 상자, "높이를 고정하지 않으면 상자 하나가 화면을 다 먹는다"
+    assert "overflow-y: auto" in 상자, "고정한 높이 안에서 굴러야 나머지를 읽는다"
+    assert "white-space: pre-wrap" in 상자, "줄을 접지 않으면 옆으로 흘러 읽을 수 없다"
+    assert "var(--mono)" not in 상자, "모노는 숫자에만 남긴다 — 여기는 산문이다"
+
+
+def test_긴_글_상자에_복사_버튼이_붙는다():
+    """상자마다 [복사] 가 붙는다. **다만 스크립트가 죽어도 화면은 살아 있다.**
+
+    JavaScript 는 초안 복사와 테마 전환, 묻기 SSE 에만 쓴다는 경계 안이다 —
+    이것은 그중 '복사' 다. 버튼을 만들어 넣는 일만 하고, 못 하면 상자는
+    그대로 읽히고 손으로 고를 수 있다.
+
+    버튼은 **감싼 쪽**에 붙어야 한다. 굴러가는 `pre` 안에 넣으면 스크롤을
+    내릴 때 같이 사라진다.
+    """
+    from pathlib import Path as _Path
+
+    html = (_Path(__file__).resolve().parents[1] / "src" / "warruru_local" /
+            "daemon" / "templates" / "base.html").read_text(encoding="utf-8")
+
+    assert '.preview pre' in html and 'className = "snip"' in html, \
+        "미리보기 안의 상자를 감싸 [복사] 를 붙인다"
+    assert 'className = "btn snip-copy"' in html
+    assert "navigator.clipboard" in html, "초안 화면과 같은 방식으로 복사한다"
+    assert "execCommand" in html, "클립보드를 못 쓰는 자리에서도 한 번은 더 시도한다"
+
+    규칙 = html[html.index(".snip-copy {"):]
+    규칙 = 규칙[:규칙.index("}")]
+    assert "position: absolute" in 규칙, "감싼 쪽에 붙어야 굴러도 따라 내려가지 않는다"
+
 def test_색이_둘을_넘지_않는다():
     """상태에 쓰는 색은 **파랑과 빨강 둘뿐**이다.
 
