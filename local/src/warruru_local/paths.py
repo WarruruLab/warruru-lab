@@ -76,6 +76,15 @@ def practice_dir(home: Path) -> Path:
     return career_dir(home) / "practice"
 
 
+def quiz_dir(home: Path) -> Path:
+    """문제은행. 자격증마다 폴더 하나, 세트마다 마크다운 한 장이다.
+
+    **문제는 파일이고 푼 기록은 DB 다.** 문제는 에이전트와 사람이 에디터로
+    쓰고 고치는 글이고, 맞았다·틀렸다는 화면에서 한 번 누르면 끝나는 값이다.
+    """
+    return career_dir(home) / "quiz"
+
+
 def activity_dir(home: Path) -> Path:
     """자소서 소스 — 활동 하나마다 한 장(2026-09-24 추가).
 

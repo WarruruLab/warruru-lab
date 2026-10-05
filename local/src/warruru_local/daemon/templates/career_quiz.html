@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ view.name }} 문제풀이 — Warruru Local{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }} 문제풀이</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/cert/{{ view.key }}">← {{ view.name }}</a> ·
+  문제를 먼저 풀고 <strong>틀린 것의 해설만</strong> 읽는다 ·
+  <span class="num">{{ quiz.all.solved }}</span> / <span class="num">{{ quiz.all.total }}</span> 풂
+  {% if quiz.all.rate is not none %}· 정답률 <span class="num">{{ quiz.all.rate }}</span>%{% endif %}
+</p>
+
+{% if done %}
+<p class="tool quiz-done">
+  <strong>그 조건의 문제를 다 풀었다.</strong> 틀린 것도 남지 않았다 —
+  다른 영역이나 세트로 넘어간다.
+</p>
+{% endif %}
+
+{% if not quiz.all.total %}
+<section class="tool">
+  <h2>문제가 아직 없다</h2>
+  <p class="empty">
+    <code>{{ folder }}</code> 에 세트 파일(<code>*.md</code>)을 두면 여기 선다.
+    한 파일이 한 세트이고, <code>## </code> 헤딩 하나가 한 문제다.
+    보기는 <code>1) </code> 로 시작하는 줄, 그다음 <code>정답:</code> · <code>해설:</code>.
+  </p>
+</section>
+{% else %}
+
+{# **영역별 정답률이 곧 진단표다.** 무엇을 팔지는 "잃을 점수가 가장 많이
+   남은 곳" 이 정하고, 그 계산의 재료가 이 넷이다. #}
+<section class="quiz-areas">
+  {% for a in quiz.areas %}
+  <div class="tool quiz-area">
+    <div class="work-head">
+      <h2>{{ a.key }}</h2>
+      <span class="meta quiet"><span class="num">{{ a.solved }}</span> / <span class="num">{{ a.total }}</span></span>
+    </div>
+    <p class="quiz-rate {{ 'low' if a.rate is not none and a.rate < 60 }}">
+      {% if a.rate is none %}<span class="quiet">아직 안 풂</span>
+      {% else %}<span class="num">{{ a.rate }}</span>%{% endif %}
+    </p>
+    <p class="quiz-btns">
+      {% if a.total %}
+      <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}">풀기</a>
+      {% endif %}
+      {% if a.wrong %}
+      <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}&only=wrong">틀린 것 <span class="num">{{ a.wrong }}</span></a>
+      {% endif %}
+    </p>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="tool">
+  <div class="work-head">
+    <h2>섞어서</h2>
+    <span class="meta quiet">안 푼 것부터, 그다음 틀린 것(많이 틀린 것부터)</span>
+  </div>
+  <p class="quiz-btns">
+    <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next">전 영역 이어서</a>
+    {% for src in quiz.sources %}
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?src={{ src | urlencode }}">{{ src }}만</a>
+    {% endfor %}
+    {% if quiz.all.wrong %}
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?only=wrong">틀린 것만 <span class="num">{{ quiz.all.wrong }}</span></a>
+    {% endif %}
+  </p>
+</section>
+
+<section class="tool">
+  <h2>세트</h2>
+  <ul class="checkpoints quiz-sets">
+    {% for s in quiz.sets %}
+    <li>
+      <a class="ask-text" href="/career/cert/{{ view.key }}/quiz/next?set={{ s.name | urlencode }}">{{ s.title }}</a>
+      <span class="badge">{{ s.area }}</span>
+      {% if s.source %}<span class="badge">{{ s.source }}</span>{% endif %}
+      <span class="meta quiet">
+        <span class="num">{{ s.solved }}</span>/<span class="num">{{ s.total }}</span>
+        {% if s.rate is not none %}· <span class="num">{{ s.rate }}</span>%{% endif %}
+      </span>
+      {% if s.wrong %}
+      <a class="meta" href="/career/cert/{{ view.key }}/quiz/next?set={{ s.name | urlencode }}&only=wrong">틀린 것 {{ s.wrong }}</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

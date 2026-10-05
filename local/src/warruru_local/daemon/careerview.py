@@ -119,6 +119,19 @@ def _fields(item: str, count: int) -> list[str]:
     return (parts + [""] * count)[:count]
 
 
+def md_html(text: str) -> str:
+    """노트와 같은 변환기로 그린다. 문제 본문·해설이 쓰는 문법이 노트와 같다."""
+    return tistory_clipboard.to_html(text) if text.strip() else ""
+
+
+def md_inline(text: str) -> str:
+    """한 줄짜리(보기). 문단으로 감싸지 않는다."""
+    made = md_html(text)
+    if made.startswith("<p>") and made.endswith("</p>") and made.count("<p>") == 1:
+        return made[3:-4]
+    return made
+
+
 def parse_links(items) -> list[dict]:
     """`라벨 | URL` 목록. **`http(s)` 가 아니면 걸지 않는다.**
 
