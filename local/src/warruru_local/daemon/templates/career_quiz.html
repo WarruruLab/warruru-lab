@@ -31,30 +31,7 @@
 </section>
 {% else %}
 
-{# **영역별 정답률이 곧 진단표다.** 무엇을 팔지는 "잃을 점수가 가장 많이
-   남은 곳" 이 정하고, 그 계산의 재료가 이 넷이다. #}
-<section class="quiz-areas">
-  {% for a in quiz.areas %}
-  <div class="tool quiz-area">
-    <div class="work-head">
-      <h2>{{ a.key }}</h2>
-      <span class="meta quiet"><span class="num">{{ a.solved }}</span> / <span class="num">{{ a.total }}</span></span>
-    </div>
-    <p class="quiz-rate {{ 'low' if a.rate is not none and a.rate < 60 }}">
-      {% if a.rate is none %}<span class="quiet">아직 안 풂</span>
-      {% else %}<span class="num">{{ a.rate }}</span>%{% endif %}
-    </p>
-    <p class="quiz-btns">
-      {% if a.total %}
-      <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}">풀기</a>
-      {% endif %}
-      {% if a.wrong %}
-      <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}&only=wrong">틀린 것 <span class="num">{{ a.wrong }}</span></a>
-      {% endif %}
-    </p>
-  </div>
-  {% endfor %}
-</section>
+{% include "_quiz_areas.html" %}
 
 <section class="tool">
   <div class="work-head">
@@ -78,6 +55,7 @@
     {% for s in quiz.sets %}
     <li>
       <a class="ask-text" href="/career/cert/{{ view.key }}/quiz/next?set={{ s.name | urlencode }}">{{ s.title }}</a>
+      <a class="meta" href="/career/cert/{{ view.key }}/quiz/browse?set={{ s.name | urlencode }}">풀이 보기</a>
       <span class="badge">{{ s.area }}</span>
       {% if s.source %}<span class="badge">{{ s.source }}</span>{% endif %}
       <span class="meta quiet">

@@ -416,8 +416,9 @@ async def career_cert(request: Request, key: str):
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
         )
-    view["quiz_total"] = len(quizzing.all_questions(
-        quizzing.load(ctx.settings.home, key)))
+    quiz_sets = quizzing.load(ctx.settings.home, key)
+    view["quiz"] = quizzing.overview(quiz_sets, ctx.records.quiz_state(key))
+    view["quiz_total"] = view["quiz"]["all"]["total"]
     return templates.TemplateResponse(
         request, "career_cert.html",
         {
@@ -1512,6 +1513,59 @@ async def career_cert_quiz_next(request: Request, key: str, area: str = "",
     return RedirectResponse(
         f"/career/cert/{quote(key)}/quiz/q/{q['hash']}{_quiz_query(f)}",
         status_code=303)
+
+
+@router.get("/career/cert/{key}/quiz/browse")
+async def career_cert_quiz_browse(request: Request, key: str, area: str = "",
+                                  set: str = "", src: str = "", only: str = ""):
+    """영역(또는 세트) 하나를 펼쳐 본다. 문제마다 [정답·해설 보기] 가 접혀 있다.
+
+    한 문제씩 푸는 화면과 다른 자리다 — 시험 직전에는 **훑어보며 모르는
+    것만 여는** 시간이 필요하다. 펼친 채로 두지 않는 것은, 답이 보이면
+    읽는 것이지 떠올리는 것이 아니기 때문이다.
+    """
+    ctx = request.app.state.ctx
+    view = _quiz_cert(ctx, key)
+    f = _quiz_filter(area, set, src, only)
+    if not f["area"] and not f["set"]:
+        f["area"] = "M1"
+    sets = quizzing.load(ctx.settings.home, key)
+    state = ctx.records.quiz_state(key)
+    groups, rows, n = [], [], 0
+    for s in sets:
+        if f["set"] and s["name"] != f["set"]:
+            continue
+        if f["src"] and s["source"] != f["src"]:
+            continue
+        mine = []
+        for q in s["questions"]:
+            if f["area"] and q["area"] != f["area"]:
+                continue
+            past = state.get(q["hash"])
+            if f["only"] and (past is None or past["last"]):
+                continue
+            n += 1
+            mine.append({
+                "n": n, "q": q, "past": past,
+                "body": careerview.md_html(q["body"]),
+                "choices": [careerview.md_inline(c) for c in q["choices"]],
+                "answer": careerview.md_html(q["answer"]) if q["kind"] == "free" else "",
+                "explain": careerview.md_html(q["explain"]),
+            })
+        if mine:
+            groups.append({"title": s["title"], "source": s["source"], "rows": mine})
+            rows.extend(mine)
+    if f["set"]:
+        heading = next((s["title"] for s in sets if s["name"] == f["set"]), f["set"])
+    else:
+        heading = f["area"]
+    뒤집기 = dict(f, only="" if f["only"] else "wrong")
+    return templates.TemplateResponse(
+        request, "career_quiz_browse.html",
+        {"view": view, "groups": groups, "rows": rows, "heading": heading,
+         "areas": quizzing.AREAS, "f": f, "query": _quiz_query(f),
+         "toggle_wrong": _quiz_query(뒤집기)},
+    )
 
 
 @router.get("/career/cert/{key}/quiz/q/{q_hash}")

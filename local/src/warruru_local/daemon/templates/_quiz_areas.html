@@ -1,0 +1,28 @@
+{# 영역 카드 넷. **영역별 정답률이 곧 진단표다** — 무엇을 팔지는 "잃을 점수가
+   가장 많이 남은 곳" 이 정하고, 그 계산의 재료가 이 넷이다.
+   [풀기] 는 한 문제씩 채점하고, [풀이 보기] 는 영역 전체를 펼쳐 정답·해설을 연다. #}
+<section class="quiz-areas">
+  {% for a in quiz.areas %}
+  <div class="tool quiz-area">
+    <div class="work-head">
+      <h2>{{ a.key }}</h2>
+      <span class="meta quiet"><span class="num">{{ a.solved }}</span> / <span class="num">{{ a.total }}</span></span>
+    </div>
+    <p class="quiz-rate {{ 'low' if a.rate is not none and a.rate < 60 }}">
+      {% if a.rate is none %}<span class="quiet">아직 안 풂</span>
+      {% else %}<span class="num">{{ a.rate }}</span>%{% endif %}
+    </p>
+    <p class="quiz-btns">
+      {% if a.total %}
+      <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}">풀기</a>
+      {% endif %}
+      {% if a.total %}
+      <a class="btn" href="/career/cert/{{ view.key }}/quiz/browse?area={{ a.key }}">풀이 보기</a>
+      {% endif %}
+      {% if a.wrong %}
+      <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?area={{ a.key }}&only=wrong">틀린 것 <span class="num">{{ a.wrong }}</span></a>
+      {% endif %}
+    </p>
+  </div>
+  {% endfor %}
+</section>
