@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ q.heading }} — {{ view.name }} 문제풀이{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }} 문제풀이</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/cert/{{ view.key }}/quiz">← 문제풀이</a> ·
+  <span class="badge">{{ q.area }}</span> {{ set_title }} ·
+  {% if f.only %}틀린 것만 · {% endif %}
+  이 조건에서 <span class="num">{{ tally.solved }}</span> / <span class="num">{{ tally.total }}</span> 풂
+  {% if tally.rate is not none %}· 정답률 <span class="num">{{ tally.rate }}</span>%{% endif %}
+  {% if past %}· 이 문제 <span class="num">{{ past.tries }}</span>번 풀어 <span class="num">{{ past.wrongs }}</span>번 틀림{% endif %}
+</p>
+
+<article class="tool quiz-q">
+  <h2>{{ q.heading }}</h2>
+  {% if body_html %}<div class="quiz-body">{{ body_html | safe }}</div>{% endif %}
+
+  {% if q.kind == "choice" %}
+    {% if not picked %}
+    <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}">
+      <input type="hidden" name="_token" value="{{ token }}">
+      {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <ol class="quiz-choices">
+        {% for c in choices_html %}
+        <li><label><input type="radio" name="picked" value="{{ loop.index }}" required>
+          <span class="num">{{ loop.index }}</span> <span>{{ c | safe }}</span></label></li>
+        {% endfor %}
+      </ol>
+      <button class="primary" type="submit">제출</button>
+    </form>
+    {% else %}
+    {% set right = picked == q.answer %}
+    <p class="quiz-verdict {{ 'right' if right else 'wrong' }}">
+      {% if right %}맞았다{% else %}틀렸다 — 정답은 <span class="num">{{ q.answer }}</span>번{% endif %}
+    </p>
+    <ol class="quiz-choices shown">
+      {% for c in choices_html %}
+      {% set n = loop.index | string %}
+      <li class="{{ 'right' if n == q.answer else ('wrong' if n == picked else '') }}">
+        <span class="num">{{ n }}</span> <span>{{ c | safe }}</span>
+        {% if n == picked %}<span class="meta quiet">← 내 답</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  {% else %}
+    {% if not reveal %}
+    {# 답을 먼저 쓴다. 모범답안을 보고 나서 "알았다" 고 하는 것은 판정이 아니다. #}
+    <form method="get" action="/career/cert/{{ view.key }}/quiz/q/{{ q.hash }}">
+      {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <input type="hidden" name="reveal" value="1">
+      <textarea name="mine" rows="8" class="quiz-mine"
+                placeholder="내 답을 먼저 쓴다. 서술형은 정의 → 상황에 대입 → 결론 (450자 이내)"></textarea>
+      <button class="primary" type="submit">답 보기</button>
+    </form>
+    {% else %}
+    {% if mine %}
+    <h3>내 답</h3>
+    <div class="quiz-mine-shown">{{ mine }}</div>
+    {% endif %}
+    <h3>모범답안</h3>
+    <div class="quiz-answer">{{ answer_html | safe }}</div>
+    {% endif %}
+  {% endif %}
+
+  {% if picked or reveal %}
+  {% if explain_html %}
+  <h3>해설</h3>
+  <div class="quiz-explain">{{ explain_html | safe }}</div>
+  {% endif %}
+  {% if q.basis %}<p class="meta quiet">근거 — {{ q.basis }}</p>{% endif %}
+  {% endif %}
+
+  {% if q.kind == "free" and reveal %}
+  <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}" class="quiz-self">
+    <input type="hidden" name="_token" value="{{ token }}">
+    {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+    <span class="meta">핵심 키워드가 다 들어갔나?</span>
+    <button class="primary" type="submit" name="self" value="1">맞음 — 다음</button>
+    <button type="submit" name="self" value="0">틀림 — 다시 나오게</button>
+  </form>
+  {% elif picked %}
+  <p class="quiz-btns">
+    <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next{{ query }}{{ '&' if query else '?' }}after={{ q.hash }}">다음 문제</a>
+  </p>
+  {% endif %}
+</article>
+{% endblock %}

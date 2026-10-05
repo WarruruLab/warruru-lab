@@ -15,7 +15,7 @@ from warruru_local import topics
 from warruru_local.clock import local_date_of, local_day_bounds, to_iso
 from warruru_local.daemon import (
     asking, calendarview, careerview, certs, checking, dayview, drafting,
-    acting, learning, practicing, publishing, reading, stacking,
+    acting, learning, practicing, publishing, quizzing, reading, stacking,
     today as todayview, topicview,
 )
 from warruru_local.daemon.validation import validate_date_param as _validate_date
@@ -416,6 +416,8 @@ async def career_cert(request: Request, key: str):
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
         )
+    view["quiz_total"] = len(quizzing.all_questions(
+        quizzing.load(ctx.settings.home, key)))
     return templates.TemplateResponse(
         request, "career_cert.html",
         {
@@ -1451,6 +1453,162 @@ async def career_cert_practice(request: Request, key: str):
         request, "career_practice.html",
         {"view": view, "token": ctx.settings.token},
     )
+
+
+def _quiz_filter(area: str, set_name: str, src: str, only: str) -> dict:
+    """문제 고르는 조건. **주소에서 온 값이라 아는 꼴만 받는다.**"""
+    return {
+        "area": area if area in quizzing.AREAS else "",
+        "set": set_name if quizzing.SET_NAME.match(set_name or "") else "",
+        "src": src if src in ("기출", "특강", "자체") else "",
+        "only": "wrong" if only == "wrong" else "",
+    }
+
+
+def _quiz_query(f: dict) -> str:
+    쌍 = [(k, v) for k, v in f.items() if v]
+    return ("?" + "&".join(f"{k}={quote(v)}" for k, v in 쌍)) if 쌍 else ""
+
+
+def _quiz_cert(ctx, key: str) -> dict:
+    view = careerview.build_cert(ctx, key)
+    if view is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    return view
+
+
+@router.get("/career/cert/{key}/quiz")
+async def career_cert_quiz(request: Request, key: str, done: str = ""):
+    """문제은행 첫 화면(명세 §2.17). 영역별 정답률이 곧 진단표다."""
+    ctx = request.app.state.ctx
+    view = _quiz_cert(ctx, key)
+    sets = quizzing.load(ctx.settings.home, key)
+    state = ctx.records.quiz_state(key)
+    return templates.TemplateResponse(
+        request, "career_quiz.html",
+        {"view": view, "quiz": quizzing.overview(sets, state), "done": done,
+         "folder": f"~/.warruru/career/quiz/{key}/"},
+    )
+
+
+@router.get("/career/cert/{key}/quiz/next")
+async def career_cert_quiz_next(request: Request, key: str, area: str = "",
+                                set: str = "", src: str = "", only: str = "",
+                                after: str = ""):
+    """조건에 맞는 다음 문제로 보낸다. 다 풀었으면 첫 화면으로 돌아간다."""
+    ctx = request.app.state.ctx
+    _quiz_cert(ctx, key)
+    f = _quiz_filter(area, set, src, only)
+    sets = quizzing.load(ctx.settings.home, key)
+    q = quizzing.pick_next(
+        sets, ctx.records.quiz_state(key), area=f["area"], set_name=f["set"],
+        source=f["src"], only_wrong=bool(f["only"]), after=after)
+    if q is None:
+        return RedirectResponse(f"/career/cert/{quote(key)}/quiz?done=1",
+                                status_code=303)
+    return RedirectResponse(
+        f"/career/cert/{quote(key)}/quiz/q/{q['hash']}{_quiz_query(f)}",
+        status_code=303)
+
+
+@router.get("/career/cert/{key}/quiz/q/{q_hash}")
+async def career_cert_quiz_question(
+    request: Request, key: str, q_hash: str, area: str = "", set: str = "",
+    src: str = "", only: str = "", picked: str = "", reveal: str = "",
+    mine: str = "",
+):
+    """한 문제. `picked` 가 있으면 객관식 채점 결과를, `reveal` 이면 서술형
+    모범답안을 함께 보여준다. **둘 다 조회라 토큰이 없다** — 기록은 POST 가 한다."""
+    ctx = request.app.state.ctx
+    view = _quiz_cert(ctx, key)
+    sets = quizzing.load(ctx.settings.home, key)
+    q = quizzing.find(sets, q_hash)
+    if q is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 문제가 없습니다"},
+        )
+    f = _quiz_filter(area, set, src, only)
+    state = ctx.records.quiz_state(key)
+    pool = [x for x in quizzing.all_questions(sets)
+            if (not f["area"] or x["area"] == f["area"])
+            and (not f["set"] or x["set"] == f["set"])]
+    set_title = next((s["title"] for s in sets if s["name"] == q["set"]), q["set"])
+    return templates.TemplateResponse(
+        request, "career_quiz_q.html",
+        {
+            "view": view, "q": q, "set_title": set_title,
+            "body_html": careerview.md_html(q["body"]),
+            "choices_html": [careerview.md_inline(c) for c in q["choices"]],
+            "answer_html": careerview.md_html(q["answer"]),
+            "explain_html": careerview.md_html(q["explain"]),
+            "picked": picked if picked.isdigit() else "",
+            "reveal": bool(reveal), "mine": mine[:2000],
+            "past": state.get(q["hash"]),
+            "tally": quizzing.tally(pool, state),
+            "f": f, "query": _quiz_query(f), "token": ctx.settings.token,
+        },
+    )
+
+
+@router.post("/web/certs/{cert_key}/quiz/{q_hash}")
+async def answer_quiz_form(
+    request: Request,
+    cert_key: str,
+    q_hash: str,
+    picked: str = Form(""),
+    self_grade: str = Form("", alias="self"),
+    area: str = Form(""),
+    set_name: str = Form("", alias="set"),
+    src: str = Form(""),
+    only: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """한 번 푼 것을 남긴다. 객관식은 결과 화면으로, 서술형은 다음 문제로 간다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.KEY.match(cert_key):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    q = quizzing.find(quizzing.load(ctx.settings.home, cert_key), q_hash)
+    if q is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 문제가 없습니다"},
+        )
+    f = _quiz_filter(area, set_name, src, only)
+    if q["kind"] == "choice":
+        if not picked.isdigit() or not 1 <= int(picked) <= len(q["choices"]):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "BAD_PICK", "message": "보기를 하나 고르세요"},
+            )
+        correct = quizzing.grade(q, picked)
+    else:
+        if self_grade not in ("1", "0"):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "BAD_PICK", "message": "맞음/틀림을 고르세요"},
+            )
+        correct, picked = self_grade == "1", "self"
+    ctx.records.add_quiz_attempt(
+        cert_key, q["hash"], q["set"], q["area"], correct, picked,
+        to_iso(ctx.clock.now()))
+    if q["kind"] == "choice":
+        뒤 = _quiz_query(f)
+        뒤 += ("&" if 뒤 else "?") + f"picked={picked}"
+        return RedirectResponse(
+            f"/career/cert/{quote(cert_key)}/quiz/q/{q['hash']}{뒤}",
+            status_code=303)
+    뒤 = _quiz_query(f)
+    뒤 += ("&" if 뒤 else "?") + f"after={q['hash']}"
+    return RedirectResponse(f"/career/cert/{quote(cert_key)}/quiz/next{뒤}",
+                            status_code=303)
 
 
 @router.get("/career/cert/{key}/uml")

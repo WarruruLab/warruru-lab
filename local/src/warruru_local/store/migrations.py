@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 8
+CURRENT_VERSION = 9
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -319,7 +319,31 @@ CREATE TABLE IF NOT EXISTS exam_signup (
 );
 """
 
-_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7, 8: _V8}
+_V9 = """
+-- **문제를 풀었다**(2026-10-05). 자격증 문제은행의 한 번 풀이가 한 줄이다.
+--
+-- 덮어쓰지 않고 쌓는다. "지금 맞히나" 는 마지막 줄이 말하고, "몇 번
+-- 틀렸나" 는 쌓인 줄이 말한다 — 두 번 틀린 것은 한 번 틀린 것보다 먼저
+-- 다시 나와야 한다.
+--
+-- 문제 자체는 파일(`career/quiz/`)이라 여기엔 해시만 둔다. 문제 헤딩을
+-- 고치면 다른 문제가 되는데, 그것이 맞다 — 바뀐 문제는 다시 풀어야 한다.
+CREATE TABLE IF NOT EXISTS quiz_attempt (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    cert_key    TEXT NOT NULL,
+    q_hash      TEXT NOT NULL,
+    set_name    TEXT NOT NULL,
+    area        TEXT NOT NULL,
+    correct     INTEGER NOT NULL,
+    picked      TEXT NOT NULL,
+    answered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_quiz_attempt_cert
+    ON quiz_attempt (cert_key, q_hash, id);
+"""
+
+_SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7, 8: _V8,
+            9: _V9}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

@@ -396,6 +396,38 @@ class RecordRepository:
                 (cert_key, exam_hash),
             )
 
+    # ── 문제풀이 (v9) ───────────────────────────────────────────
+
+    def add_quiz_attempt(self, cert_key: str, q_hash: str, set_name: str,
+                         area: str, correct: bool, picked: str,
+                         now_iso: str) -> None:
+        """한 번 푼 것을 쌓는다. **덮어쓰지 않는다** — 몇 번 틀렸는지가
+        다음에 무엇을 먼저 낼지를 정한다."""
+        self._conn.execute(
+            "INSERT INTO quiz_attempt"
+            " (cert_key, q_hash, set_name, area, correct, picked, answered_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (cert_key, q_hash, set_name[:80], area[:8], 1 if correct else 0,
+             picked[:20], now_iso),
+        )
+
+    def quiz_state(self, cert_key: str) -> dict[str, dict]:
+        """문제마다 `{last: 0|1, tries, wrongs, at}`. 안 푼 문제는 없다."""
+        rows = self._conn.execute(
+            "SELECT q_hash, correct, answered_at FROM quiz_attempt"
+            " WHERE cert_key = ? ORDER BY id",
+            (cert_key,),
+        ).fetchall()
+        state: dict[str, dict] = {}
+        for row in rows:
+            one = state.setdefault(row["q_hash"],
+                                   {"last": 0, "tries": 0, "wrongs": 0, "at": ""})
+            one["last"] = row["correct"]
+            one["tries"] += 1
+            one["wrongs"] += 0 if row["correct"] else 1
+            one["at"] = row["answered_at"]
+        return state
+
     def bump_cert_item(self, cert_key: str, item_hash: str, item_text: str,
                        delta: int, total: int, now_iso: str) -> int:
         """진도를 올리고 내린다. **0 아래로도 전체 위로도 안 간다.**

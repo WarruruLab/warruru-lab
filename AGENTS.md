@@ -22,11 +22,11 @@
   (`start_work` / `record_checkpoint` / `finish_work` / `get_today_context`
   / `record_learning` / `get_topic_records` / `save_draft`)
 - 데몬 `warruru-daemon` — `127.0.0.1:8787`, FastAPI + Jinja2 서버 렌더링
-- SQLite `~/.warruru/warruru.db` — 스키마 v8, 테이블 11개
+- SQLite `~/.warruru/warruru.db` — 스키마 v9, 테이블 12개
   (v7 의 `ask_session` 이 대화마다 한 줄이다. `ask_thread` 는 옮긴 뒤 남긴 원본이고 더 쓰지 않는다)
   (`machine` / `client_instance` / `work_session` / `checkpoint`
   / `learning_record` / `draft` / `ask_check` / `cert_progress` / `ask_thread`
-  / `ask_session` / `exam_signup`)
+  / `ask_session` / `exam_signup` / `quiz_attempt`)
 - 초안 파일 `~/.warruru/drafts/YYYY/MM/` — **저장소 바깥이다**
 - 책 노트 `~/.warruru/career/books/{책}/notes/{날짜}.md` — **챗봇 답과 따로다.**
   내가 쓴 것과 받은 것을 가르는 것이 이 도구의 전부다
@@ -50,6 +50,9 @@
   · `/career`(허브 — 내가 채울 것 / 채용공고) · `/career/stack`
   · `/career/stack/{묶음}` — 축 셋(로드맵 78 · CS 71 · AI 31)이 같은 주소를 쓴다
   · **`/career/certs`**(자격증 목록 — 오늘 할 일과 접수일) · `/career/cert/{자격증}`
+  · **`/career/cert/{자격증}/quiz`**(문제풀이 — 문제는
+    `~/.warruru/career/quiz/{자격증}/*.md`, 푼 기록은 `quiz_attempt`. 풀고 틀린
+    것의 해설로 개념을 익힌다. 명세 §2.17)
   · **`/career/cert/{자격증}/practice`**(시험장 도구 연습 체크) — 자격증 화면에는
     **[공부 일정]** 이 있다(노트 앞머리 `plan:`, 날짜별 계획이 오늘 칸 맨 위에 선다)
   · **`/career/cert/{자격증}/uml`**(UML·ERD 연습판 — 라이브러리 없는 SVG 하나,
