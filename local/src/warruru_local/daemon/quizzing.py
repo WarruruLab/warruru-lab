@@ -281,3 +281,62 @@ def overview(sets: list[dict], state: dict[str, dict]) -> dict:
 def grade(question: dict, picked: str) -> bool:
     """객관식만 여기서 채점한다. 서술형은 사람이 맞음/틀림을 고른다."""
     return question["kind"] == "choice" and picked == question["answer"]
+
+
+# ── 화면에 보이는 꼴 (2026-10-05) ─────────────────────────────────────
+# 헤딩은 문제의 **이름**이지 지문이 아니다. 에이전트가 "[서술] …", "… (서술)"
+# 처럼 유형을 헤딩에 섞어 적었는데, 그대로 제목에 올리면 지문과 겹쳐 두 번
+# 읽힌다. 제목은 "문제 N" 으로 세우고 헤딩은 작은 주제 줄로 내린다.
+
+_TAG = re.compile(r"^\s*\[(서술형?|수행형?|단답형?)\]\s*|\s*\((서술형?|수행형?|단답형?)\)\s*$")
+_PERFORM = re.compile(r"작성|계산|구하|고치|고쳐|채우|빈칸|그리|그려|설계|추적|출력|변환|SQL|DDL")
+_KEYWORDS = re.compile(r"채점\s*키워드\s*[:：]\s*(.+)")
+
+CIRCLED = "①②③④⑤⑥⑦⑧⑨"
+
+
+def topic_of(question: dict) -> str:
+    """헤딩에서 유형 꼬리표를 뗀 주제 한 줄."""
+    return _TAG.sub("", question["heading"]).strip() or question["heading"]
+
+
+def kind_label(question: dict) -> str:
+    """객관식 · 서술형 · 수행형 · 단답형. 시험지에 적히는 유형 이름이다."""
+    if question["kind"] == "choice":
+        return "객관식"
+    tag = _TAG.search(question["heading"])
+    if tag:
+        word = (tag.group(1) or tag.group(2))[:2]
+        return word + "형"
+    if "서술" in question["heading"]:
+        return "서술형"
+    if "```" in question["body"] or _PERFORM.search(question["heading"]):
+        return "수행형"
+    if len(question["answer"]) <= 40:
+        return "단답형"
+    return "서술형"
+
+
+def keywords(question: dict) -> list[str]:
+    """해설의 "채점 키워드: …" 줄을 칩으로 쪼갠다. 없으면 빈 목록."""
+    found = _KEYWORDS.search(question["explain"])
+    if not found:
+        return []
+    line = found.group(1).splitlines()[0]
+    return [w.strip(" .·`*") for w in re.split(r"[,，·/]|\s{2,}", line)
+            if w.strip(" .·`*")][:12]
+
+
+def set_of(sets: list[dict], question: dict) -> dict | None:
+    return next((s for s in sets if s["name"] == question["set"]), None)
+
+
+def board(questions: list[dict], state: dict[str, dict], current: str) -> list[dict]:
+    """문제 번호판. 칸마다 `{n, hash, mark}` — mark 는 right · wrong · ''."""
+    cells = []
+    for n, q in enumerate(questions, 1):
+        past = state.get(q["hash"])
+        mark = "" if past is None else ("right" if past["last"] else "wrong")
+        cells.append({"n": n, "hash": q["hash"], "mark": mark,
+                      "current": q["hash"] == current})
+    return cells

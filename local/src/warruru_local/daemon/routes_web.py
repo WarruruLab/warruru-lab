@@ -1546,7 +1546,8 @@ async def career_cert_quiz_browse(request: Request, key: str, area: str = "",
                 continue
             n += 1
             mine.append({
-                "n": n, "q": q, "past": past,
+                "n": len(mine) + 1, "q": q, "past": past,
+                "topic": quizzing.topic_of(q), "kind_label": quizzing.kind_label(q),
                 "body": careerview.md_html(q["body"]),
                 "choices": [careerview.md_inline(c) for c in q["choices"]],
                 "answer": careerview.md_html(q["answer"]) if q["kind"] == "free" else "",
@@ -1564,7 +1565,7 @@ async def career_cert_quiz_browse(request: Request, key: str, area: str = "",
         request, "career_quiz_browse.html",
         {"view": view, "groups": groups, "rows": rows, "heading": heading,
          "areas": quizzing.AREAS, "f": f, "query": _quiz_query(f),
-         "toggle_wrong": _quiz_query(뒤집기)},
+         "toggle_wrong": _quiz_query(뒤집기), "circled": quizzing.CIRCLED},
     )
 
 
@@ -1590,11 +1591,24 @@ async def career_cert_quiz_question(
     pool = [x for x in quizzing.all_questions(sets)
             if (not f["area"] or x["area"] == f["area"])
             and (not f["set"] or x["set"] == f["set"])]
-    set_title = next((s["title"] for s in sets if s["name"] == q["set"]), q["set"])
+    세트 = quizzing.set_of(sets, q)
+    set_title = 세트["title"] if 세트 else q["set"]
+    # 번호는 **세트 안의 자리**다. 시험지처럼 "문제 7 / 20" 으로 읽히고,
+    # 번호판과 이전·다음이 같은 순서를 쓴다.
+    같은세트 = 세트["questions"] if 세트 else [q]
+    자리 = next(i for i, x in enumerate(같은세트) if x["hash"] == q["hash"])
     return templates.TemplateResponse(
         request, "career_quiz_q.html",
         {
             "view": view, "q": q, "set_title": set_title,
+            "set_name": q["set"], "set_source": 세트["source"] if 세트 else "",
+            "n": 자리 + 1, "count": len(같은세트),
+            "prev": 같은세트[자리 - 1]["hash"] if 자리 > 0 else "",
+            "next_in_set": 같은세트[자리 + 1]["hash"] if 자리 + 1 < len(같은세트) else "",
+            "board": quizzing.board(같은세트, state, q["hash"]),
+            "set_tally": quizzing.tally(같은세트, state),
+            "topic": quizzing.topic_of(q), "kind_label": quizzing.kind_label(q),
+            "keywords": quizzing.keywords(q), "circled": quizzing.CIRCLED,
             "body_html": careerview.md_html(q["body"]),
             "choices_html": [careerview.md_inline(c) for c in q["choices"]],
             "answer_html": careerview.md_html(q["answer"]),

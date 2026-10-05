@@ -43,33 +43,35 @@
   <h2>{{ g.title }} <span class="badge">{{ g.source }}</span></h2>
   {% for r in g.rows %}
   <article class="tool quiz-q quiz-card">
-    <div class="work-head">
-      <h3><span class="num quiet">{{ r.n }}.</span> {{ r.q.heading }}</h3>
+    <div class="cbt-qhead">
+      <h3 class="cbt-no">문제 <span class="num">{{ r.n }}</span></h3>
+      <span class="badge">{{ r.kind_label }}</span>
       {% if r.past %}
         {% if r.past.last %}<span class="badge ok">맞힘</span>
         {% else %}<span class="badge due">틀림 {{ r.past.wrongs }}</span>{% endif %}
       {% endif %}
     </div>
-    {% if r.body %}<div class="quiz-body">{{ r.body | safe }}</div>{% endif %}
+    <div class="cbt-stem">{% if r.body %}{{ r.body | safe }}{% else %}<p>{{ r.topic }}</p>{% endif %}</div>
     {% if r.choices %}
-    <ol class="quiz-choices compact">
-      {% for c in r.choices %}<li><span class="num">{{ loop.index }}</span> <span>{{ c | safe }}</span></li>{% endfor %}
+    <ol class="cbt-choices compact">
+      {% for c in r.choices %}<li><span class="cbt-mark">{{ circled[loop.index0] }}</span> <span class="cbt-text">{{ c | safe }}</span></li>{% endfor %}
     </ol>
     {% endif %}
     {# 답을 먼저 떠올리고 연다. 펼친 채로 두면 읽는 것이지 푸는 것이 아니다. #}
     <details class="quiz-reveal">
       <summary>정답·해설 보기</summary>
+      {% if r.body %}<p class="cbt-topic">주제 · {{ r.topic }}</p>{% endif %}
       {% if r.choices %}
-      <p class="quiz-verdict right">정답 <span class="num">{{ r.q.answer }}</span>번</p>
+      <p class="quiz-verdict right">정답 {{ circled[r.q.answer | int - 1] }}</p>
       {% else %}
-      <h4>모범답안</h4>
+      <h4 class="cbt-label">모범답안</h4>
       <div class="quiz-answer">{{ r.answer | safe }}</div>
       {% endif %}
-      {% if r.explain %}<div class="quiz-explain">{{ r.explain | safe }}</div>{% endif %}
-      {% if r.q.basis %}<p class="meta quiet">근거 — {{ r.q.basis }}</p>{% endif %}
+      {% if r.explain %}<div class="cbt-explain"><h3>해설</h3><div class="quiz-explain">{{ r.explain | safe }}</div>
+      {% if r.q.basis %}<p class="meta quiet">근거 — {{ r.q.basis }}</p>{% endif %}</div>{% endif %}
     </details>
     <p class="quiz-btns">
-      <a class="meta" href="/career/cert/{{ view.key }}/quiz/q/{{ r.q.hash }}">이 문제 풀기 →</a>
+      <a class="btn" href="/career/cert/{{ view.key }}/quiz/q/{{ r.q.hash }}">이 문제 풀기 ▶</a>
     </p>
   </article>
   {% endfor %}

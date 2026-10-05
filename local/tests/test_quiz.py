@@ -147,6 +147,8 @@ def test_맞힌_것은_다시_안_나오고_틀린_것은_다시_나온다(clien
     assert "picked=3" in res.headers["location"]
     page = client.get(res.headers["location"]).text
     assert "맞았다" in page and "보험은 전가다" in page
+    # 제목은 "문제 N" 이고 헤딩은 주제 줄로 내려간다.
+    assert "문제 <span class=\"num\">1</span>" in page and "객관식" in page
 
     client.post(f"/web/certs/topcit/quiz/{둘째['hash']}",
                 data={"_token": 토큰, "picked": "1"}, follow_redirects=False)
@@ -157,10 +159,13 @@ def test_맞힌_것은_다시_안_나오고_틀린_것은_다시_나온다(clien
 
     # 서술형은 답을 먼저 쓰고, 모범답안을 본 뒤 스스로 고른다.
     page = client.get(f"/career/cert/topcit/quiz/q/{셋째['hash']}").text
-    assert "답 보기" in page and "물음표다" not in page
+    assert "모범답안 확인" in page and "물음표다" not in page
+    assert "서술형" in page
     page = client.get(
         f"/career/cert/topcit/quiz/q/{셋째['hash']}?reveal=1&mine=물음표").text
     assert "물음표다. 스타로" in page and "채점 키워드" in page
+    # 채점 키워드가 칩으로 쪼개진다.
+    assert page.count('class="cbt-chip"') == 3
     res = client.post(f"/web/certs/topcit/quiz/{셋째['hash']}",
                       data={"_token": 토큰, "self": "1"}, follow_redirects=False)
     assert "/quiz/next" in res.headers["location"]
@@ -265,3 +270,24 @@ def test_영역을_펼쳐_보고_정답은_접어_둔다(client, home):
     # 틀린 것만 — 아직 안 풀었으니 비어 있다.
     page = client.get("/career/cert/topcit/quiz/browse?area=M4&only=wrong").text
     assert "틀린 문제가 없다" in page
+
+
+def test_제목은_유형_꼬리표를_떼고_번호판이_선다(client, home):
+    """"[서술] …" 처럼 헤딩에 섞인 유형은 배지로 옮기고, 세트 안 번호와
+    번호판·이전·다음이 같은 순서를 쓴다(2026-10-05, CBT 화면)."""
+    _sets(home, a=SET_A)
+    qs = quizzing.all_questions(quizzing.load(home, "topcit"))
+    q = dict(qs[0], heading="[서술] 위험 대응을 설명하라")
+    assert quizzing.topic_of(q) == "위험 대응을 설명하라"
+    assert quizzing.kind_label(dict(q, kind="free")) == "서술형"
+    assert quizzing.kind_label(qs[0]) == "객관식"
+
+    page = client.get(f"/career/cert/topcit/quiz/q/{qs[1]['hash']}").text
+    assert "/ 3" in page                      # 세트 3문항 중 2번째
+    assert f"/quiz/q/{qs[0]['hash']}" in page  # 이전
+    assert f"/quiz/q/{qs[2]['hash']}" in page  # 다음
+    import re
+    assert len(re.findall(r'aria-label="문제 \d', page)) == 3
+    assert "①" in page and "②" in page
+    # 풀기 전에는 주제 줄(헤딩)이 안 보인다 — 답을 흘릴 수 있다.
+    assert "주제 ·" not in page
