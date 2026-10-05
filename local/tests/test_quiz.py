@@ -244,3 +244,24 @@ area: M3
     assert q["kind"] == "free" and q["choices"] == []
     assert "1) 네트워크 주소를 구하라" in q["body"]
     assert q["answer"].startswith("(1) 192.168.1.0")
+
+
+def test_영역을_펼쳐_보고_정답은_접어_둔다(client, home):
+    """자격증 화면에서 영역을 골라 [풀이 보기] 로 들어가면 그 영역 문제가
+    펼쳐지고, 정답·해설은 눌러야 열린다(2026-10-05, 사용자 요청)."""
+    _sets(home, a=SET_A, b=SET_B)
+    cert = client.get("/career/cert/topcit").text
+    assert "/career/cert/topcit/quiz/browse?area=M4" in cert
+    assert "/career/cert/topcit/quiz/next?area=M4" in cert
+
+    page = client.get("/career/cert/topcit/quiz/browse?area=M4").text
+    assert "위험을 범위에서 빼는 대응은?" in page
+    assert "BCG 물음표 전략을 서술하라" in page
+    # 다른 영역(M3 로 옮겨 간 코드 문항)은 안 섞인다.
+    assert "코드의 출력은?" not in page
+    assert page.count("<details") == 3 and "<details open" not in page
+    assert "보험은 전가다" in page
+
+    # 틀린 것만 — 아직 안 풀었으니 비어 있다.
+    page = client.get("/career/cert/topcit/quiz/browse?area=M4&only=wrong").text
+    assert "틀린 문제가 없다" in page

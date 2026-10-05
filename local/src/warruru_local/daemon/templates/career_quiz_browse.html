@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} 풀이 — {{ view.name }}{% endblock %}
+{% block content %}
+<header>
+  <h1>{{ view.name }} 풀이 보기</h1>
+  {% include "_nav.html" %}
+</header>
+
+<p class="meta subline">
+  <a href="/career/cert/{{ view.key }}">← {{ view.name }}</a> ·
+  <a href="/career/cert/{{ view.key }}/quiz">문제풀이</a> ·
+  <strong>{{ heading }}</strong> · <span class="num">{{ rows | length }}</span>문항
+  {% if f.only %}· 틀린 것만{% endif %}
+</p>
+
+{# 영역을 바꾸거나 틀린 것만 본다. 펼쳐 읽는 자리라 고르는 것도 링크다. #}
+<p class="quiz-btns quiz-tabs">
+  {% for a in areas %}
+  <a class="btn {{ 'primary' if a == f.area and not f.set }}" href="/career/cert/{{ view.key }}/quiz/browse?area={{ a }}">{{ a }}</a>
+  {% endfor %}
+  {% if f.area or f.set %}
+  <a class="btn {{ 'primary' if f.only }}" href="/career/cert/{{ view.key }}/quiz/browse{{ toggle_wrong }}">{{ '전부 보기' if f.only else '틀린 것만' }}</a>
+  <a class="btn" href="/career/cert/{{ view.key }}/quiz/next{{ query }}">이 범위 풀기</a>
+  {% endif %}
+</p>
+
+{% if groups | length > 1 %}
+<nav class="tool quiz-toc">
+  {% for g in groups %}
+  <a href="#set-{{ loop.index }}">{{ g.title }} <span class="num quiet">{{ g.rows | length }}</span></a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% if not rows %}
+<p class="tool empty">
+  {% if f.only %}이 범위에 지금 틀린 문제가 없다.{% else %}이 범위에 문제가 없다.{% endif %}
+</p>
+{% endif %}
+
+{% for g in groups %}
+<section class="quiz-group" id="set-{{ loop.index }}">
+  <h2>{{ g.title }} <span class="badge">{{ g.source }}</span></h2>
+  {% for r in g.rows %}
+  <article class="tool quiz-q quiz-card">
+    <div class="work-head">
+      <h3><span class="num quiet">{{ r.n }}.</span> {{ r.q.heading }}</h3>
+      {% if r.past %}
+        {% if r.past.last %}<span class="badge ok">맞힘</span>
+        {% else %}<span class="badge due">틀림 {{ r.past.wrongs }}</span>{% endif %}
+      {% endif %}
+    </div>
+    {% if r.body %}<div class="quiz-body">{{ r.body | safe }}</div>{% endif %}
+    {% if r.choices %}
+    <ol class="quiz-choices compact">
+      {% for c in r.choices %}<li><span class="num">{{ loop.index }}</span> <span>{{ c | safe }}</span></li>{% endfor %}
+    </ol>
+    {% endif %}
+    {# 답을 먼저 떠올리고 연다. 펼친 채로 두면 읽는 것이지 푸는 것이 아니다. #}
+    <details class="quiz-reveal">
+      <summary>정답·해설 보기</summary>
+      {% if r.choices %}
+      <p class="quiz-verdict right">정답 <span class="num">{{ r.q.answer }}</span>번</p>
+      {% else %}
+      <h4>모범답안</h4>
+      <div class="quiz-answer">{{ r.answer | safe }}</div>
+      {% endif %}
+      {% if r.explain %}<div class="quiz-explain">{{ r.explain | safe }}</div>{% endif %}
+      {% if r.q.basis %}<p class="meta quiet">근거 — {{ r.q.basis }}</p>{% endif %}
+    </details>
+    <p class="quiz-btns">
+      <a class="meta" href="/career/cert/{{ view.key }}/quiz/q/{{ r.q.hash }}">이 문제 풀기 →</a>
+    </p>
+  </article>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}
