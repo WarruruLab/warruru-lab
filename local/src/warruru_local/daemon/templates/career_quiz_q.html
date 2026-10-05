@@ -1,48 +1,77 @@
 {% extends "base.html" %}
-{% block title %}{{ q.heading }} — {{ view.name }} 문제풀이{% endblock %}
+{% block title %}문제 {{ n }} · {{ set_title }} — {{ view.name }}{% endblock %}
 {% block content %}
 <header>
   <h1>{{ view.name }} 문제풀이</h1>
   {% include "_nav.html" %}
 </header>
 
-<p class="meta subline">
-  <a href="/career/cert/{{ view.key }}/quiz">← 문제풀이</a> ·
-  <span class="badge">{{ q.area }}</span> {{ set_title }} ·
-  {% if f.only %}틀린 것만 · {% endif %}
-  이 조건에서 <span class="num">{{ tally.solved }}</span> / <span class="num">{{ tally.total }}</span> 풂
-  {% if tally.rate is not none %}· 정답률 <span class="num">{{ tally.rate }}</span>%{% endif %}
-  {% if past %}· 이 문제 <span class="num">{{ past.tries }}</span>번 풀어 <span class="num">{{ past.wrongs }}</span>번 틀림{% endif %}
-</p>
+{# 시험지 머리. **어디를 풀고 있는지**가 한 줄에 보여야 한다 — 영역, 세트,
+   몇 번째인지, 이 세트를 얼마나 풀었는지. #}
+<div class="cbt-head">
+  <div class="cbt-crumb">
+    <a href="/career/cert/{{ view.key }}/quiz">문제풀이</a>
+    <span class="quiet">›</span>
+    <a href="/career/cert/{{ view.key }}/quiz/browse?area={{ q.area }}">{{ q.area }}</a>
+    <span class="quiet">›</span>
+    <a href="/career/cert/{{ view.key }}/quiz/browse?set={{ set_name | urlencode }}">{{ set_title }}</a>
+  </div>
+  <div class="cbt-progress" aria-label="이 세트 진행">
+    <span class="num">{{ set_tally.solved }}</span>/<span class="num">{{ set_tally.total }}</span> 풂
+    {% if set_tally.rate is not none %}· 정답률 <span class="num">{{ set_tally.rate }}</span>%{% endif %}
+    <span class="cbt-bar"><i style="width: {{ (set_tally.solved * 100 / set_tally.total) | round | int if set_tally.total else 0 }}%"></i></span>
+  </div>
+</div>
 
-<article class="tool quiz-q">
-  <h2>{{ q.heading }}</h2>
-  {% if body_html %}<div class="quiz-body">{{ body_html | safe }}</div>{% endif %}
+<div class="cbt">
+<article class="tool cbt-paper">
+  <div class="cbt-qhead">
+    <h2 class="cbt-no">문제 <span class="num">{{ n }}</span><span class="cbt-of"> / {{ count }}</span></h2>
+    <span class="badge">{{ kind_label }}</span>
+    {% if set_source %}<span class="badge">{{ set_source }}</span>{% endif %}
+    <span class="badge">{{ q.area }}</span>
+    {% if past %}<span class="meta quiet cbt-past">{{ past.tries }}회 풂 · 오답 {{ past.wrongs }}회</span>{% endif %}
+  </div>
+  {# 주제 줄은 **푼 뒤에** 보인다. 헤딩은 답을 아는 사람이 붙인 이름이라
+     "…PreparedStatement 로 고치기" 처럼 답을 흘린다. 풀기 전에는 지문만. #}
+  {% if (picked or reveal) and body_html %}<p class="cbt-topic">주제 · {{ topic }}</p>{% endif %}
+
+  <div class="cbt-stem">
+    {% if body_html %}{{ body_html | safe }}{% else %}<p>{{ topic }}</p>{% endif %}
+  </div>
 
   {% if q.kind == "choice" %}
     {% if not picked %}
     <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}">
       <input type="hidden" name="_token" value="{{ token }}">
       {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
-      <ol class="quiz-choices">
+      <ol class="cbt-choices">
         {% for c in choices_html %}
-        <li><label><input type="radio" name="picked" value="{{ loop.index }}" required>
-          <span class="num">{{ loop.index }}</span> <span>{{ c | safe }}</span></label></li>
+        <li><label class="cbt-opt">
+          <input type="radio" name="picked" value="{{ loop.index }}" required>
+          <span class="cbt-mark">{{ circled[loop.index0] }}</span>
+          <span class="cbt-text">{{ c | safe }}</span>
+        </label></li>
         {% endfor %}
       </ol>
-      <button class="primary" type="submit">제출</button>
+      <div class="cbt-actions">
+        <button class="primary" type="submit">정답 확인</button>
+      </div>
     </form>
     {% else %}
     {% set right = picked == q.answer %}
-    <p class="quiz-verdict {{ 'right' if right else 'wrong' }}">
-      {% if right %}맞았다{% else %}틀렸다 — 정답은 <span class="num">{{ q.answer }}</span>번{% endif %}
-    </p>
-    <ol class="quiz-choices shown">
+    <div class="cbt-verdict {{ 'right' if right else 'wrong' }}" role="status">
+      <strong>{% if right %}✓ 맞았다{% else %}✗ 틀렸다{% endif %}</strong>
+      <span>내 답 {{ circled[picked | int - 1] }} · 정답 {{ circled[q.answer | int - 1] }}</span>
+    </div>
+    <ol class="cbt-choices shown">
       {% for c in choices_html %}
-      {% set n = loop.index | string %}
-      <li class="{{ 'right' if n == q.answer else ('wrong' if n == picked else '') }}">
-        <span class="num">{{ n }}</span> <span>{{ c | safe }}</span>
-        {% if n == picked %}<span class="meta quiet">← 내 답</span>{% endif %}
+      {% set k = loop.index | string %}
+      <li class="{{ 'right' if k == q.answer else ('wrong' if k == picked else '') }}">
+        <span class="cbt-mark">{{ circled[loop.index0] }}</span>
+        <span class="cbt-text">{{ c | safe }}</span>
+        {% if k == q.answer %}<span class="cbt-tag">정답</span>
+        {% elif k == picked %}<span class="cbt-tag">내 답</span>{% endif %}
       </li>
       {% endfor %}
     </ol>
@@ -53,40 +82,74 @@
     <form method="get" action="/career/cert/{{ view.key }}/quiz/q/{{ q.hash }}">
       {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
       <input type="hidden" name="reveal" value="1">
-      <textarea name="mine" rows="8" class="quiz-mine"
-                placeholder="내 답을 먼저 쓴다. 서술형은 정의 → 상황에 대입 → 결론 (450자 이내)"></textarea>
-      <button class="primary" type="submit">답 보기</button>
+      <label class="cbt-label" for="mine">내 답안</label>
+      <textarea id="mine" name="mine" rows="9" class="quiz-mine"
+                placeholder="{{ '정의 → 상황에 대입 → 결론. 450자 이내' if kind_label == '서술형' else '풀이 과정과 답을 적는다' }}"></textarea>
+      <div class="cbt-actions">
+        <button class="primary" type="submit">모범답안 확인</button>
+      </div>
     </form>
     {% else %}
-    {% if mine %}
-    <h3>내 답</h3>
-    <div class="quiz-mine-shown">{{ mine }}</div>
+    <div class="cbt-compare">
+      <section>
+        <h3 class="cbt-label">내 답안</h3>
+        <div class="quiz-mine-shown">{% if mine %}{{ mine }}{% else %}<span class="quiet">(비워 두었다)</span>{% endif %}</div>
+      </section>
+      <section>
+        <h3 class="cbt-label">모범답안</h3>
+        <div class="quiz-answer">{{ answer_html | safe }}</div>
+      </section>
+    </div>
+    {% if keywords %}
+    <p class="cbt-keys"><span class="cbt-label">채점 키워드</span>
+      {% for w in keywords %}<span class="cbt-chip">{{ w }}</span>{% endfor %}
+    </p>
     {% endif %}
-    <h3>모범답안</h3>
-    <div class="quiz-answer">{{ answer_html | safe }}</div>
     {% endif %}
   {% endif %}
 
   {% if picked or reveal %}
   {% if explain_html %}
-  <h3>해설</h3>
-  <div class="quiz-explain">{{ explain_html | safe }}</div>
+  <section class="cbt-explain">
+    <h3>해설</h3>
+    <div class="quiz-explain">{{ explain_html | safe }}</div>
+    {% if q.basis %}<p class="meta quiet">근거 — {{ q.basis }}</p>{% endif %}
+  </section>
   {% endif %}
-  {% if q.basis %}<p class="meta quiet">근거 — {{ q.basis }}</p>{% endif %}
   {% endif %}
 
   {% if q.kind == "free" and reveal %}
-  <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}" class="quiz-self">
+  <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}" class="cbt-self">
     <input type="hidden" name="_token" value="{{ token }}">
     {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
-    <span class="meta">핵심 키워드가 다 들어갔나?</span>
-    <button class="primary" type="submit" name="self" value="1">맞음 — 다음</button>
+    <span class="meta">키워드가 다 들어갔나? 스스로 채점한다.</span>
+    <button class="primary" type="submit" name="self" value="1">맞음 — 다음 문제</button>
     <button type="submit" name="self" value="0">틀림 — 다시 나오게</button>
   </form>
-  {% elif picked %}
-  <p class="quiz-btns">
-    <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next{{ query }}{{ '&' if query else '?' }}after={{ q.hash }}">다음 문제</a>
-  </p>
   {% endif %}
+
+  {# 이전·다음은 **세트 순서**, [이어서] 는 안 푼 것 → 틀린 것 순서다.
+     시험지처럼 넘기는 길과, 모르는 것만 골라 도는 길을 둘 다 둔다. #}
+  <nav class="cbt-nav">
+    {% if prev %}<a class="btn" href="/career/cert/{{ view.key }}/quiz/q/{{ prev }}">◀ 이전</a>
+    {% else %}<span class="btn ghost" aria-disabled="true">◀ 이전</span>{% endif %}
+    <a class="btn primary" href="/career/cert/{{ view.key }}/quiz/next{{ query }}{{ '&' if query else '?' }}after={{ q.hash }}">
+      {% if f.only %}다음 틀린 문제{% else %}이어서 풀기{% endif %} ▶</a>
+    {% if next_in_set %}<a class="btn" href="/career/cert/{{ view.key }}/quiz/q/{{ next_in_set }}">다음 ▶</a>
+    {% else %}<span class="btn ghost" aria-disabled="true">다음 ▶</span>{% endif %}
+  </nav>
 </article>
+
+{# 번호판. 칸 색은 둘뿐이다 — 맞힘(파랑) · 틀림(빨강). 안 푼 것은 빈칸. #}
+<aside class="tool cbt-board" aria-label="문제 번호판">
+  <h3>{{ set_title }}</h3>
+  <ol>
+    {% for c in board %}
+    <li><a class="{{ c.mark }} {{ 'here' if c.current }}" href="/career/cert/{{ view.key }}/quiz/q/{{ c.hash }}"
+           aria-label="문제 {{ c.n }}{{ ' 맞힘' if c.mark == 'right' }}{{ ' 틀림' if c.mark == 'wrong' }}">{{ c.n }}</a></li>
+    {% endfor %}
+  </ol>
+  <p class="meta quiet"><span class="cbt-dot right"></span>맞힘 <span class="cbt-dot wrong"></span>틀림 <span class="cbt-dot"></span>안 풂</p>
+</aside>
+</div>
 {% endblock %}
