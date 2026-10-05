@@ -223,3 +223,24 @@ def test_주소에서_온_조건은_아는_꼴만_받는다(client, home):
     root = paths.quiz_dir(home) / "topcit"
     (root / "a.b.md").write_text(SET_A, encoding="utf-8")
     assert [s["name"] for s in quizzing.load(home, "topcit")] == ["a"]
+
+
+def test_정답이_번호가_아니면_소물음이지_보기가_아니다(home):
+    """서술형 지문의 `1) …` 소물음을 보기로 읽으면 모범답안의 첫 숫자가
+    정답 번호가 된다(2026-10-05, 문제를 만든 에이전트가 짚었다)."""
+    root = _sets(home, c="""---
+area: M3
+---
+
+## 서브넷을 계산하라
+
+1) 네트워크 주소를 구하라
+2) 호스트 수를 구하라
+
+정답: (1) 192.168.1.0 (2) 30개
+해설: /27 이다.
+""")
+    q = quizzing.parse_set(root / "c.md")["questions"][0]
+    assert q["kind"] == "free" and q["choices"] == []
+    assert "1) 네트워크 주소를 구하라" in q["body"]
+    assert q["answer"].startswith("(1) 192.168.1.0")

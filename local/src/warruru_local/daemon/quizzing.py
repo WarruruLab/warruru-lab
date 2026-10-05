@@ -45,6 +45,7 @@ _HEAD = re.compile(r"^##\s+(.+?)\s*$")
 _CHOICE = re.compile(r"^\s*([1-9])\)\s+(.*)$")
 _FIELD = re.compile(r"^(정답|영역|근거|해설)\s*[:：]\s*(.*)$")
 _FENCE = "```"
+_NUMBER = re.compile(r"^\s*([1-9])\s*번?\s*$")
 
 # 파일을 매번 다시 읽지 않는다. 1,000 문항이 넘으면 화면 하나에 수 MB 를
 # 파싱하게 된다. 수정 시각이 바뀐 파일만 다시 읽는다.
@@ -100,10 +101,17 @@ def _parse_block(set_name: str, heading: str, lines: list[str],
         area = default_area
     answer = 글("정답")
     if choices:
-        match = re.search(r"[1-9]", answer)
-        answer = match.group(0) if match else ""
-        if answer and int(answer) > len(choices):
+        number = _NUMBER.match(answer)
+        if number and int(number.group(1)) <= len(choices):
+            answer = number.group(1)
+        elif number:
             answer = ""
+        else:
+            # **정답이 번호가 아니면 객관식이 아니다.** 서술형 지문의 소물음이
+            # `1) …` 로 적힌 것이다. 보기로 읽으면 모범답안 속 첫 숫자가
+            # 정답 번호가 되어, 틀린 채점을 조용히 내놓는다. 지문으로 되돌린다.
+            body.extend(f"{i}) {c}" for i, c in enumerate(choices, 1))
+            choices = []
     return {
         "hash": question_hash(set_name, heading),
         "set": set_name,
