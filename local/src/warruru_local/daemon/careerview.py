@@ -119,6 +119,42 @@ def _fields(item: str, count: int) -> list[str]:
     return (parts + [""] * count)[:count]
 
 
+def note_sections(body: str, opened=None) -> dict:
+    """노트 본문을 `# ` 절로 쪼갠다(2026-10-06).
+
+    자격증 노트는 조사가 쌓이며 1,000줄을 넘었고, 그것을 한 장에 펼치니
+    화면이 끝없이 길어졌다. **노트는 그대로 두고 화면만 접는다** — 기록은
+    지우지 않는 것이 이 도구의 규칙이다. 앞머리 `open:` 에 적은 절(제목 앞부분)만
+    펼쳐 위에 세우고, 나머지는 제목만 보이게 접는다.
+    """
+    want = [str(t).strip() for t in (opened or []) if str(t).strip()]
+    if isinstance(opened, str):
+        want = [opened.strip()]
+    intro: list[str] = []
+    sections: list[dict] = []
+    fenced = False
+    for line in body.splitlines():
+        if line.strip().startswith("```"):
+            fenced = not fenced
+        if not fenced and line.startswith("# "):
+            sections.append({"title": line[2:].strip(), "lines": []})
+            continue
+        (sections[-1]["lines"] if sections else intro).append(line)
+    made = []
+    for sec in sections:
+        title = sec["title"]
+        made.append({
+            "title": title,
+            "html": md_html("\n".join(sec["lines"])),
+            "open": any(title.startswith(w) for w in want),
+        })
+    return {
+        "intro": md_html("\n".join(intro)),
+        "open": [m for m in made if m["open"]],
+        "folded": [m for m in made if not m["open"]],
+    }
+
+
 def md_html(text: str) -> str:
     """노트와 같은 변환기로 그린다. 문제 본문·해설이 쓰는 문법이 노트와 같다."""
     return tistory_clipboard.to_html(text) if text.strip() else ""
@@ -798,6 +834,7 @@ def _cert_note(ctx, key: str, today: str, counts: dict | None = None) -> dict:
         "signup": _signup_state(exams, today),
         "markdown": text,
         "html": tistory_clipboard.to_html(body),
+        "sections": note_sections(body, meta.get("open")),
     }
 
 

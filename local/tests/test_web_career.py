@@ -2006,3 +2006,17 @@ def test_활동_이름이_경로가_되지_않는다(client, home):
     _활동(home, "kakao-tech-campus", "---\nname: 카카오\n---\n")
     assert client.get("/career/activity/..%2F..%2Fetc").status_code == 404
     assert client.get("/career/activity/없는활동").status_code == 404
+
+
+def test_자격증_노트는_펼칠_절만_펼치고_나머지는_접는다(client, home):
+    """노트가 1,000줄을 넘자 화면이 끝없이 길어졌다(2026-10-06). 노트는 그대로
+    두고 화면만 접는다 — 앞머리 `open:` 의 절만 펼쳐 위에 세운다."""
+    _cert(home, "topcit",
+          "---\nstatus: 준비중\nopen:\n  - 600점\n---\n\n머리말\n\n"
+          "# 옛 조사\n\n오래된 이야기\n\n# 600점 벼락치기\n\n지금 계획\n")
+    page = client.get("/career/cert/topcit").text
+    assert "<h2>600점 벼락치기</h2>" in page
+    assert "<summary>옛 조사</summary>" in page and "오래된 이야기" in page
+    assert "1개 절" in page
+    # 펼친 절이 접힌 절보다 위에 선다.
+    assert page.index("지금 계획") < page.index("오래된 이야기")

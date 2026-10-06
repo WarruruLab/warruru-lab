@@ -126,6 +126,14 @@
   </div>
   {% set quiz = view.quiz %}
   {% include "_quiz_areas.html" %}
+  <p class="quiz-btns">
+    {% for src in quiz.sources %}
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?src={{ src | urlencode }}">{{ src }}만 풀기</a>
+    {% endfor %}
+    {% if quiz.all.wrong %}
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?only=wrong">틀린 것만 <span class="num">{{ quiz.all.wrong }}</span></a>
+    {% endif %}
+  </p>
 </section>
 {% endif %}
 
@@ -175,8 +183,39 @@
     <span class="badge due">밀린 것 {{ view.late|length }}</span>
     {% endif %}
   </div>
+  {% set 지난 = view.plan|selectattr("past")|list %}
+  {% set 남은 = view.plan|rejectattr("past")|list %}
+  {% if 지난 %}
+  <details class="note-fold">
+    <summary>지난 날 {{ 지난|length }}칸 · 했다 {{ 지난|selectattr("done")|list|length }}</summary>
+    <ul class="checkpoints asks">
+    {% for row in 지난 %}
+    <li class="ask {{ 'quiet' if row.done }}">
+      <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
+        <input type="hidden" name="_token" value="{{ token }}">
+        <input type="hidden" name="item" value="{{ row.hash }}">
+        <input type="hidden" name="text" value="계획: {{ row.date }}: {{ row.title }}">
+        <input type="hidden" name="total" value="1">
+        <input type="hidden" name="delta" value="{{ -1 if row.done else 1 }}">
+        <button class="tick {{ 'on' if row.done }}" type="submit"
+                aria-pressed="{{ 'true' if row.done else 'false' }}"
+                aria-label="{{ row.date }} {{ row.title }} 했음">&nbsp;</button>
+      </form>
+      <span class="when">{{ row.date[5:] }}</span>
+      <span class="ask-text">{{ row.title }}</span>
+      {% if row.note %}<span class="meta quiet">{{ row.note }}</span>{% endif %}
+      {% if row.done %}<span class="badge ok">했다</span>
+      {% elif row.today %}<span class="badge due">오늘</span>
+      {% elif row.past %}<span class="badge due">{{ -row.days }}일 밀림</span>
+      {% else %}<span class="dday-sm {{ 'near' if row.days <= 3 }}">D-{{ row.days }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
   <ul class="checkpoints asks">
-    {% for row in view.plan %}
+    {% for row in 남은 %}
     <li class="ask {{ 'quiet' if row.done }}">
       <form class="inline" method="post" action="/web/certs/{{ view.key }}/progress">
         <input type="hidden" name="_token" value="{{ token }}">
@@ -264,9 +303,24 @@
 </section>
 
 {% if view.html %}
+{# 노트는 길어진다. **지금 보는 절만 펼치고 나머지는 제목만** 둔다 —
+   앞머리 `open:` 에 적은 절이 위에 펼쳐진다(2026-10-06). #}
+{% set sec = view.sections %}
+{% for s in sec.open %}
 <section class="tool">
-  <h2>과목 · 유형 · 공부법</h2>
-  <div class="preview">{{ view.html|safe }}</div>
+  <h2>{{ s.title }}</h2>
+  <div class="preview">{{ s.html|safe }}</div>
+</section>
+{% endfor %}
+<section class="tool">
+  <h2>과목 · 유형 · 공부법 <span class="meta quiet">{{ sec.folded|length }}개 절 · 눌러서 연다</span></h2>
+  {% if sec.intro %}<div class="preview">{{ sec.intro|safe }}</div>{% endif %}
+  {% for s in sec.folded %}
+  <details class="note-fold">
+    <summary>{{ s.title }}</summary>
+    <div class="preview">{{ s.html|safe }}</div>
+  </details>
+  {% endfor %}
 </section>
 {% endif %}
 

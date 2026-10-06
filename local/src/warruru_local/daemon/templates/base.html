@@ -1231,6 +1231,10 @@
   .cbt-board a.here { outline: 2px solid var(--ink); outline-offset: 1px; }
   .cbt-dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--rule); margin: 0 .2rem 0 .5rem; vertical-align: middle; }
   .cbt-dot.right { background: var(--key); box-shadow: none; } .cbt-dot.wrong { background: var(--alert); box-shadow: none; }
+  .note-fold { border-top: 1px solid var(--rule-soft); padding: .55rem 0; }
+  .note-fold:first-of-type { border-top: 0; }
+  .note-fold > summary { cursor: pointer; font-weight: 600; }
+  .note-fold[open] > summary { color: var(--key); margin-bottom: .4rem; }
   .quiz-tabs { margin-bottom: 1rem; }
   .quiz-toc { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: var(--t-sm); }
   .quiz-group > h2 { margin: 1.6rem 0 .8rem; font-size: var(--t-lg); }
