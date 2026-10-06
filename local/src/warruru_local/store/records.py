@@ -411,6 +411,24 @@ class RecordRepository:
              picked[:20], now_iso),
         )
 
+    def save_quiz_answer(self, cert_key: str, q_hash: str, mine: str,
+                         now_iso: str) -> None:
+        """서술형 답안을 남긴다. 문제마다 마지막 것 하나다."""
+        self._conn.execute(
+            "INSERT INTO quiz_answer (cert_key, q_hash, mine, saved_at)"
+            " VALUES (?, ?, ?, ?)"
+            " ON CONFLICT(cert_key, q_hash) DO UPDATE SET"
+            " mine = excluded.mine, saved_at = excluded.saved_at",
+            (cert_key, q_hash, mine[:4000], now_iso),
+        )
+
+    def quiz_answer(self, cert_key: str, q_hash: str) -> dict | None:
+        row = self._conn.execute(
+            "SELECT mine, saved_at FROM quiz_answer"
+            " WHERE cert_key = ? AND q_hash = ?", (cert_key, q_hash),
+        ).fetchone()
+        return {"mine": row["mine"], "saved_at": row["saved_at"]} if row else None
+
     def quiz_state(self, cert_key: str) -> dict[str, dict]:
         """문제마다 `{last: 0|1, tries, wrongs, at}`. 안 푼 문제는 없다."""
         rows = self._conn.execute(

@@ -79,20 +79,21 @@
   {% else %}
     {% if not reveal %}
     {# 답을 먼저 쓴다. 모범답안을 보고 나서 "알았다" 고 하는 것은 판정이 아니다. #}
-    <form method="get" action="/career/cert/{{ view.key }}/quiz/q/{{ q.hash }}">
+    <form method="post" action="/web/certs/{{ view.key }}/quiz/{{ q.hash }}/mine">
+      <input type="hidden" name="_token" value="{{ token }}">
       {% for k, v in f.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
-      <input type="hidden" name="reveal" value="1">
-      <label class="cbt-label" for="mine">내 답안</label>
+      <label class="cbt-label" for="mine">내 답안
+        {% if saved %}<span class="meta quiet">· 저장됨 {{ saved.saved_at[5:16] | replace('T', ' ') }}</span>{% endif %}</label>
       <textarea id="mine" name="mine" rows="9" class="quiz-mine"
-                placeholder="{{ '정의 → 상황에 대입 → 결론. 450자 이내' if kind_label == '서술형' else '풀이 과정과 답을 적는다' }}"></textarea>
+                placeholder="{{ '정의 → 상황에 대입 → 결론. 450자 이내' if kind_label == '서술형' else '풀이 과정과 답을 적는다' }}">{{ mine }}</textarea>
       <div class="cbt-actions">
-        <button class="primary" type="submit">모범답안 확인</button>
+        <button class="primary" type="submit">저장하고 모범답안 확인</button>
       </div>
     </form>
     {% else %}
     <div class="cbt-compare">
       <section>
-        <h3 class="cbt-label">내 답안</h3>
+        <h3 class="cbt-label">내 답안 {% if saved %}<span class="meta quiet">· 저장됨</span>{% endif %}</h3>
         <div class="quiz-mine-shown">{% if mine %}{{ mine }}{% else %}<span class="quiet">(비워 두었다)</span>{% endif %}</div>
       </section>
       <section>
