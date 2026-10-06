@@ -233,8 +233,10 @@ def pick_next(sets: list[dict], state: dict[str, dict], *, area: str = "",
     """
     pool = _filtered(sets, area, set_name, source)
     if not only_wrong:
+        # 방금 본 문제는 건너뛴다. 안 풀고 [이어서] 를 누르면 같은 문제가
+        # 다시 나와 넘어갈 수가 없었다(2026-10-06).
         for q in pool:
-            if q["hash"] not in state:
+            if q["hash"] not in state and q["hash"] != after:
                 return q
     wrong = [q for q in pool
              if q["hash"] in state and not state[q["hash"]]["last"]]
@@ -340,3 +342,24 @@ def board(questions: list[dict], state: dict[str, dict], current: str) -> list[d
         cells.append({"n": n, "hash": q["hash"], "mark": mark,
                       "current": q["hash"] == current})
     return cells
+
+
+_SUBMARK = re.compile(r"(?<!^)(?<!\n)\s+(?=(?:\(\d{1,2}\)|[①-⑨]|[ㄱ-ㅎ]\.|\([가-하]\))\s)")
+
+
+def split_subanswers(text: str) -> str:
+    """"(1) 30, (2) 55, (3) 15" 처럼 한 줄에 붙은 소물음 답을 줄마다 나눈다.
+
+    모범답안이 한 줄로 붙어 읽기 힘들다는 말이 있었다(2026-10-06). 표지가
+    둘 이상일 때만 나눈다 — 문장 속 "(1)" 하나를 끊으면 오히려 어색하다.
+    코드 펜스 안은 건드리지 않는다.
+    """
+    out, fenced = [], False
+    for line in text.splitlines():
+        if line.strip().startswith("```"):
+            fenced = not fenced
+        if not fenced and len(re.findall(r"\(\d{1,2}\)|[①-⑨]", line)) >= 2:
+            line = _SUBMARK.sub("\n\n", line).rstrip(" ,")
+            line = re.sub(r",\s*\n", "\n", line)
+        out.append(line)
+    return "\n".join(out)

@@ -1591,6 +1591,7 @@ async def career_cert_quiz_question(
     pool = [x for x in quizzing.all_questions(sets)
             if (not f["area"] or x["area"] == f["area"])
             and (not f["set"] or x["set"] == f["set"])]
+    saved = ctx.records.quiz_answer(key, q["hash"])
     세트 = quizzing.set_of(sets, q)
     set_title = 세트["title"] if 세트 else q["set"]
     # 번호는 **세트 안의 자리**다. 시험지처럼 "문제 7 / 20" 으로 읽히고,
@@ -1611,15 +1612,55 @@ async def career_cert_quiz_question(
             "keywords": quizzing.keywords(q), "circled": quizzing.CIRCLED,
             "body_html": careerview.md_html(q["body"]),
             "choices_html": [careerview.md_inline(c) for c in q["choices"]],
-            "answer_html": careerview.md_html(q["answer"]),
-            "explain_html": careerview.md_html(q["explain"]),
+            "answer_html": careerview.md_html(quizzing.split_subanswers(q["answer"])),
+            "explain_html": careerview.md_html(quizzing.split_subanswers(q["explain"])),
             "picked": picked if picked.isdigit() else "",
-            "reveal": bool(reveal), "mine": mine[:2000],
+            "reveal": bool(reveal),
+            # 내 답안은 **저장된 것**을 보인다. 주소에 실어 보내면 화면을
+            # 떠나는 순간 사라졌다(2026-10-06).
+            "mine": (saved or {}).get("mine", "") or mine[:2000],
+            "saved": saved,
             "past": state.get(q["hash"]),
             "tally": quizzing.tally(pool, state),
             "f": f, "query": _quiz_query(f), "token": ctx.settings.token,
         },
     )
+
+
+@router.post("/web/certs/{cert_key}/quiz/{q_hash}/mine")
+async def save_quiz_answer_form(
+    request: Request,
+    cert_key: str,
+    q_hash: str,
+    mine: str = Form(""),
+    area: str = Form(""),
+    set_name: str = Form("", alias="set"),
+    src: str = Form(""),
+    only: str = Form(""),
+    form_token: str | None = Form(None, alias="_token"),
+) -> RedirectResponse:
+    """서술형 답안을 저장하고 모범답안을 연다. **채점은 아직 아니다** —
+    맞음/틀림은 모범답안을 본 뒤에 고른다."""
+    _check_token(request, form_token)
+    ctx = request.app.state.ctx
+    if not certs.KEY.match(cert_key):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 자격증이 없습니다"},
+        )
+    q = quizzing.find(quizzing.load(ctx.settings.home, cert_key), q_hash)
+    if q is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "그런 문제가 없습니다"},
+        )
+    if mine.strip():
+        ctx.records.save_quiz_answer(cert_key, q["hash"], mine,
+                                     to_iso(ctx.clock.now()))
+    뒤 = _quiz_query(_quiz_filter(area, set_name, src, only))
+    뒤 += ("&" if 뒤 else "?") + "reveal=1"
+    return RedirectResponse(
+        f"/career/cert/{quote(cert_key)}/quiz/q/{q['hash']}{뒤}", status_code=303)
 
 
 @router.post("/web/certs/{cert_key}/quiz/{q_hash}")

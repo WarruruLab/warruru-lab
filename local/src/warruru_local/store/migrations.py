@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import sqlite3
 
-CURRENT_VERSION = 9
+CURRENT_VERSION = 10
 
 _V1 = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -342,8 +342,22 @@ CREATE INDEX IF NOT EXISTS ix_quiz_attempt_cert
     ON quiz_attempt (cert_key, q_hash, id);
 """
 
+_V10 = """
+-- **서술형에 쓴 내 답안**(2026-10-06). 답안을 주소에만 실어 보냈더니
+-- 맞음/틀림을 누르기 전에 화면을 떠나면 사라졌다 — "답 저장이 안 된다".
+-- 문제마다 마지막 답안 하나를 둔다. 채점(`quiz_attempt`)과 따로인 것은,
+-- 답을 써 두고 채점은 나중에 하는 일이 실제로 있기 때문이다.
+CREATE TABLE IF NOT EXISTS quiz_answer (
+    cert_key  TEXT NOT NULL,
+    q_hash    TEXT NOT NULL,
+    mine      TEXT NOT NULL,
+    saved_at  TEXT NOT NULL,
+    PRIMARY KEY (cert_key, q_hash)
+);
+"""
+
 _SCRIPTS = {1: _V1, 2: _V2, 3: _V3, 4: _V4, 5: _V5, 6: _V6, 7: _V7, 8: _V8,
-            9: _V9}
+            9: _V9, 10: _V10}
 
 
 def current_version(conn: sqlite3.Connection) -> int:

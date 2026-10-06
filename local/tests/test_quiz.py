@@ -159,10 +159,16 @@ def test_맞힌_것은_다시_안_나오고_틀린_것은_다시_나온다(clien
 
     # 서술형은 답을 먼저 쓰고, 모범답안을 본 뒤 스스로 고른다.
     page = client.get(f"/career/cert/topcit/quiz/q/{셋째['hash']}").text
-    assert "모범답안 확인" in page and "물음표다" not in page
+    assert "저장하고 모범답안 확인" in page and "물음표다" not in page
     assert "서술형" in page
-    page = client.get(
-        f"/career/cert/topcit/quiz/q/{셋째['hash']}?reveal=1&mine=물음표").text
+    res = client.post(f"/web/certs/topcit/quiz/{셋째['hash']}/mine",
+                      data={"_token": 토큰, "mine": "물음표\n투자"},
+                      follow_redirects=False)
+    assert "reveal=1" in res.headers["location"]
+    page = client.get(res.headers["location"]).text
+    # 답안은 저장돼 다시 열어도 남는다(2026-10-06).
+    assert "물음표\n투자" in page and "저장됨" in page
+    assert "물음표\n투자" in client.get(f"/career/cert/topcit/quiz/q/{셋째['hash']}").text
     assert "물음표다. 스타로" in page and "채점 키워드" in page
     # 채점 키워드가 칩으로 쪼개진다.
     assert page.count('class="cbt-chip"') == 3
@@ -291,3 +297,18 @@ def test_제목은_유형_꼬리표를_떼고_번호판이_선다(client, home):
     assert "①" in page and "②" in page
     # 풀기 전에는 주제 줄(헤딩)이 안 보인다 — 답을 흘릴 수 있다.
     assert "주제 ·" not in page
+
+
+def test_안_풀고_넘기면_같은_문제가_다시_안_나온다(home):
+    """[이어서 풀기] 를 눌렀는데 방금 본 문제가 또 나왔다(2026-10-06)."""
+    root = _sets(home, a=SET_A)
+    sets = [quizzing.parse_set(root / "a.md")]
+    qs = sets[0]["questions"]
+    assert quizzing.pick_next(sets, {}, after=qs[0]["hash"])["hash"] == qs[1]["hash"]
+
+
+def test_한_줄에_붙은_소물음_답을_줄마다_나눈다():
+    made = quizzing.split_subanswers("(1) 30, (2) 55, (3) 15")
+    assert made.splitlines() == ["(1) 30", "(2) 55", "(3) 15"]
+    # 표지가 하나뿐이면 문장이므로 그대로 둔다.
+    assert quizzing.split_subanswers("정답은 (1) 하나뿐") == "정답은 (1) 하나뿐"
