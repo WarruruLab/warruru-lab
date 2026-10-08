@@ -208,20 +208,22 @@ def find(sets: list[dict], q_hash: str) -> dict | None:
 
 
 def _filtered(sets: list[dict], area: str = "", set_name: str = "",
-              source: str = "") -> list[dict]:
+              source: str = "", kind: str = "") -> list[dict]:
     out = []
     for s in sets:
         if set_name and s["name"] != set_name:
             continue
         if source and s["source"] != source:
             continue
-        out.extend(q for q in s["questions"] if not area or q["area"] == area)
+        out.extend(q for q in s["questions"]
+                   if (not area or q["area"] == area)
+                   and (not kind or q["kind"] == kind))
     return out
 
 
 def pick_next(sets: list[dict], state: dict[str, dict], *, area: str = "",
               set_name: str = "", source: str = "", only_wrong: bool = False,
-              after: str = "") -> dict | None:
+              after: str = "", kind: str = "") -> dict | None:
     """다음에 낼 문제.
 
     순서는 **안 푼 것 → 지금 틀린 것(많이 틀린 것부터) → 끝** 이다.
@@ -231,7 +233,7 @@ def pick_next(sets: list[dict], state: dict[str, dict], *, area: str = "",
     `after` 는 방금 푼 문제다. 틀린 것만 남았을 때 같은 문제가 바로 다시
     나오면 답을 외워서 맞히게 되므로, 다른 것이 있으면 그것을 먼저 낸다.
     """
-    pool = _filtered(sets, area, set_name, source)
+    pool = _filtered(sets, area, set_name, source, kind)
     if not only_wrong:
         # 방금 본 문제는 건너뛴다. 안 풀고 [이어서] 를 누르면 같은 문제가
         # 다시 나와 넘어갈 수가 없었다(2026-10-06).

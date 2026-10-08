@@ -312,3 +312,13 @@ def test_한_줄에_붙은_소물음_답을_줄마다_나눈다():
     assert made.splitlines() == ["(1) 30", "(2) 55", "(3) 15"]
     # 표지가 하나뿐이면 문장이므로 그대로 둔다.
     assert quizzing.split_subanswers("정답은 (1) 하나뿐") == "정답은 (1) 하나뿐"
+
+
+def test_서술_수행만_골라_돌린다(client, home):
+    """시험 전날 배점이 큰 쪽만 돌린다(2026-10-08)."""
+    _sets(home, a=SET_A)
+    free = [q for q in quizzing.all_questions(quizzing.load(home, "topcit"))
+            if q["kind"] == "free"]
+    res = client.get("/career/cert/topcit/quiz/next?kind=free", follow_redirects=False)
+    assert free[0]["hash"] in res.headers["location"] and "kind=free" in res.headers["location"]
+    assert "기출 서술·수행만" in client.get("/career/cert/topcit").text

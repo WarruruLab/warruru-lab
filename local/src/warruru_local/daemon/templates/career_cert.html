@@ -130,6 +130,8 @@
     {% for src in quiz.sources %}
     <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?src={{ src | urlencode }}">{{ src }}만 풀기</a>
     {% endfor %}
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?src=%EA%B8%B0%EC%B6%9C&kind=free">기출 서술·수행만</a>
+    <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?src=%ED%8A%B9%EA%B0%95&kind=free">특강 서술·수행만</a>
     {% if quiz.all.wrong %}
     <a class="btn" href="/career/cert/{{ view.key }}/quiz/next?only=wrong">틀린 것만 <span class="num">{{ quiz.all.wrong }}</span></a>
     {% endif %}
