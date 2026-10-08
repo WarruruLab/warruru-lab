@@ -1456,13 +1456,18 @@ async def career_cert_practice(request: Request, key: str):
     )
 
 
-def _quiz_filter(area: str, set_name: str, src: str, only: str) -> dict:
-    """문제 고르는 조건. **주소에서 온 값이라 아는 꼴만 받는다.**"""
+def _quiz_filter(area: str, set_name: str, src: str, only: str,
+                 kind: str = "") -> dict:
+    """문제 고르는 조건. **주소에서 온 값이라 아는 꼴만 받는다.**
+
+    `kind=free` 는 서술·수행형만이다(2026-10-08). 시험 전날 객관식을 건너뛰고
+    배점이 큰 쪽만 돌리고 싶다는 요청이 있었다."""
     return {
         "area": area if area in quizzing.AREAS else "",
         "set": set_name if quizzing.SET_NAME.match(set_name or "") else "",
         "src": src if src in ("기출", "특강", "자체") else "",
         "only": "wrong" if only == "wrong" else "",
+        "kind": kind if kind in ("free", "choice") else "",
     }
 
 
@@ -1498,15 +1503,16 @@ async def career_cert_quiz(request: Request, key: str, done: str = ""):
 @router.get("/career/cert/{key}/quiz/next")
 async def career_cert_quiz_next(request: Request, key: str, area: str = "",
                                 set: str = "", src: str = "", only: str = "",
-                                after: str = ""):
+                                after: str = "", kind: str = ""):
     """조건에 맞는 다음 문제로 보낸다. 다 풀었으면 첫 화면으로 돌아간다."""
     ctx = request.app.state.ctx
     _quiz_cert(ctx, key)
-    f = _quiz_filter(area, set, src, only)
+    f = _quiz_filter(area, set, src, only, kind)
     sets = quizzing.load(ctx.settings.home, key)
     q = quizzing.pick_next(
         sets, ctx.records.quiz_state(key), area=f["area"], set_name=f["set"],
-        source=f["src"], only_wrong=bool(f["only"]), after=after)
+        source=f["src"], only_wrong=bool(f["only"]), after=after,
+        kind=f["kind"])
     if q is None:
         return RedirectResponse(f"/career/cert/{quote(key)}/quiz?done=1",
                                 status_code=303)
@@ -1573,7 +1579,7 @@ async def career_cert_quiz_browse(request: Request, key: str, area: str = "",
 async def career_cert_quiz_question(
     request: Request, key: str, q_hash: str, area: str = "", set: str = "",
     src: str = "", only: str = "", picked: str = "", reveal: str = "",
-    mine: str = "",
+    mine: str = "", kind: str = "",
 ):
     """한 문제. `picked` 가 있으면 객관식 채점 결과를, `reveal` 이면 서술형
     모범답안을 함께 보여준다. **둘 다 조회라 토큰이 없다** — 기록은 POST 가 한다."""
@@ -1586,7 +1592,7 @@ async def career_cert_quiz_question(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 문제가 없습니다"},
         )
-    f = _quiz_filter(area, set, src, only)
+    f = _quiz_filter(area, set, src, only, kind)
     state = ctx.records.quiz_state(key)
     pool = [x for x in quizzing.all_questions(sets)
             if (not f["area"] or x["area"] == f["area"])
@@ -1637,6 +1643,7 @@ async def save_quiz_answer_form(
     set_name: str = Form("", alias="set"),
     src: str = Form(""),
     only: str = Form(""),
+    kind: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ) -> RedirectResponse:
     """서술형 답안을 저장하고 모범답안을 연다. **채점은 아직 아니다** —
@@ -1657,7 +1664,7 @@ async def save_quiz_answer_form(
     if mine.strip():
         ctx.records.save_quiz_answer(cert_key, q["hash"], mine,
                                      to_iso(ctx.clock.now()))
-    뒤 = _quiz_query(_quiz_filter(area, set_name, src, only))
+    뒤 = _quiz_query(_quiz_filter(area, set_name, src, only, kind))
     뒤 += ("&" if 뒤 else "?") + "reveal=1"
     return RedirectResponse(
         f"/career/cert/{quote(cert_key)}/quiz/q/{q['hash']}{뒤}", status_code=303)
@@ -1674,6 +1681,7 @@ async def answer_quiz_form(
     set_name: str = Form("", alias="set"),
     src: str = Form(""),
     only: str = Form(""),
+    kind: str = Form(""),
     form_token: str | None = Form(None, alias="_token"),
 ) -> RedirectResponse:
     """한 번 푼 것을 남긴다. 객관식은 결과 화면으로, 서술형은 다음 문제로 간다."""
@@ -1690,7 +1698,7 @@ async def answer_quiz_form(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "그런 문제가 없습니다"},
         )
-    f = _quiz_filter(area, set_name, src, only)
+    f = _quiz_filter(area, set_name, src, only, kind)
     if q["kind"] == "choice":
         if not picked.isdigit() or not 1 <= int(picked) <= len(q["choices"]):
             raise HTTPException(
